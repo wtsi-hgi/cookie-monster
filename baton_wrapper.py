@@ -38,7 +38,7 @@ class BatonAPI:
     @classmethod
     def _split_path_in_data_obj_and_coll(cls, fpath_irods):
         dir, fname = os.path.split(fpath_irods)
-        return {'data_obj' : fname, 'collection' : dir}
+        return {'data_object' : fname, 'collection' : dir}
 
     @classmethod
     def _get_baton_metaquery_result(cls, query_as_json, zone=constants.IRODS_SEQ_ZONE):
@@ -64,7 +64,7 @@ class BatonAPI:
     def _get_baton_list_metadata_result(cls, data_obj_as_json):
         #jq -n '[{data_object: "10080_8#64.bam", collection: "/seq/10080/"}]' | /software/gapi/pkg/baton/0.15.0/bin/baton-list -avu --acl
         print "Baton list input data: " + str(data_obj_as_json)
-        p = subprocess.Popen([config.BATON_LIST_BIN_PATH, '--avu', '--checksum'],     # not necessary to add also '--checksum' if --replicate is there
+        p = subprocess.Popen([config.BATON_LIST_BIN_PATH, '--avu'],     # not necessary to add also '--checksum' if --replicate is there
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
         out, err = p.communicate(input=data_obj_as_json)
         print "OUT: " + str(out) + "ERR " + str(err)
@@ -88,6 +88,7 @@ class BatonAPI:
         """
         irods_avus = cls._from_dict_to_irods_avus(avu_tuple_list)
         irods_avus_json = json.dumps(irods_avus)
+        print "TYPE OF json obj: " + str(type(irods_avus_json))
         return cls._get_baton_metaquery_result(irods_avus_json, zone)
 
 
@@ -100,7 +101,8 @@ class BatonAPI:
         fpath_as_dict = cls._split_path_in_data_obj_and_coll(fpath)
         print str(fpath_as_dict)
         irods_fpath_dict_as_json = json.dumps(fpath_as_dict)
-        print str(irods_fpath_dict_as_json)
+        print "Type of irods_fpath as json: " + str(type(irods_fpath_dict_as_json))
+        print "And value of irods_fpath as json: " + str(irods_fpath_dict_as_json)
         return cls._get_baton_list_metadata_result(irods_fpath_dict_as_json)
 
 
