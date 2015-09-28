@@ -21,7 +21,6 @@ This file has been created on Sep 22, 2015.
 
 import baton_wrapper as baton
 import baton_results_processor
-import pdb
 
 def fetch_irods_metadata(fpath):
     #pdb.set_trace()
@@ -30,6 +29,8 @@ def fetch_irods_metadata(fpath):
     print str(fpath_avus)
 
 def main():
-    fetch_irods_metadata('/seq/17426/17426_8#7.cram')
+    #fetch_irods_metadata('/seq/17426/17426_8#7.cram')
+    #fetch_irods_metadata('/seq/15767/15767_7#64.cram')
+    fetch_irods_metadata("/seq/16063/16063_6.cram")
 
 main()

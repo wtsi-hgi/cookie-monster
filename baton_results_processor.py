@@ -33,32 +33,17 @@ def from_metaquery_results_to_fpaths_and_avus(search_results_json):
     :param filters: optional (not implemented yet)
     :return: dict key = fpath, value = {'avus' : [MetaAVU(), MetaAVU()], 'checksum' : 'the_result_of_ichksum'}
     """
-    files_with_chksum_and_avus = defaultdict(dict)
-    print "DATA objects: " + str(search_results_json)
-    for data_obj in json.loads(search_results_json):
-        coll = None
-        fname = None
-        do_avus = []
-        do_checksum = None
-
-        for do_item, do_item_val in data_obj.items():
-            if do_item == 'collection':
-                coll = do_item_val
-            elif do_item == 'data_object':
-                fname = do_item_val
-            elif do_item == 'avus':
-                for avu in do_item_val:
-                    avu_obj = MetaAVU(attribute=str(avu['attribute']), value=str(avu['value']))  # MetaAVU = namedtuple('MetaAVU', ['attribute', 'value'])    # list of attribute-value tuples
-                    do_avus.append(avu_obj)
-            elif do_item == 'checksum':
-                do_checksum = str(do_item_val)
-
-            # sometimes there is an error here!!!!!
-
-            # TODO: can add also: 1) data access checks, 2) replicate checksum checks, plus verify there are actually 2 replicas of each DO
-        fpath = os.path.join(coll, fname)
-        files_with_chksum_and_avus[fpath] = {'avus' : do_avus, 'checksum' : do_checksum}
-    return files_with_chksum_and_avus
+    do_avus = []
+    data_dict = json.loads(search_results_json)
+    for do_item, do_item_val in data_dict.items():
+        if do_item == 'avus':
+            for avu in do_item_val:
+                avu_obj = MetaAVU(attribute=str(avu['attribute']), value=str(avu['value']))  # MetaAVU = namedtuple('MetaAVU', ['attribute', 'value'])    # list of attribute-value tuples
+                do_avus.append(avu_obj)
+        # elif do_item == 'checksum':
+        #     do_checksum = str(do_item_val)
+        # TODO: sometimes there is an error here instead of a list of avus !!!!
+    return do_avus
 
 
 
