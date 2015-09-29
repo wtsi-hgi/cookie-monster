@@ -21,12 +21,33 @@ This file has been created on Sep 22, 2015.
 
 import baton_wrapper as baton
 import baton_results_processor
+import os
+
+#FILTERED_OUT_EXT = ['stats', 'bamcheck', 'flagstat', 'txt', 'seqchksum', 'json', 'crai', 'bai']
+
+def extract_file_extension(fpath):
+    if not fpath:
+        return None
+    _, tail = os.path.split(fpath)
+    _, ext = os.path.splitext(tail)
+    return ext[1:].strip()
+
 
 def fetch_irods_metadata(fpath):
-    #pdb.set_trace()
-    metaquery_results = baton.BatonAPI.query_by_filepath_for_file_metadata(fpath)
-    fpath_avus = baton_results_processor.from_metaquery_results_to_fpaths_and_avus(metaquery_results)  # this is a dict of key = fpath, value = dict({'avus':[], 'checksum':str})
+    metaquery_results = baton.BatonAPI.list_file_metadata(fpath)
+    fpath_avus = baton_results_processor.from_metalist_results_to_avus(metaquery_results)  # this is a dict of key = fpath, value = dict({'avus':[], 'checksum':str})
     print str(fpath_avus)
+
+def apply_filters(fpaths):
+    useful_files = []
+    for fpath in fpaths:
+        file_ext = extract_file_extension(fpath)
+        if file_ext not in FILTERED_OUT_EXT:
+            useful_files.append(fpath)
+    return useful_files
+
+
+
 
 def main():
     #fetch_irods_metadata('/seq/17426/17426_8#7.cram')
