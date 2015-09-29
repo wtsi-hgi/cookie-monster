@@ -93,7 +93,7 @@ class BatonAPI:
 
 
     @classmethod
-    def query_by_filepath_for_file_metadata(cls, fpath):
+    def list_file_metadata(cls, fpath):
         """
         :param fpath:
         :return:
