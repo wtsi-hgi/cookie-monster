@@ -22,15 +22,17 @@ This file has been created on Sep 22, 2015.
 from collections import defaultdict, namedtuple
 import json
 
+
+
 MetaAVU = namedtuple('MetaAVU', ['attribute', 'value'])
 
-def from_metaquery_results_to_fpaths_and_avus(search_results_json):
+def from_metalist_results_to_avus(search_results_json):
     """
         This method takes as parameter the json result of a metaquery containing avus and checksum,
         and turns the json into a dict having as key a fpath, and as value: dict of
-        {'avus' : [MetaAVU(), MetaAVU()], 'checksum' : 'the_result_of_ichksum'}
+        [MetaAVU(), MetaAVU()]
     :param search_results_json:
-    :param filters: optional (not implemented yet)
+    :param filters.txt: optional (not implemented yet)
     :return: dict key = fpath, value = {'avus' : [MetaAVU(), MetaAVU()], 'checksum' : 'the_result_of_ichksum'}
     """
     do_avus = []
