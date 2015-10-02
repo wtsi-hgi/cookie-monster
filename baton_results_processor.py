@@ -21,10 +21,10 @@ This file has been created on Sep 22, 2015.
 
 from collections import defaultdict, namedtuple
 import json
+from metadata import FileMetadata
 
 
-
-MetaAVU = namedtuple('MetaAVU', ['attribute', 'value'])
+#MetaAVU = namedtuple('MetaAVU', ['attribute', 'value'])
 
 def from_metalist_results_to_avus(search_results_json):
     """
@@ -35,17 +35,26 @@ def from_metalist_results_to_avus(search_results_json):
     :param filters.txt: optional (not implemented yet)
     :return: dict key = fpath, value = {'avus' : [MetaAVU(), MetaAVU()], 'checksum' : 'the_result_of_ichksum'}
     """
-    do_avus = []
     data_dict = json.loads(search_results_json)
+    print "DATA dict items: " + str(len(data_dict))
+    fmeta = FileMetadata()
     for do_item, do_item_val in data_dict.items():
-        if do_item == 'avus':
+        #print "DO item = " + str(do_item) + " and item value: " + str(do_item_val)
+        if do_item == 'data_object':
+            fmeta.fpath = do_item_val
+        elif do_item == 'collection':
+            fmeta.collection = do_item
+        elif do_item == 'avus':
             for avu in do_item_val:
-                avu_obj = MetaAVU(attribute=str(avu['attribute']), value=str(avu['value']))  # MetaAVU = namedtuple('MetaAVU', ['attribute', 'value'])    # list of attribute-value tuples
-                do_avus.append(avu_obj)
+                setattr(fmeta, str(avu['attribute']), str(avu['value']))
+                # avu_obj = MetaAVU(attribute=str(avu['attribute']), value=str(avu['value']))  # MetaAVU = namedtuple('MetaAVU', ['attribute', 'value'])    # list of attribute-value tuples
+                # do_avus.append(avu_obj)
         # elif do_item == 'checksum':
         #     do_checksum = str(do_item_val)
         # TODO: sometimes there is an error here instead of a list of avus !!!!
-    return do_avus
+    #return do_avus
+    print "FMETAA: " + str(fmeta)
+    return fmeta
 
 
 
