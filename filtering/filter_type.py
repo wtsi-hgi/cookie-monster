@@ -19,7 +19,14 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 This file has been created on Sep 28, 2015.
 """
 
-class FilterOptions(object):
-    def __init__(self):
-        pass
+class FilesFilter(object):
+    def __init__(self, name, values, type):
+        self.name = name
+        self.values = values
+        self.type = type
 
+    def __str__(self):
+        return "Filter name = " + str(self.name) + ", value(s) = " + str(self.values) + ", type = " + str(self.type)
+
+    def __repr__(self):
+        return self.__str__()
