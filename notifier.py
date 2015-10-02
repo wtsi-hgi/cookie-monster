@@ -25,9 +25,8 @@ from filtering import filter_parser, filter_type, apply_filter
 
 def fetch_irods_metadata(fpath):
     metaquery_results = baton.BatonAPI.list_file_metadata(fpath)
-    avus = baton_results_processor.from_metalist_results_to_avus(metaquery_results)  # this is a dict of key = fpath, value = dict({'avus':[], 'checksum':str})
-    print str(avus)
-    return avus
+    fmeta = baton_results_processor.from_metalist_results_to_avus(metaquery_results)  # this is a dict of key = fpath, value = dict({'avus':[], 'checksum':str})
+    return fmeta
 
 
 def process_fpaths(fpaths):
@@ -35,19 +34,30 @@ def process_fpaths(fpaths):
     filtered_paths = fpaths
     if 'files_by_extension' in filters:
         filtered_paths = apply_filter.apply_file_extension_filter(fpaths, filters['files_by_extension'])
-    print str(filtered_paths)
+
+    print "Files remaining after filtering by extension:"+ str(len(filtered_paths)) +" and files: " + str(filtered_paths)
+
+    fmeta_list = []
     for fpath in filtered_paths:
-        meta = fetch_irods_metadata(fpath)
+        fmeta_list.append(fetch_irods_metadata(fpath))
+    if 'reference_genome' in filters:
+        filtered_fmeta_list = apply_filter.apply_reference_filter(fmeta_list, filters['reference_genome'])
+        for f in filtered_fmeta_list:
+            print "REF FILTERS APPLIED - result = " + str(f)
+        print "Nr of files after reference filtering: " + str(len(filtered_fmeta_list))
 
-
-
-    #fetch_irods_metadata('/seq/17426/17426_8#7.cram')
-    #fetch_irods_metadata('/seq/15767/15767_7#64.cram')
-    #fetch_irods_metadata("/seq/16063/16063_6.cram")
-
-
+def read_file(fpath):
+    fpaths = []
+    fh = open(fpath)
+    for line in fh:
+        fpaths.append(line.strip())
+    fh.close()
+    return fpaths
 
 def main():
-    process_fpaths(["/seq/16063/16063_6.cram", "/seq/15767/15767_7#64.cram"])
+    fpaths = read_file('query_short.txt')
+    print "LENGTH: " + str(len(fpaths))
+    process_fpaths(fpaths)
+    #process_fpaths(["/seq/16063/16063_6.cram", "/seq/15767/15767_7#64.cram", '/seq/17426/17426_8#7.cram'])
 
 main()
