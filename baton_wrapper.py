@@ -63,11 +63,10 @@ class BatonAPI:
     @classmethod
     def _get_baton_list_metadata_result(cls, data_obj_as_json):
         #jq -n '[{data_object: "10080_8#64.bam", collection: "/seq/10080/"}]' | /software/gapi/pkg/baton/0.15.0/bin/baton-list -avu --acl
-        print "Baton list input data: " + str(data_obj_as_json)
         p = subprocess.Popen([config.BATON_LIST_BIN_PATH, '--avu'],     # not necessary to add also '--checksum' if --replicate is there
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
         out, err = p.communicate(input=data_obj_as_json)
-        print "OUT: " + str(out) + "ERR " + str(err)
+        #print "OUT: " + str(out) + "ERR " + str(err)
         if err:
             raise IOError("Some irods error : " + str(err))
         return out
