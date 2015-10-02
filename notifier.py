@@ -21,37 +21,33 @@ This file has been created on Sep 22, 2015.
 
 import baton_wrapper as baton
 import baton_results_processor
-import os
-
-#FILTERED_OUT_EXT = ['stats', 'bamcheck', 'flagstat', 'txt', 'seqchksum', 'json', 'crai', 'bai']
-
-def extract_file_extension(fpath):
-    if not fpath:
-        return None
-    _, tail = os.path.split(fpath)
-    _, ext = os.path.splitext(tail)
-    return ext[1:].strip()
-
+from filtering import filter_parser, filter_type, apply_filter
 
 def fetch_irods_metadata(fpath):
     metaquery_results = baton.BatonAPI.list_file_metadata(fpath)
-    fpath_avus = baton_results_processor.from_metalist_results_to_avus(metaquery_results)  # this is a dict of key = fpath, value = dict({'avus':[], 'checksum':str})
-    print str(fpath_avus)
+    avus = baton_results_processor.from_metalist_results_to_avus(metaquery_results)  # this is a dict of key = fpath, value = dict({'avus':[], 'checksum':str})
+    print str(avus)
+    return avus
 
-def apply_filters(fpaths):
-    useful_files = []
-    for fpath in fpaths:
-        file_ext = extract_file_extension(fpath)
-        if file_ext not in FILTERED_OUT_EXT:
-            useful_files.append(fpath)
-    return useful_files
 
+def process_fpaths(fpaths):
+    filters = filter_parser.parse_filter_file('filters.txt')
+    filtered_paths = fpaths
+    if 'files_by_extension' in filters:
+        filtered_paths = apply_filter.apply_file_extension_filter(fpaths, filters['files_by_extension'])
+    print str(filtered_paths)
+    for fpath in filtered_paths:
+        meta = fetch_irods_metadata(fpath)
+
+
+
+    #fetch_irods_metadata('/seq/17426/17426_8#7.cram')
+    #fetch_irods_metadata('/seq/15767/15767_7#64.cram')
+    #fetch_irods_metadata("/seq/16063/16063_6.cram")
 
 
 
 def main():
-    #fetch_irods_metadata('/seq/17426/17426_8#7.cram')
-    #fetch_irods_metadata('/seq/15767/15767_7#64.cram')
-    fetch_irods_metadata("/seq/16063/16063_6.cram")
+    process_fpaths(["/seq/16063/16063_6.cram", "/seq/15767/15767_7#64.cram"])
 
 main()
