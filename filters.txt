@@ -1,0 +1,29 @@
+[INCLUDE]
+TARGET = 1
+MANUAL_QC = 1
+
+REFERENCE_GENOME = GRCh38
+
+STUDY_TYPE = Exome Sequencing
+
+FACULTY_SPONSOR = Matthew Hurles
+
+
+
+[EXCLUDE]
+FILES_BY_EXTENSION = stats
+                    bamcheck
+                    flagstat
+                    txt
+                    seqchksum
+                    json
+                    crai
+                    bai
+                    csv
+
+
+
+[DEFAULT]
+# these belong to all the categories, are included in all the sections above
+
+
