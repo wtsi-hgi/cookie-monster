@@ -63,7 +63,7 @@ class BatonAPI:
     @classmethod
     def _get_baton_list_metadata_result(cls, data_obj_as_json):
         #jq -n '[{data_object: "10080_8#64.bam", collection: "/seq/10080/"}]' | /software/gapi/pkg/baton/0.15.0/bin/baton-list -avu --acl
-        p = subprocess.Popen([config.BATON_LIST_BIN_PATH, '--avu'],     # not necessary to add also '--checksum' if --replicate is there
+        p = subprocess.Popen([config.BATON_LIST_BIN_PATH, '--avu', '--checksum'],     # not necessary to add also '--checksum' if --replicate is there
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
         out, err = p.communicate(input=data_obj_as_json)
         #print "OUT: " + str(out) + "ERR " + str(err)

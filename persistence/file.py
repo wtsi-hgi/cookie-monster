@@ -16,20 +16,17 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-This file has been created on Oct 02, 2015.
+This file has been created on Oct 06, 2015.
 """
 
-class FileMetadata(object):
+class ExportFile(object):
 
-    def __init__(self, fpath=None, manual_qc=None, target=None, reference=None, checksum=None):
+    def __init__(self, fpath, checksum):
         self.fpath = fpath
-        self.manual_qc = manual_qc
-        self.target = target
-        self.reference = reference
         self.checksum = checksum
 
     def __str__(self):
-        return "File: " + str(self.fpath) + ", manual_qc = " + str(self.manual_qc) + ", target = " + str(self.target) + ", reference = " + str(self.reference)
+        return "Fpath = " + str(self.fpath) + " checksum = " + str(self.checksum)
 
     def __repr__(self):
         return self.__str__()
