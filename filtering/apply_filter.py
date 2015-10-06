@@ -29,13 +29,36 @@ from com import utils
 
 
 def apply_file_extension_filter(fpaths, file_filter):
-    print "Filter type: " + str(file_filter)
     if file_filter.type == 'INCLUDE':
         return [fpath for fpath in fpaths if utils.extract_file_extension(fpath) in file_filter.values]
     elif file_filter.type == 'EXCLUDE':
         return [fpath for fpath in fpaths if utils.extract_file_extension(fpath) not in file_filter.values]
     else:
         raise ValueError("Filter type can only be INCLUDE/EXCLUDE.")
+
+def apply_target_filter(fmeta_list, file_filter):
+    if file_filter.type == 'INCLUDE':
+        return [fmeta for fmeta in fmeta_list if fmeta.target == file_filter.values]
+    elif file_filter.type == 'EXCLUDE':
+        return [fmeta for fmeta in fmeta_list if fmeta.target != file_filter.values]
+    else:
+        raise ValueError("Filter type can only be INCLUDE/EXCLUDE.")
+
+
+def apply_manual_qc_filter(fmeta_list, file_filter):
+    if file_filter.type == 'INCLUDE':
+        return [fmeta for fmeta in fmeta_list if fmeta.manual_qc == file_filter.values]
+    elif file_filter.type == 'EXCLUDE':
+        return [fmeta for fmeta in fmeta_list if fmeta.manual_qc != file_filter.values]
+    else:
+        raise ValueError("Filter type can only be INCLUDE/EXCLUDE.")
+
+
+def is_wanted_reference(wanted_reference, actual_reference_file):
+    if actual_reference_file.find(wanted_reference) == -1:
+        return False
+    return True
+
 
 def apply_reference_filter(fmeta_list, file_filter):
     print "BFORE APPLYING THE REFERENCE FILTER: " + str(file_filter) + " and length of fmeta list: " + str(len(fmeta_list))
@@ -47,14 +70,12 @@ def apply_reference_filter(fmeta_list, file_filter):
                 print "REF IN file filter: " + str(ref) + " and file reference = " + str(fmeta.reference)
                 if fmeta.reference and fmeta.reference.find(ref) != -1:
                     results.append(fmeta)
-            # else:
-            #     if fmeta.reference and fmeta.reference.find(file_filter.values) != -1:
-            #         results.append(fmeta)
     elif file_filter.type == 'EXCLUDE':
         for fmeta in fmeta_list:
             filter_refs = [file_filter.values] if type(file_filter.values) != list else file_filter.values
             for ref in filter_refs:
-                if fmeta.reference and fmeta.reference.find(ref) == -1:
+                if fmeta.reference and not is_wanted_reference(ref, fmeta.reference):
+                    #fmeta.reference.find(ref) == -1:
                     results.append(fmeta)
     return results
 

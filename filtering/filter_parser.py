@@ -47,6 +47,7 @@ def change_filters_format(incl_filters, excl_filters):
         filters[filter_name] = FilesFilter(filter_name, val, 'INCLUDE')
     for filter_name, val in excl_filters.items():
         filters[filter_name] = FilesFilter(filter_name, val, 'EXCLUDE')
+    print str(filters)
     return filters
 
 def parse_filter_file(fpath):
