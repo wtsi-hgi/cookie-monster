@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 
 from cookiemonster.common.sqlalchemy_database_connector import SQLAlchemyDatabaseConnector
 from cookiemonster.dataretriever._models import RetrievalLog
-from cookiemonster.dataretriever.log.slqalchemy_retriever import SQLAlchemyRetrievalLogMapper
+from cookiemonster.dataretriever.log.slqalchemy_mappers import SQLAlchemyRetrievalLogMapper
 from cookiemonster.dataretriever.log.sqlalchemy_models import SQLAlchemyModel
 
 

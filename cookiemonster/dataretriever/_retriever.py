@@ -1,20 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 
-from cookiemonster.dataretriever._models import RetrievalLog, QueryResult
-
-
-class RetrievalLogMapper(metaclass=ABCMeta):
-    """
-    TODO.
-    """
-    @abstractmethod
-    def add(self, log: RetrievalLog):
-        pass
-
-    @abstractmethod
-    def get_most_recent(self) -> RetrievalLog:
-        pass
+from cookiemonster.dataretriever._models import QueryResult
 
 
 class FileUpdateRetriever(metaclass=ABCMeta):
