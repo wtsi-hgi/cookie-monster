@@ -36,4 +36,3 @@ class FileUpdateCollection(list):
                 most_recent = file_update
 
         return most_recent
-
