@@ -1,0 +1,12 @@
+sudo: required
+
+language: bash
+
+services:
+    - docker
+
+before_install:
+    - docker build -t hgi/cookie-monster/tests -f docker/tests/Dockerfile .
+
+script:
+    - docker run hgi/cookie-monster/tests
