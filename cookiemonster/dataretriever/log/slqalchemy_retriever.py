@@ -23,6 +23,6 @@ class SQLAlchemyRetrievalLogMapper:
     def get_most_recent(self) -> RetrievalLog:
         session = self._database_connector.create_session()
         result = session.query(SQLAlchemyRetrievalLog).\
-            order_by(SQLAlchemyRetrievalLog.latest_retrieved_timestamp.desc()).first()
+            order_by(SQLAlchemyRetrievalLog.latest_retrieved_timestamp.desc()).first()  # type: SQLAlchemyRetrievalLog
         session.close()
-        return result
+        return result.to_retrieval_log()

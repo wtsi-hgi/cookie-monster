@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, DateTime, Interval
 from sqlalchemy.ext.declarative import declarative_base
 
 from cookiemonster.dataretriever._models import RetrievalLog
@@ -12,8 +12,8 @@ class SQLAlchemyRetrievalLog(SQLAlchemyModel):
     """
     __tablename__ = "retrieve_log"
     number_of_file_updates = Column(Integer)
-    time_taken_to_complete_query = Column(String)
-    latest_retrieved_timestamp = Column(String, primary_key=True)   # TODO: Is it correct to use this as the primary key?
+    time_taken_to_complete_query = Column(Interval)
+    latest_retrieved_timestamp = Column(DateTime, primary_key=True)   # TODO: Is it correct to use this as the primary key?
 
     def to_retrieval_log(self) -> RetrievalLog:
         """

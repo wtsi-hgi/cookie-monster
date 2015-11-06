@@ -1,8 +1,15 @@
 from datetime import date, MINYEAR
 from typing import Union, List
 
+class Model:
+    def __str__(self) -> str:
+        string_builder = []
+        for property, value in vars(self).items():
+            string_builder.append("%s: %s" % (property, value))
+        return "{ %s }" % ', '.join(string_builder)
 
-class FileUpdate:
+
+class FileUpdate(Model):
     """
     Model of a file update.
     """
@@ -17,12 +24,6 @@ class FileUpdate:
         self.file_location = file_location
         self.file_hash = file_hash
         self.timestamp = timestamp
-
-    def __str__(self) -> str:
-        string_builder = []
-        for property, value in vars(self).items():
-            string_builder.append("%s: %s" % (property, value))
-        return "{ %s }" % ', '.join(string_builder)
 
 
 class FileUpdateCollection(list):
