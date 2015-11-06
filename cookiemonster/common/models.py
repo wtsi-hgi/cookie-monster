@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, MINYEAR
+from typing import Union
 
 
 class FileUpdate:
@@ -16,3 +17,23 @@ class FileUpdate:
         self.file_location = file_location
         self.file_hash = file_hash
         self.timestamp = timestamp
+
+
+class FileUpdateCollection(list):
+    def get_most_recent(self) -> Union[None, FileUpdate]:
+        """
+        Gets the file update in the collection with the most recent timestamp.
+
+        O(n) operation.
+        :return: the file update in the collection with the most recent timestamp
+        """
+        if len(self) == 0:
+            return None
+
+        most_recent = FileUpdate("", "", date(MINYEAR, 1, 1))
+        for file_update in self:
+            if file_update.timestamp > most_recent.timestamp:
+                most_recent = file_update
+
+        return most_recent
+
