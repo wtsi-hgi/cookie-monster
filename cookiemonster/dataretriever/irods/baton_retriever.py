@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Dict
 
 from cookiemonster.common.models import FileUpdateCollection
-from cookiemonster.dataretriever._baton.irods_config import IrodsConfig
+from cookiemonster.dataretriever.irods.irods_config import IrodsConfig
 from cookiemonster.dataretriever._retriever import FileUpdateRetriever, QueryResult
 
 
@@ -13,7 +13,7 @@ class BatonFileUpdateRetriever(FileUpdateRetriever):
     def __init__(self, irods_config: IrodsConfig):
         """
         Constructor.
-        :param irods_config: the configuration baton requires to connect to iRODs.
+        :param irods_config: the configuration irods requires to connect to iRODs.
         """
         self._irods_config = irods_config
 
@@ -23,9 +23,9 @@ class BatonFileUpdateRetriever(FileUpdateRetriever):
     @staticmethod
     def _convert_to_models(file_update_entires: List[Dict[str, str, str]]) -> FileUpdateCollection:
         """
-        Converts a given list of file update entries (in the form of the JSON returned by baton) into
+        Converts a given list of file update entries (in the form of the JSON returned by irods) into
         `FileUpdateCollection`.
-        :param file_update_entires: the file update entries ni the form of the JSON returned by baton
+        :param file_update_entires: the file update entries ni the form of the JSON returned by irods
         :return: a `FileUpdateCollection` created from the given entries
         """
         raise NotImplementedError()

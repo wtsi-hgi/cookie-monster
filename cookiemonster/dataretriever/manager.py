@@ -1,35 +1,39 @@
 from datetime import date, datetime, MINYEAR, timedelta
 from threading import Timer
-from typing import List, Callable
 
-from cookiemonster.common.models import FileUpdate, FileUpdateCollection
-from cookiemonster.dataretriever._retriever import FileUpdateRetriever, QueryResult
+from cookiemonster.common.listenable import Listenable
+from cookiemonster.dataretriever._retriever import FileUpdateRetriever, QueryResult, RetrievalLogMapper
 
 
-class RetrievalManager:
+class RetrievalManager(Listenable):
     """
     TODO.
     """
-    def __init__(self, retrieval_period: timedelta, retriever: FileUpdateRetriever, retrieval_log_mapper: RetrievalLogMapper):
+    def __init__(self, retrieval_period: timedelta, file_update_retriever: FileUpdateRetriever,
+                 retrieval_log_mapper: RetrievalLogMapper):
         """
         Constructor.
         :param retrieval_period: the period that dictates the frequency at which data is retrieved
-        :param retriever: the object through which file updates can be retrieved from the source
+        :param file_update_retriever: the object through which file updates can be retrieved from the source
+        :param retrieval_log_mapper: TODO
         """
+        super(RetrievalManager, self).__init__()
         self._retrieval_period = retrieval_period
-        self._retriever = retriever
+        self._file_update_retriever = file_update_retriever
         self._retrieval_log_mapper = retrieval_log_mapper
         self._listeners = []
         self._timer = None
+        self._latest_retrieved_timestamp = date.min
 
-    def start(self, file_updates_since: datetime=date(MINYEAR, 1, 1)):
+    def start(self, file_updates_since: datetime=date.min):
         """
         TODO
         :param file_updates_since:
         :return:
         """
-        retrieve_next_at = datetime.now()
-        self._do_retrieve_periodically(file_updates_since, retrieve_next_at)
+        self._latest_retrieved_timestamp = file_updates_since
+        retrieve_was_scheduled_for = RetrievalManager._get_current_time()
+        self._do_retrieve_periodically(retrieve_was_scheduled_for)
 
     def stop(self):
         """
@@ -40,31 +44,27 @@ class RetrievalManager:
             self._timer.cancel()
             self._timer = None
 
-    def add_update_listener(self, listener: Callable[List[FileUpdate]]):
-        """
-        Adds a listener to be called with all the file updates when available.
-        :param listener: the callable listener
-        """
-        self._listeners.append(listener)
-
-    def remove_update_listener(self, listener: Callable[List[FileUpdate]]):
-        """
-        Removes a file update listener.
-        :param listener: the listener to remove
-        """
-        self._listeners.remove(listener)
-
-    def _do_retrieve_periodically(self, file_updates_since: datetime, retrieve_next_at: datetime):
+    def _do_retrieve_periodically(self, retrieve_was_scheduled_for: datetime):
         """
         TODO
         :param file_updates_since:
-        :param retrieve_next_at:
+        :param retrieve_was_scheduled_for:
         :return:
         """
-        query_result = self._do_retrieve(file_updates_since)
-        latest_retrieved_timestamp = query_result.file_updates.get_most_recent().timestamp
-        retrieve_next_at = retrieve_next_at + self._retrieval_period
-        self._timer = Timer(retrieve_next_at, self._do_retrieve_periodically, latest_retrieved_timestamp, retrieve_next_at)
+        query_result = self._do_retrieve(self._latest_retrieved_timestamp)
+        retrieve_next_at = retrieve_was_scheduled_for + self._retrieval_period
+        if len(query_result.file_updates) > 0:
+            self._latest_retrieved_timestamp = query_result.file_updates.get_most_recent()[0].timestamp
+        self._set_timer_for_next_periodic_retrieve(retrieve_next_at)
+
+    def _set_timer_for_next_periodic_retrieve(self, retrieve_next_at: datetime):
+        """
+        TODO
+        :param retrieve_next_at:
+        :param file_updates_since:
+        :return:
+        """
+        self._timer = Timer(retrieve_next_at, self._do_retrieve_periodically, retrieve_next_at)
 
     def _do_retrieve(self, file_updates_since: datetime) -> QueryResult:
         """
@@ -72,23 +72,21 @@ class RetrievalManager:
         :param file_updates_since:
         :return:
         """
-        query_result = self._retriever.query_for_all_file_updates_since(file_updates_since)
-        self._notify_listeners(query_result.file_updates)
+        query_result = self._file_update_retriever.query_for_all_file_updates_since(file_updates_since)
+        self.notify_listeners(query_result.file_updates)
         self._log_retrieval(query_result)
-
         return query_result
 
     def _log_retrieval(self, query_result: QueryResult):
         # retrieval_log = RetrievalLog(latest_retrieved_timestamp, number_of_file_updates: int, time_taken_to_complete_query: timedelta)
         #
         # self._retrieval_log_mapper.add
-        raise NotImplementedError()
+        pass
 
-    def _notify_listeners(self, file_updates: FileUpdateCollection):
+    @staticmethod
+    def _get_current_time() -> datetime:
         """
-        TODO
-        :param file_updates:
-        :return:
+        Gets the current time. Can be overriden to control environment for testing.
+        :return: the current time
         """
-        for listener in self._listeners:
-            listener(file_updates)
+        return datetime.now()

@@ -2,7 +2,7 @@
 
 class IrodsConfig:
     """
-    Model of configuration that baton requires to get data from iRODs.
+    Model of configuration that irods requires to get data from iRODs.
     """
     def __init__(self):
         """

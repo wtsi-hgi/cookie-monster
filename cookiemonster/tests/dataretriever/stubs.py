@@ -1,27 +1,25 @@
-from abc import ABCMeta, abstractmethod
 from datetime import datetime
 
 from cookiemonster.dataretriever._models import RetrievalLog, QueryResult
+from cookiemonster.dataretriever._retriever import FileUpdateRetriever
+from cookiemonster.dataretriever._retriever import RetrievalLogMapper
 
 
-class RetrievalLogMapper(metaclass=ABCMeta):
+class StubRetrievalLogMapper(RetrievalLogMapper):
     """
     TODO.
     """
-    @abstractmethod
     def add(self, log: RetrievalLog):
         pass
 
-    @abstractmethod
     def get_most_recent(self) -> RetrievalLog:
         pass
 
 
-class FileUpdateRetriever(metaclass=ABCMeta):
+class StubFileUpdateRetriever(FileUpdateRetriever):
     """
-    Base class for classes that retrieve data regarding file updates.
+    TODO
     """
-    @abstractmethod
     def query_for_all_file_updates_since(self, since: datetime) -> QueryResult:
         """
         Gets models of all of the file updates that have happened since the given time.
