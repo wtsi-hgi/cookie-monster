@@ -33,6 +33,7 @@ class RetrievalManager(Listenable):
         :param file_updates_since:
         :return:
         """
+        # TODO: Fix blocking on call to start as it does the first retrieve
         self._latest_retrieved_timestamp = file_updates_since
         retrieve_was_scheduled_for = RetrievalManager._get_current_time()
         self._do_retrieve_periodically(retrieve_was_scheduled_for)

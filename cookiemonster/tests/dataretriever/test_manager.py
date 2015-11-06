@@ -57,9 +57,9 @@ class TestRetrievalManager(unittest.TestCase):
         listener.assert_called_once_with(file_updates[1:])
         self.assertEquals(self._retrieval_manager._latest_retrieved_timestamp, date.max)
 
-
-
-
+    def test_start_correctly_schedules_next(self):
+        # TODO
+        raise NotImplementedError()
 
 
 if __name__ == '__main__':
