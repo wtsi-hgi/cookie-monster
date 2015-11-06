@@ -18,6 +18,12 @@ class FileUpdate:
         self.file_hash = file_hash
         self.timestamp = timestamp
 
+    def __str__(self) -> str:
+        string_builder = []
+        for property, value in vars(self).items():
+            string_builder.append("%s: %s" % (property, value))
+        return "{ %s }" % ', '.join(string_builder)
+
 
 class FileUpdateCollection(list):
     def get_most_recent(self) -> List[FileUpdate]:
