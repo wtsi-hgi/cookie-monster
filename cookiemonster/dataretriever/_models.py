@@ -27,6 +27,10 @@ class RetrievalLog(Model):
                         self.latest_retrieved_timestamp == other.latest_retrieved_timestamp:
             return True
 
+    def __hash__(self) -> hash:
+        return hash(self.latest_retrieved_timestamp)
+
+
 
 
 

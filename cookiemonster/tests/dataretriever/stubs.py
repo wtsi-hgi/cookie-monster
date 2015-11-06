@@ -2,7 +2,7 @@ from datetime import datetime
 
 from cookiemonster.dataretriever._models import RetrievalLog, QueryResult
 from cookiemonster.dataretriever._retriever import FileUpdateRetriever
-from cookiemonster.dataretriever._retriever import RetrievalLogMapper
+from cookiemonster.dataretriever.mappers import RetrievalLogMapper
 
 
 class StubRetrievalLogMapper(RetrievalLogMapper):
