@@ -1,26 +1,28 @@
 from cookiemonster.common.sqlalchemy_database_connector import SQLAlchemyDatabaseConnector
 from cookiemonster.dataretriever._models import RetrievalLog
+from cookiemonster.dataretriever.log.sqlalchemy_models import SQLAlchemyRetrievalLog
 
 
 class SQLAlchemyRetrievalLogMapper:
     """
-    TODO.
+    Data mapper for `RetrievalLogMapper` that is implemented using SQLAlchemy.
     """
     def __init__(self, database_connector: SQLAlchemyDatabaseConnector):
         """
-        TODO
-        :param database_connector:
-        :return:
+        Constructor.
+        :param database_connector: the database connector
         """
         self._database_connector = database_connector
 
-    def add(self, log: RetrievalLog):
+    def add(self, retrieval_log: RetrievalLog):
         session = self._database_connector.create_session()
-        result = session.query(query_model). \
-            filter(query_model.is_current).all()
+        session.add(SQLAlchemyRetrievalLog.value_of(retrieval_log))
+        session.commit()
         session.close()
-        assert isinstance(result, list)
-        return convert_to_popo_models(result)
 
     def get_most_recent(self) -> RetrievalLog:
-        raise NotImplementedError()
+        session = self._database_connector.create_session()
+        result = session.query(SQLAlchemyRetrievalLog).\
+            order_by(SQLAlchemyRetrievalLog.latest_retrieved_timestamp.desc()).first()
+        session.close()
+        return result
