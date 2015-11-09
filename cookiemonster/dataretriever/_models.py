@@ -7,7 +7,8 @@ class RetrievalLog(Model):
     """
     TODO.
     """
-    def __init__(self, latest_retrieved_timestamp: datetime, number_of_file_updates: int, time_taken_to_complete_query: timedelta):
+    def __init__(self, latest_retrieved_timestamp: datetime, number_of_file_updates: int,
+                 time_taken_to_complete_query: timedelta):
         """
         TODO
         :param latest_retrieved_timestamp:

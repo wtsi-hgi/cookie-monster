@@ -33,10 +33,9 @@ class RetrievalManager(Listenable):
         :param file_updates_since:
         :return:
         """
-        # TODO: Fix blocking on call to start as it does the first retrieve
         self._latest_retrieved_timestamp = file_updates_since
         retrieve_was_scheduled_for = RetrievalManager._get_current_time()
-        self._do_retrieve_periodically(retrieve_was_scheduled_for)
+        self._set_timer_for_next_periodic_retrieve(retrieve_was_scheduled_for)
 
     def stop(self):
         """
@@ -47,15 +46,16 @@ class RetrievalManager(Listenable):
             self._timer.cancel()
             self._timer = None
 
-    def _do_retrieve_periodically(self, retrieve_was_scheduled_for: datetime):
+    def _do_retrieve_periodically(self, retrieval_was_scheduled_for: datetime):
         """
         TODO
         :param file_updates_since:
-        :param retrieve_was_scheduled_for:
+        :param retrieval_was_scheduled_for: the time at which the retrieval was scheduled for. Required to prevent
+                                            periodic drift
         :return:
         """
         query_result = self._do_retrieve(self._latest_retrieved_timestamp)
-        retrieve_next_at = retrieve_was_scheduled_for + self._retrieval_period
+        retrieve_next_at = retrieval_was_scheduled_for + self._retrieval_period
         if len(query_result.file_updates) > 0:
             self._latest_retrieved_timestamp = query_result.file_updates.get_most_recent()[0].timestamp
         self._set_timer_for_next_periodic_retrieve(retrieve_next_at)
@@ -67,6 +67,7 @@ class RetrievalManager(Listenable):
         :param file_updates_since:
         :return:
         """
+        # FIXME: Timer takes an interval not a datetime.
         self._timer = Timer(retrieve_next_at, self._do_retrieve_periodically, retrieve_next_at)
 
     def _do_retrieve(self, file_updates_since: datetime) -> QueryResult:

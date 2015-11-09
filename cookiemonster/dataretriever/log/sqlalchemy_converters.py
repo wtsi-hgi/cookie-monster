@@ -1,0 +1,27 @@
+from cookiemonster.dataretriever._models import RetrievalLog
+from cookiemonster.dataretriever.log.sqlalchemy_models import SQLAlchemyRetrievalLog
+
+
+def convert_to_retrieval_log(sqlalchemy_retrieval_log: SQLAlchemyRetrievalLog) -> RetrievalLog:
+    """
+    Converts the given SQLAlchemy model to an equivalent `RetrieveLog` POPO model.
+    :param sqlalchemy_retrieval_log: TODO
+    :return: the equivalent `RetrieveLog` model
+    """
+    return RetrievalLog(
+        sqlalchemy_retrieval_log.latest_retrieved_timestamp,
+        sqlalchemy_retrieval_log.number_of_file_updates,
+        sqlalchemy_retrieval_log.time_taken_to_complete_query)
+
+
+def convert_to_sqlalchemy_retrieval_log(retrieval_log: RetrievalLog) -> SQLAlchemyRetrievalLog:
+    """
+    Creates an instance equivalent to the given `RetrievalLog` POPO model.
+    :param retrieval_log: TODO
+    :return: the equivalent `SQLAlchemyRetrievalLog` model
+    """
+    sqlalchemy_retrieval_log = SQLAlchemyRetrievalLog()
+    sqlalchemy_retrieval_log.number_of_file_updates = retrieval_log.number_of_file_updates
+    sqlalchemy_retrieval_log.time_taken_to_complete_query = retrieval_log.time_taken_to_complete_query
+    sqlalchemy_retrieval_log.latest_retrieved_timestamp = retrieval_log.latest_retrieved_timestamp
+    return sqlalchemy_retrieval_log

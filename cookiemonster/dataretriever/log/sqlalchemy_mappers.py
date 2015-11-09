@@ -1,5 +1,7 @@
 from cookiemonster.common.sqlalchemy_database_connector import SQLAlchemyDatabaseConnector
 from cookiemonster.dataretriever._models import RetrievalLog
+from cookiemonster.dataretriever.log.sqlalchemy_converters import convert_to_sqlalchemy_retrieval_log, \
+    convert_to_retrieval_log
 from cookiemonster.dataretriever.log.sqlalchemy_models import SQLAlchemyRetrievalLog
 
 
@@ -16,7 +18,7 @@ class SQLAlchemyRetrievalLogMapper:
 
     def add(self, retrieval_log: RetrievalLog):
         session = self._database_connector.create_session()
-        session.add(SQLAlchemyRetrievalLog.value_of(retrieval_log))
+        session.add(convert_to_sqlalchemy_retrieval_log(retrieval_log))
         session.commit()
         session.close()
 
@@ -25,4 +27,4 @@ class SQLAlchemyRetrievalLogMapper:
         result = session.query(SQLAlchemyRetrievalLog).\
             order_by(SQLAlchemyRetrievalLog.latest_retrieved_timestamp.desc()).first()  # type: SQLAlchemyRetrievalLog
         session.close()
-        return result.to_retrieval_log()
+        return convert_to_retrieval_log(result)

@@ -8,7 +8,7 @@ from cookiemonster.dataretriever._retriever import FileUpdateRetriever, QueryRes
 
 class BatonFileUpdateRetriever(FileUpdateRetriever):
     """
-    TODO
+    Retrieves file updates from iRODS using baton.
     """
     def __init__(self, irods_config: IrodsConfig):
         """
