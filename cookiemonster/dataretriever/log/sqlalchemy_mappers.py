@@ -3,9 +3,10 @@ from cookiemonster.dataretriever._models import RetrievalLog
 from cookiemonster.dataretriever.log.sqlalchemy_converters import convert_to_sqlalchemy_retrieval_log, \
     convert_to_retrieval_log
 from cookiemonster.dataretriever.log.sqlalchemy_models import SQLAlchemyRetrievalLog
+from cookiemonster.dataretriever.mappers import RetrievalLogMapper
 
 
-class SQLAlchemyRetrievalLogMapper:
+class SQLAlchemyRetrievalLogMapper(RetrievalLogMapper):
     """
     Data mapper for `RetrievalLogMapper` that is implemented using SQLAlchemy.
     """
