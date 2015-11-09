@@ -103,9 +103,9 @@ class TestRetrievalManager(unittest.TestCase):
         self._retrieval_manager._schedule_next_periodic_retrieve.assert_called_once_with(
             retrieval_scheduled_for + TestRetrievalManager._RETRIEVAL_PERIOD)
 
-    def test_start(self):
+    def test_run(self):
         # Call SUT method
-        self._retrieval_manager.start()
+        self._retrieval_manager.run()
 
         # Assert started periodic retrieval for file updates since the correct time
         self._retrieval_manager._schedule_next_periodic_retrieve.assert_has_calls([

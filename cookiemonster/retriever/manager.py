@@ -1,5 +1,5 @@
 from datetime import date, datetime, timedelta
-from threading import Timer
+from threading import Timer, Thread
 
 from cookiemonster.common.listenable import Listenable
 from cookiemonster.retriever._models import QueryResult, RetrievalLog
@@ -29,8 +29,15 @@ class RetrievalManager(Listenable):
 
     def start(self, file_updates_since: datetime=date.min):
         """
-        Starts the periodic retriver.
-        :param file_updates_since: the time from which to get file updates from (defaults to getting all)
+        Starts the periodic retriever in a new thread.
+        :param file_updates_since: the time from which to get file updates from (defaults to getting all updates).
+        """
+        Thread(target=self.run, args=file_updates_since)
+
+    def run(self, file_updates_since: datetime=date.min):
+        """
+        Runs the periodic retriever in the same thread.
+        :param file_updates_since: the time from which to get file updates from (defaults to getting all updates).
         """
         self._latest_retrieved_timestamp = file_updates_since
         retrieve_was_scheduled_for = RetrievalManager._get_current_time()
@@ -59,8 +66,13 @@ class RetrievalManager(Listenable):
         Schedules the next cycle.
         :param retrieve_next_at: when the cycle is scheduled for
         """
-        # FIXME: Timer takes an interval not a datetime.
-        self._timer = Timer(retrieve_next_at, self._do_retrieve_periodically, retrieve_next_at)
+        if RetrievalManager._get_current_time() >= retrieve_next_at:
+            # Next cycle should begin straight away
+            self._do_retrieve_periodically(retrieve_next_at)
+        else:
+            interval = retrieve_next_at - RetrievalManager._get_current_time()
+            # Run timer in same thread
+            self._timer = Timer(interval, self._do_retrieve_periodically, retrieve_next_at).run()
 
     def _do_retrieve(self, file_updates_since: datetime):
         """
