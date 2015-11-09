@@ -2,8 +2,8 @@ import unittest
 from typing import List
 from unittest.mock import MagicMock
 
+from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.listenable import Listenable
-from cookiemonster.common.models import FileUpdateCollection
 
 
 class TestListenable(unittest.TestCase):

@@ -1,6 +1,5 @@
 from abc import ABCMeta
 from datetime import date
-from typing import List
 
 
 class Model(metaclass=ABCMeta):

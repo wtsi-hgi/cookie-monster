@@ -1,7 +1,8 @@
 import unittest
 from datetime import date
 
-from cookiemonster.common.models import FileUpdateCollection, FileUpdate
+from cookiemonster.common.collections import FileUpdateCollection
+from cookiemonster.common.models import FileUpdate
 
 
 class TestFileUpdateCollection(unittest.TestCase):

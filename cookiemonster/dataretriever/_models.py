@@ -1,6 +1,7 @@
 from datetime import timedelta, datetime
 
-from cookiemonster.common.models import FileUpdateCollection, Model
+from cookiemonster.common.collections import FileUpdateCollection
+from cookiemonster.common.models import Model
 
 
 class RetrievalLog(Model):

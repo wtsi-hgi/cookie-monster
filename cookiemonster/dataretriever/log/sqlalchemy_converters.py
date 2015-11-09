@@ -5,8 +5,8 @@ from cookiemonster.dataretriever.log.sqlalchemy_models import SQLAlchemyRetrieva
 def convert_to_retrieval_log(sqlalchemy_retrieval_log: SQLAlchemyRetrievalLog) -> RetrievalLog:
     """
     Converts the given SQLAlchemy model to an equivalent `RetrieveLog` POPO model.
-    :param sqlalchemy_retrieval_log: TODO
-    :return: the equivalent `RetrieveLog` model
+    :param sqlalchemy_retrieval_log: SQLAlchemy model of a retrieval log
+    :return: the equivalent POPO model of a retrieval log
     """
     return RetrievalLog(
         sqlalchemy_retrieval_log.latest_retrieved_timestamp,
@@ -17,8 +17,8 @@ def convert_to_retrieval_log(sqlalchemy_retrieval_log: SQLAlchemyRetrievalLog) -
 def convert_to_sqlalchemy_retrieval_log(retrieval_log: RetrievalLog) -> SQLAlchemyRetrievalLog:
     """
     Creates an instance equivalent to the given `RetrievalLog` POPO model.
-    :param retrieval_log: TODO
-    :return: the equivalent `SQLAlchemyRetrievalLog` model
+    :param retrieval_log: POPO model of a retrieval log
+    :return: the equivalent SQLAlchemy model of a retrieval log
     """
     sqlalchemy_retrieval_log = SQLAlchemyRetrievalLog()
     sqlalchemy_retrieval_log.number_of_file_updates = retrieval_log.number_of_file_updates

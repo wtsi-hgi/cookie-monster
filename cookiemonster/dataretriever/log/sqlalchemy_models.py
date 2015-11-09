@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, DateTime, Interval
 from sqlalchemy.ext.declarative import declarative_base
 
+
 SQLAlchemyModel = declarative_base()
 
 

@@ -2,14 +2,17 @@ import unittest
 from datetime import timedelta, date, datetime
 from unittest.mock import MagicMock
 
-from cookiemonster.common.models import FileUpdateCollection, FileUpdate
-from cookiemonster.dataretriever._models import QueryResult, RetrievalLog
+from cookiemonster.common.collections import FileUpdateCollection
+from cookiemonster.dataretriever._models import QueryResult
 from cookiemonster.dataretriever.manager import RetrievalManager
 from cookiemonster.tests.dataretriever.stubs import StubFileUpdateRetriever
 from cookiemonster.tests.dataretriever.stubs import StubRetrievalLogMapper
 
 
 class TestRetrievalManager(unittest.TestCase):
+    """
+    TODO.
+    """
     _TIME_DELTA = timedelta(seconds=10)
     _DATE_TIME = date.min
     _CURRENT_TIME = datetime(year=2000, month=2, day=1)
