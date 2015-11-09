@@ -1,12 +1,25 @@
-from datetime import date, MINYEAR
-from typing import Union, List
+from abc import ABCMeta
+from datetime import date
+from typing import List
 
-class Model:
+
+class Model(metaclass=ABCMeta):
+    """
+    Abstract base class for models.
+    """
     def __str__(self) -> str:
         string_builder = []
         for property, value in vars(self).items():
             string_builder.append("%s: %s" % (property, value))
         return "{ %s }" % ', '.join(string_builder)
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        for property, value in vars(self).items():
+            if other.__dict__[property] != self.__dict__[property]:
+                return False
+        return True
 
 
 class FileUpdate(Model):
@@ -24,26 +37,3 @@ class FileUpdate(Model):
         self.file_location = file_location
         self.file_hash = file_hash
         self.timestamp = timestamp
-
-
-class FileUpdateCollection(list):
-    def get_most_recent(self) -> List[FileUpdate]:
-        """
-        Gets the file updates in the collection with the most recent timestamp.
-
-        O(n) operation.
-        :return: the file updates in the collection with the most recent timestamp
-        """
-        if len(self) == 0:
-            raise ValueError("No file updates in collection")
-
-        most_recent = [FileUpdate("", "", date.min)]
-        for file_update in self:
-            assert len(most_recent) > 0
-            most_recent_so_far = most_recent[0].timestamp
-            if file_update.timestamp > most_recent_so_far:
-                most_recent.clear()
-            if file_update.timestamp >= most_recent_so_far:
-                most_recent.append(file_update)
-
-        return most_recent

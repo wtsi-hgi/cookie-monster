@@ -5,6 +5,7 @@ from datetime import timedelta
 from cookiemonster.dataretriever._models import RetrievalLog
 
 
+# FIXME: These test cases are just testing functionality given in `Model`.
 class TestRetrievalLog(unittest.TestCase):
     _LATEST_RETRIEVED_TIMESTAMP = date.max
     _NUMBER_OF_FILE_UPDATES = 74

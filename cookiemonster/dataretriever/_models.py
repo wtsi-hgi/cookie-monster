@@ -5,7 +5,7 @@ from cookiemonster.common.models import FileUpdateCollection, Model
 
 class RetrievalLog(Model):
     """
-    TODO.
+    Model of a log .
     """
     def __init__(self, latest_retrieved_timestamp: datetime, number_of_file_updates: int,
                  time_taken_to_complete_query: timedelta):
@@ -20,19 +20,8 @@ class RetrievalLog(Model):
         self.time_taken_to_complete_query = time_taken_to_complete_query
         self.latest_retrieved_timestamp = latest_retrieved_timestamp
 
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        if self.number_of_file_updates == other.number_of_file_updates and \
-                        self.time_taken_to_complete_query == other.time_taken_to_complete_query and \
-                        self.latest_retrieved_timestamp == other.latest_retrieved_timestamp:
-            return True
-
     def __hash__(self) -> hash:
         return hash(self.latest_retrieved_timestamp)
-
-
-
 
 
 class QueryResult(Model):
