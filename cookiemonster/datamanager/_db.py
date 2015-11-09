@@ -6,7 +6,7 @@ foo...
 
 Authors
 -------
-Christopher Harrison <ch12@sanger.ac.uk>
+* Christopher Harrison <ch12@sanger.ac.uk>
 
 License
 -------
@@ -17,7 +17,7 @@ Copyright (c) 2015 Genome Research Limited
 import sqlite3
 
 # TODO Probably easier to use SQLAlchemy for this. The schema is super
-# simple and any idiot could build it by hand, but for the same of
+# simple and any idiot could build it by hand, but for the sake of
 # decoupling...
 
 # TODO Type hints
