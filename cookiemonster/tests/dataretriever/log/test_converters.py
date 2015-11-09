@@ -14,7 +14,7 @@ _TIME_TAKEN_TO_COMPLETE_QUERY = timedelta(seconds=3)
 
 class TestConvertToRetrievalLog(unittest.TestCase):
     """
-    TODO.
+    Tests for `convert_to_retrieval_log` method.
     """
     def setUp(self):
         sqlalchemy_retrieve_log = SQLAlchemyRetrievalLog()
@@ -32,7 +32,7 @@ class TestConvertToRetrievalLog(unittest.TestCase):
 
 class TestConvertToSqlalchemyRetrievalLog(unittest.TestCase):
     """
-    TODO.
+    Tests for `convert_to_sqlalchemy_retrieval_log` method.
     """
     def setUp(self):
         self._retrieve_log = RetrievalLog(
@@ -45,3 +45,7 @@ class TestConvertToSqlalchemyRetrievalLog(unittest.TestCase):
         self.assertEquals(sqlalchemy_retrieve_log.latest_retrieved_timestamp, _LATEST_RETRIEVED_TIMESTAMP)
         self.assertEquals(sqlalchemy_retrieve_log.number_of_file_updates, _NUMBER_OF_FILE_UPDATES)
         self.assertEquals(sqlalchemy_retrieve_log.time_taken_to_complete_query, _TIME_TAKEN_TO_COMPLETE_QUERY)
+
+
+if __name__ == '__main__':
+    unittest.main()

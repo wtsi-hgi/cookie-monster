@@ -6,20 +6,19 @@ from cookiemonster.common.models import Model
 
 class RetrievalLog(Model):
     """
-    Model of a log .
+    Model of a log of a file update retrieval.
     """
     def __init__(self, latest_retrieved_timestamp: datetime, number_of_file_updates: int,
                  time_taken_to_complete_query: timedelta):
         """
-        TODO
-        :param latest_retrieved_timestamp:
-        :param number_of_file_updates:
-        :param time_taken_to_complete_query:
-        :return:
+        Constructor.
+        :param latest_retrieved_timestamp: the timestamp of the most recent file update that was retrieved
+        :param number_of_file_updates: the number of file updates retrieved
+        :param time_taken_to_complete_query: the time taken to complete the retrieval query
         """
+        self.latest_retrieved_timestamp = latest_retrieved_timestamp
         self.number_of_file_updates = number_of_file_updates
         self.time_taken_to_complete_query = time_taken_to_complete_query
-        self.latest_retrieved_timestamp = latest_retrieved_timestamp
 
     def __hash__(self) -> hash:
         return hash(self.latest_retrieved_timestamp)
@@ -27,14 +26,13 @@ class RetrievalLog(Model):
 
 class QueryResult(Model):
     """
-    TODO.
+    Model of a query result.
     """
     def __init__(self, file_updates: FileUpdateCollection, time_taken_to_complete_query: timedelta):
         """
-        TODO
-        :param file_updates:
-        :param time_taken_to_complete_query:
-        :return:
+        Constructor.
+        :param file_updates: the files that have been updated
+        :param time_taken_to_complete_query: the time taken for the query to complete
         """
         self.file_updates = file_updates
         self.time_taken_to_complete_query = time_taken_to_complete_query

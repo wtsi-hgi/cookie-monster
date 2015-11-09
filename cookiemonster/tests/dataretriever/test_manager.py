@@ -11,7 +11,7 @@ from cookiemonster.tests.dataretriever.stubs import StubRetrievalLogMapper
 
 class TestRetrievalManager(unittest.TestCase):
     """
-    TODO.
+    Test cases for `RetrievalManager`.
     """
     _TIME_DELTA = timedelta(seconds=10)
     _DATE_TIME = date.min

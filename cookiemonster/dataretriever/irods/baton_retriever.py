@@ -21,11 +21,11 @@ class BatonFileUpdateRetriever(FileUpdateRetriever):
         raise NotImplementedError()
 
     @staticmethod
-    def _convert_to_models(file_update_entires: List[Dict[str, str, str]]) -> FileUpdateCollection:
+    def _convert_to_models(file_update_entries: List[Dict[str, str, str]]) -> FileUpdateCollection:
         """
         Converts a given list of file update entries (in the form of the JSON returned by irods) into
         `FileUpdateCollection`.
-        :param file_update_entires: the file update entries ni the form of the JSON returned by irods
+        :param file_update_entries: the file update entries ni the form of the JSON returned by irods
         :return: a `FileUpdateCollection` created from the given entries
         """
         raise NotImplementedError()

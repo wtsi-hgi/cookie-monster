@@ -1,45 +1,50 @@
 import unittest
 from datetime import date
 
-from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.models import Model
 
 
-class TestFileUpdateCollection(unittest.TestCase):
+class _StubModel(Model):
     """
-    Unit tests for `FileUpdateCollection`.
+    Stub `Model`.
     """
-    def test_empty_as_default(self):
-        self.assertEquals(len(FileUpdateCollection()), 0)
-
-    def test_can_instantiate_with_list(self):
-        file_updates_list = [FileUpdate("", "", date.min), FileUpdate("", "", date.min)]
-        file_updates = FileUpdateCollection(file_updates_list)
-        self.assertCountEqual(file_updates, file_updates_list)
-
-    def test_can_instantiate_with_file_update_collection(self):
-        file_updates1= FileUpdateCollection([FileUpdate("", "", date.min), FileUpdate("", "", date.min)])
-        file_updates2 = FileUpdateCollection(file_updates1)
-        self.assertCountEqual(file_updates2, file_updates1)
-
-    def test_get_most_recent_when_empty(self):
-        self.assertRaises(ValueError, FileUpdateCollection().get_most_recent)
-
-    def test_get_most_recent(self):
-        file_updates = FileUpdateCollection([
-            FileUpdate("", "", date.max),
-            FileUpdate("", "", date.min)
-        ])
-        self.assertCountEqual(file_updates.get_most_recent(), [file_updates[0]])
-
-    def test_get_most_recent_when_many_have_same_latest(self):
-        file_updates = FileUpdateCollection([
-            FileUpdate("", "", date.max),
-            FileUpdate("", "", date.min),
-            FileUpdate("", "", date.max)
-        ])
-        self.assertCountEqual(file_updates.get_most_recent(), [file_updates[0], file_updates[2]])
+    def __init__(self):
+        self.property_1 = 1
+        self.property_2 = "a"
+        self.property_3 = []
 
 
-if __name__ == '__main__':
-    unittest.main()
+class TestModel(unittest.TestCase):
+    """
+    Test cases for `Model`.
+    """
+    def setUp(self):
+        self._model = _StubModel()
+
+    def test_equal_non_nullity(self):
+        self.assertNotEqual(self._model, None)
+
+    def test_equal_different_type(self):
+        self.assertNotEqual(self._model, date)
+
+    def test_equal_reflexivity(self):
+        model = self._model
+        self.assertEqual(model, model)
+
+    def test_equal_symmetry(self):
+        model1 = self._model
+        model2 = self._model
+        self.assertEqual(model1, model2)
+        self.assertEqual(model2, model1)
+
+    def test_equal_transitivity(self):
+        model1 = self._model
+        model2 = self._model
+        model3 = self._model
+        self.assertEqual(model1, model2)
+        self.assertEqual(model2, model3)
+        self.assertEqual(model1, model3)
+
+    def test_can_get_string_representation(self):
+        string_representation = str(self._model)
+        self.assertTrue(isinstance(string_representation, str))

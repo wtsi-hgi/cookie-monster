@@ -7,9 +7,9 @@ from cookiemonster.dataretriever.mappers import RetrievalLogMapper
 
 class StubRetrievalLogMapper(RetrievalLogMapper):
     """
-    TODO.
+    Stub of `RetrievalLogMapper`.
     """
-    def add(self, log: RetrievalLog):
+    def add(self, retrieval_log: RetrievalLog):
         pass
 
     def get_most_recent(self) -> RetrievalLog:
@@ -18,12 +18,7 @@ class StubRetrievalLogMapper(RetrievalLogMapper):
 
 class StubFileUpdateRetriever(FileUpdateRetriever):
     """
-    TODO
+    Stub of `FileUpdateRetriever`.
     """
     def query_for_all_file_updates_since(self, since: datetime) -> QueryResult:
-        """
-        Gets models of all of the file updates that have happened since the given time.
-        :param since: the time at which to get updates from (`fileUpdate.timestamp > since`)
-        :return: TODO
-        """
         pass
