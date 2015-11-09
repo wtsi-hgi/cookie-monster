@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from threading import Timer
 
 from cookiemonster.common.listenable import Listenable
-from cookiemonster.dataretriever._models import QueryResult
+from cookiemonster.dataretriever._models import QueryResult, RetrievalLog
 from cookiemonster.dataretriever._retriever import FileUpdateRetriever
 from cookiemonster.dataretriever.mappers import RetrievalLogMapper
 
@@ -54,10 +54,8 @@ class RetrievalManager(Listenable):
                                             periodic drift
         :return:
         """
-        query_result = self._do_retrieve(self._latest_retrieved_timestamp)
+        self._do_retrieve(self._latest_retrieved_timestamp)
         retrieve_next_at = retrieval_was_scheduled_for + self._retrieval_period
-        if len(query_result.file_updates) > 0:
-            self._latest_retrieved_timestamp = query_result.file_updates.get_most_recent()[0].timestamp
         self._set_timer_for_next_periodic_retrieve(retrieve_next_at)
 
     def _set_timer_for_next_periodic_retrieve(self, retrieve_next_at: datetime):
@@ -70,22 +68,28 @@ class RetrievalManager(Listenable):
         # FIXME: Timer takes an interval not a datetime.
         self._timer = Timer(retrieve_next_at, self._do_retrieve_periodically, retrieve_next_at)
 
-    def _do_retrieve(self, file_updates_since: datetime) -> QueryResult:
+    def _do_retrieve(self, file_updates_since: datetime):
         """
         TODO
         :param file_updates_since:
         :return:
         """
         query_result = self._file_update_retriever.query_for_all_file_updates_since(file_updates_since)
+
+        if len(query_result.file_updates) > 0:
+            self._latest_retrieved_timestamp = query_result.file_updates.get_most_recent()[0].timestamp
+
         self.notify_listeners(query_result.file_updates)
         self._log_retrieval(query_result)
-        return query_result
 
     def _log_retrieval(self, query_result: QueryResult):
-        # retrieval_log = RetrievalLog(latest_retrieved_timestamp, number_of_file_updates: int, time_taken_to_complete_query: timedelta)
-        #
-        # self._retrieval_log_mapper.add
-        pass
+        """
+        TODO
+        :param query_result:
+        """
+        retrieval_log = RetrievalLog(self._latest_retrieved_timestamp, len(query_result.file_updates),
+                                     query_result.time_taken_to_complete_query)
+        self._retrieval_log_mapper.add(retrieval_log)
 
     @staticmethod
     def _get_current_time() -> datetime:

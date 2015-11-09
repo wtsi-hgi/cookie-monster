@@ -25,7 +25,7 @@ class FileUpdate(Model):
     """
     Model of a file update.
     """
-    def __init__(self, file_location: str, file_hash: str, timestamp: date):
+    def __init__(self, file_location: str, file_hash: hash, timestamp: date):
         """
         Constructor.
         :param file_location: the location of the file that has been updated
