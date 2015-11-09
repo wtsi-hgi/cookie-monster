@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from cookiemonster.common.sqlalchemy_database_connector import SQLAlchemyDatabaseConnector
 from cookiemonster.dataretriever._models import RetrievalLog
 from cookiemonster.dataretriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
-from cookiemonster.dataretriever.log.sqlalchemy_models import SQLAlchemyModel
+from cookiemonster.dataretriever.log._sqlalchemy_models import SQLAlchemyModel
 
 
 class TestSQLAlchemyRetrievalLogMapper(unittest.TestCase):
@@ -34,7 +34,7 @@ class TestSQLAlchemyRetrievalLogMapper(unittest.TestCase):
             RetrievalLog(datetime(5, 10, 10), 1, timedelta.resolution)]
         for retrieve_log in retrieve_logs:
             self._mapper.add(retrieve_log)
-        self.assertEqual(self._mapper.get_most_recent(), retrieve_logs[1])
+        self.assertEqual(self._mapper.get_most_recent(), retrieve_logs[-1])
 
 
 if __name__ == '__main__':

@@ -20,7 +20,7 @@ class RetrievalLogMapper(metaclass=ABCMeta):
     @abstractmethod
     def get_most_recent(self) -> RetrievalLog:
         """
-        Gets the most recent retrieval log from the database
-        :return: the most recently stored retrieval log
+        Gets the most recent retrieval log that was added to the database.
+        :return: the most recently added retrieval log
         """
         pass

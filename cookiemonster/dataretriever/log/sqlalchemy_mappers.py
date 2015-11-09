@@ -1,8 +1,8 @@
 from cookiemonster.common.sqlalchemy_database_connector import SQLAlchemyDatabaseConnector
 from cookiemonster.dataretriever._models import RetrievalLog
-from cookiemonster.dataretriever.log.sqlalchemy_converters import convert_to_sqlalchemy_retrieval_log, \
+from cookiemonster.dataretriever.log._sqlalchemy_converters import convert_to_sqlalchemy_retrieval_log, \
     convert_to_retrieval_log
-from cookiemonster.dataretriever.log.sqlalchemy_models import SQLAlchemyRetrievalLog
+from cookiemonster.dataretriever.log._sqlalchemy_models import SQLAlchemyRetrievalLog
 from cookiemonster.dataretriever.mappers import RetrievalLogMapper
 
 
@@ -26,6 +26,6 @@ class SQLAlchemyRetrievalLogMapper(RetrievalLogMapper):
     def get_most_recent(self) -> RetrievalLog:
         session = self._database_connector.create_session()
         result = session.query(SQLAlchemyRetrievalLog).\
-            order_by(SQLAlchemyRetrievalLog.latest_retrieved_timestamp.desc()).first()  # type: SQLAlchemyRetrievalLog
+            order_by(SQLAlchemyRetrievalLog.id.desc()).first()  # type: SQLAlchemyRetrievalLog
         session.close()
         return convert_to_retrieval_log(result)

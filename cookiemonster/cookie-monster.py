@@ -7,7 +7,7 @@ from cookiemonster.common.sqlalchemy_database_connector import SQLAlchemyDatabas
 from cookiemonster.dataretriever.irods.baton_retriever import BatonFileUpdateRetriever
 from cookiemonster.dataretriever.irods.irods_config import IrodsConfig
 from cookiemonster.dataretriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
-from cookiemonster.dataretriever.log.sqlalchemy_models import SQLAlchemyModel
+from cookiemonster.dataretriever.log._sqlalchemy_models import SQLAlchemyModel
 from cookiemonster.dataretriever.manager import RetrievalManager
 
 

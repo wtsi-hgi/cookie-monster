@@ -31,7 +31,7 @@ class QueryResult(Model):
     def __init__(self, file_updates: FileUpdateCollection, time_taken_to_complete_query: timedelta):
         """
         Constructor.
-        :param file_updates: the files that have been updated
+        :param file_updates: the collection of files that have been updated
         :param time_taken_to_complete_query: the time taken for the query to complete
         """
         self.file_updates = file_updates

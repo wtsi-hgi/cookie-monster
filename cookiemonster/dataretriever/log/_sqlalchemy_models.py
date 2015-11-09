@@ -12,4 +12,5 @@ class SQLAlchemyRetrievalLog(SQLAlchemyModel):
     __tablename__ = "retrieve_log"
     number_of_file_updates = Column(Integer)
     time_taken_to_complete_query = Column(Interval)
-    latest_retrieved_timestamp = Column(DateTime, primary_key=True)   # TODO: Is it correct to use this as the primary key?
+    latest_retrieved_timestamp = Column(DateTime)
+    id = Column(Integer, autoincrement=True, primary_key=True)
