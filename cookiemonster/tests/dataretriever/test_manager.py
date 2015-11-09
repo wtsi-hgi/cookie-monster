@@ -15,6 +15,7 @@ class TestRetrievalManager(unittest.TestCase):
     Test cases for `RetrievalManager`.
     """
     _TIME_TAKEN_TO_DO_RETRIEVE = timedelta(seconds=10)
+    _RETRIEVAL_PERIOD = timedelta(seconds=5)
     _SINCE = date.min
     _CURRENT_TIME = datetime(year=2000, month=2, day=1)
 
@@ -25,7 +26,7 @@ class TestRetrievalManager(unittest.TestCase):
 
         # Create retrieval manager
         self._retrieval_manager = RetrievalManager(
-            TestRetrievalManager._TIME_TAKEN_TO_DO_RETRIEVE, self._file_update_retriever, self._retrieval_log_mapper)
+            TestRetrievalManager._RETRIEVAL_PERIOD, self._file_update_retriever, self._retrieval_log_mapper)
 
         # Setup mock FileUpdateRetriever
         self._file_updates = FileUpdateCollection([
@@ -77,7 +78,7 @@ class TestRetrievalManager(unittest.TestCase):
         self._retrieval_manager._do_retrieve.assert_called_once_with(retrieval_scheduled_for)
         # Assert that next cycle was scheduled
         self._retrieval_manager._set_timer_for_next_periodic_retrieve.assert_called_once_with(
-            retrieval_scheduled_for + self._retrieval_period)
+            retrieval_scheduled_for + TestRetrievalManager._RETRIEVAL_PERIOD)
 
     def test_start(self):
         # Call SUT method
@@ -86,7 +87,7 @@ class TestRetrievalManager(unittest.TestCase):
         # Assert started periodic retrieval for file updates since the correct time
         self._retrieval_manager._set_timer_for_next_periodic_retrieve.assert_has_calls([
             call(TestRetrievalManager._CURRENT_TIME),
-            call(TestRetrievalManager._CURRENT_TIME + self._retrieval_period)
+            call(TestRetrievalManager._CURRENT_TIME + TestRetrievalManager._RETRIEVAL_PERIOD)
         ], any_order=False)
 
     # TODO: Test no retrieved with _do_retrieval
