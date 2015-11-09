@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABCMeta
 
-from cookiemonster.dataretriever._models import RetrievalLog
+from cookiemonster.retriever._models import RetrievalLog
 
 
 class RetrievalLogMapper(metaclass=ABCMeta):

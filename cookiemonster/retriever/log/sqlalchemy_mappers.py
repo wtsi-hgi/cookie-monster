@@ -1,9 +1,9 @@
 from cookiemonster.common.sqlalchemy_database_connector import SQLAlchemyDatabaseConnector
-from cookiemonster.dataretriever._models import RetrievalLog
-from cookiemonster.dataretriever.log._sqlalchemy_converters import convert_to_sqlalchemy_retrieval_log, \
+from cookiemonster.retriever._models import RetrievalLog
+from cookiemonster.retriever.log._sqlalchemy_converters import convert_to_sqlalchemy_retrieval_log, \
     convert_to_retrieval_log
-from cookiemonster.dataretriever.log._sqlalchemy_models import SQLAlchemyRetrievalLog
-from cookiemonster.dataretriever.mappers import RetrievalLogMapper
+from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyRetrievalLog
+from cookiemonster.retriever.mappers import RetrievalLogMapper
 
 
 class SQLAlchemyRetrievalLogMapper(RetrievalLogMapper):

@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from cookiemonster.dataretriever._models import RetrievalLog, QueryResult
-from cookiemonster.dataretriever._retriever import FileUpdateRetriever
-from cookiemonster.dataretriever.mappers import RetrievalLogMapper
+from cookiemonster.retriever._models import RetrievalLog, QueryResult
+from cookiemonster.retriever._retriever import FileUpdateRetriever
+from cookiemonster.retriever.mappers import RetrievalLogMapper
 
 
 class StubRetrievalLogMapper(RetrievalLogMapper):

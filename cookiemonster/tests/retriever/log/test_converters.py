@@ -1,10 +1,10 @@
 import unittest
 from datetime import date, timedelta
 
-from cookiemonster.dataretriever._models import RetrievalLog
-from cookiemonster.dataretriever.log._sqlalchemy_converters import convert_to_retrieval_log, \
+from cookiemonster.retriever._models import RetrievalLog
+from cookiemonster.retriever.log._sqlalchemy_converters import convert_to_retrieval_log, \
     convert_to_sqlalchemy_retrieval_log
-from cookiemonster.dataretriever.log._sqlalchemy_models import SQLAlchemyRetrievalLog
+from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyRetrievalLog
 
 
 _LATEST_RETRIEVED_TIMESTAMP = date.max

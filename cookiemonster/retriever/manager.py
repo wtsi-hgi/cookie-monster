@@ -2,9 +2,9 @@ from datetime import date, datetime, timedelta
 from threading import Timer
 
 from cookiemonster.common.listenable import Listenable
-from cookiemonster.dataretriever._models import QueryResult, RetrievalLog
-from cookiemonster.dataretriever._retriever import FileUpdateRetriever
-from cookiemonster.dataretriever.mappers import RetrievalLogMapper
+from cookiemonster.retriever._models import QueryResult, RetrievalLog
+from cookiemonster.retriever._retriever import FileUpdateRetriever
+from cookiemonster.retriever.mappers import RetrievalLogMapper
 
 
 class RetrievalManager(Listenable):

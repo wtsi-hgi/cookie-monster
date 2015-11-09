@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 
-from cookiemonster.dataretriever._models import QueryResult
+from cookiemonster.retriever._models import QueryResult
 
 
 class FileUpdateRetriever(metaclass=ABCMeta):

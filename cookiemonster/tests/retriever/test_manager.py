@@ -4,10 +4,10 @@ from unittest.mock import MagicMock, call
 
 from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.models import FileUpdate
-from cookiemonster.dataretriever._models import QueryResult, RetrievalLog
-from cookiemonster.dataretriever.manager import RetrievalManager
-from cookiemonster.tests.dataretriever.stubs import StubFileUpdateRetriever
-from cookiemonster.tests.dataretriever.stubs import StubRetrievalLogMapper
+from cookiemonster.retriever._models import QueryResult, RetrievalLog
+from cookiemonster.retriever.manager import RetrievalManager
+from cookiemonster.tests.retriever.stubs import StubFileUpdateRetriever
+from cookiemonster.tests.retriever.stubs import StubRetrievalLogMapper
 
 
 class TestRetrievalManager(unittest.TestCase):

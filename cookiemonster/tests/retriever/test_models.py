@@ -2,7 +2,7 @@ import unittest
 from datetime import date
 from datetime import timedelta
 
-from cookiemonster.dataretriever._models import RetrievalLog
+from cookiemonster.retriever._models import RetrievalLog
 
 
 class TestRetrievalLog(unittest.TestCase):

@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import List, Dict
 
 from cookiemonster.common.models import FileUpdateCollection
-from cookiemonster.dataretriever.irods.irods_config import IrodsConfig
-from cookiemonster.dataretriever._retriever import FileUpdateRetriever, QueryResult
+from cookiemonster.retriever.irods.irods_config import IrodsConfig
+from cookiemonster.retriever._retriever import FileUpdateRetriever, QueryResult
 
 
 class BatonFileUpdateRetriever(FileUpdateRetriever):

@@ -4,11 +4,11 @@ from sqlalchemy import create_engine
 
 from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.sqlalchemy_database_connector import SQLAlchemyDatabaseConnector
-from cookiemonster.dataretriever.irods.baton_retriever import BatonFileUpdateRetriever
-from cookiemonster.dataretriever.irods.irods_config import IrodsConfig
-from cookiemonster.dataretriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
-from cookiemonster.dataretriever.log._sqlalchemy_models import SQLAlchemyModel
-from cookiemonster.dataretriever.manager import RetrievalManager
+from cookiemonster.retriever.irods.baton_retriever import BatonFileUpdateRetriever
+from cookiemonster.retriever.irods.irods_config import IrodsConfig
+from cookiemonster.retriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
+from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel
+from cookiemonster.retriever.manager import RetrievalManager
 
 
 def main():
