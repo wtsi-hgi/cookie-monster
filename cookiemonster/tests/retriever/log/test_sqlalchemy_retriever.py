@@ -36,6 +36,9 @@ class TestSQLAlchemyRetrievalLogMapper(unittest.TestCase):
             self._mapper.add(retrieve_log)
         self.assertEqual(self._mapper.get_most_recent(), retrieve_logs[-1])
 
+    def test_get_most_recent_when_no_entries(self):
+        self.assertEqual(self._mapper.get_most_recent(), None)
+
 
 if __name__ == '__main__':
     unittest.main()

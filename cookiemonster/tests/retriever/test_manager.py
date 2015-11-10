@@ -113,6 +113,14 @@ class TestRetrievalManager(unittest.TestCase):
             call(TestRetrievalManager._CURRENT_TIME + TestRetrievalManager._RETRIEVAL_PERIOD)
         ], any_order=False)
 
+    def test_cannot_start_if_started(self):
+        self._retrieval_manager.start()
+        self.assertRaises(RuntimeError, self._retrieval_manager.start)
+
+    def test_cannot_run_if_started(self):
+        self._retrieval_manager.start()
+        # self.assertRaises(RuntimeError, self._retrieval_manager.run)
+
 
 if __name__ == '__main__':
     unittest.main()

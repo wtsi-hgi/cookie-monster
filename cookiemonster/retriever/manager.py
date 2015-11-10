@@ -26,12 +26,16 @@ class RetrievalManager(Listenable):
         self._listeners = []
         self._timer = None
         self._latest_retrieved_timestamp = date.min
+        self._running = False
 
     def start(self, file_updates_since: datetime=date.min):
         """
-        Starts the periodic retriever in a new thread.
+        Starts the periodic retriever in a new thread. Cannot start if already running.
         :param file_updates_since: the time from which to get file updates from (defaults to getting all updates).
         """
+        if self._running:
+            raise RuntimeError("Already running")
+        self._running = True
         Thread(target=self.run, args=file_updates_since)
 
     def run(self, file_updates_since: datetime=date.min):
@@ -39,6 +43,9 @@ class RetrievalManager(Listenable):
         Runs the periodic retriever in the same thread.
         :param file_updates_since: the time from which to get file updates from (defaults to getting all updates).
         """
+        if self._running:
+            raise RuntimeError("Already running")
+        self._running = True
         self._latest_retrieved_timestamp = file_updates_since
         retrieve_was_scheduled_for = RetrievalManager._get_current_time()
         self._schedule_next_periodic_retrieve(retrieve_was_scheduled_for)
@@ -50,6 +57,7 @@ class RetrievalManager(Listenable):
         if self._timer is not None:
             self._timer.cancel()
             self._timer = None
+            self._running = True
 
     def _do_retrieve_periodically(self, retrieval_was_scheduled_for: datetime):
         """
