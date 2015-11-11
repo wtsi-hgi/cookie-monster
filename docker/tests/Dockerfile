@@ -1,5 +1,5 @@
-FROM python:3.4-wheezy
-MAINTAINER hgi@sanger.ac.uk
+FROM python:3.5.0
+MAINTAINER "hgi@sanger.ac.uk"
 
 COPY . /cookie-monster
 WORKDIR cookie-monster
