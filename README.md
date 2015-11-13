@@ -10,6 +10,6 @@ install all requirements for running the tests (use `virtualenv` if necessary).
 #### Using Docker
 From the project's root directory:
 ```
-$ docker build -t hgi/cookie-monster/test -f docker/tests/Dockerfile .
-$ docker run hgi/cookie-monster/test
+$ docker build -t wtsi-hgi/cookie-monster/test -f docker/tests/Dockerfile .
+$ docker run wtsi-hgi/cookie-monster/test
 ```
