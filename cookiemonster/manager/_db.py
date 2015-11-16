@@ -25,7 +25,7 @@ methods are as follows:
   the processing queue
 
 `Event` is a simple enumeration class, not for instantiation, used with
-the `DB.log_event` method. Enumerated constants are as follows:
+DB's `log_event_for_model` method. Enumerated constants are as follows:
 
 * `imported`
 * `processing`
