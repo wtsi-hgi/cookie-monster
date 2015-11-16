@@ -85,6 +85,10 @@ Different strokes, I suppose... To any future maintainer (or my future
 self, should I have a change of heart/lobotomy): Feel free to convert
 this to whatever flavour-of-the-month abstraction you see fit.
 
+Dependencies
+------------
+SQLite 3.7.11
+
 Authors
 -------
 * Christopher Harrison <ch12@sanger.ac.uk>
@@ -104,6 +108,9 @@ from cookiemonster.common.models import FileUpdate
 # this code is a bit of a big ball of mud and needs iterating against.
 
 # TODO Testing code...
+
+if sqlite3.sqlite_version_info < (3, 7, 11):
+    raise sqlite3.NotSupportedError('Requires SQLite 3.7.11, or newer. You have %s.' % sqlite3.sqlite_version)
 
 class _FileUpdateAdaptor(object):
     ''' Convert between FileUpdate model and DB representation '''
@@ -303,6 +310,7 @@ class DB(object):
                                       check (ttq is null or ttq >= 0)
             );
 
+            /* Requires SQLite 3.7.11 (20120320) for multiple insert */
             insert into mgrEvents(id, description,  ttq)
                         values   (1,  'imported',   0),
                                  (2,  'processing', null),
