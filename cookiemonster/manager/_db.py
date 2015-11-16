@@ -5,6 +5,33 @@ Database Abstraction
 Operations for creating, checking and interacting with an SQLite-based
 database.
 
+Exportable classes: `DB`, `Event`
+
+`DB` is to be instantiated with the SQLite database file (or in-memory
+representation) and provides an interface with it. It will also build
+the schema if it doesn't exist, or validate it if it does. Interface
+methods are as follows:
+
+* `add_new_model` Add a new model to the database and create the
+  respective import log event
+
+* `log_event_for_model` Log an arbitrary event against a model
+  ("arbitrary" modulo applicable events; see below)
+
+* `get_next_model_for_processing` Return the next FileUpdate model that
+  requires processing (optionally marking it as such)
+
+* `get_processing_queue_size` Return the number of FileUpdate models in
+  the processing queue
+
+`Event` is a simple enumeration class, not for instantiation, used with
+the `DB.log_event` method. Enumerated constants are as follows:
+
+* `imported`
+* `processing`
+* `completed`
+* `failed`
+
 Schema
 ------
 
@@ -76,7 +103,9 @@ from cookiemonster.common.models import FileUpdate
 # TODO Modicum of abstraction, rather than raw SQL calls... In general,
 # this code is a bit of a big ball of mud and needs iterating against.
 
-class FileUpdateAdaptor(object):
+# TODO Testing code...
+
+class _FileUpdateAdaptor(object):
     ''' Convert between FileUpdate model and DB representation '''
     @staticmethod
     def from_model(file_update, location_key='location', hash_key='hash', timestamp_key='timestamp'):
@@ -132,54 +161,54 @@ class DB(object):
 
         @param  database  SQLite database file
         '''
-        self.connection = sqlite3.connect(database, isolation_level=None)
+        self._conn = sqlite3.connect(database, isolation_level=None)
 
-        if self.connection:
+        if self._conn:
             self._validate_schema()
+
+        else:
+            raise sqlite3.InterfaceError('Could not connect to %s' % database)
 
     def __del__(self):
         ''' Close database connection '''
-        if self.connection:
-            self.connection.close()
+        if self._conn:
+            self._conn.close()
 
-    def _get_file_id(self, file_update):
+    def _get_file_id_by_model(self, file_update):
         ''' Get ID of FileUpdate '''
-        if self.connection:
-            cur = self.connection.execute('''
-                select id
-                from   mgrFileUpdate
-                where  location  = :location
-                and    hash      = :hash
-                and    timestamp = :timestamp
-            ''', FileUpdateAdaptor.from_model(file_update))
-            row = cur.fetchone()
+        cur = self._conn.execute('''
+            select id
+            from   mgrFileUpdate
+            where  location  = :location
+            and    hash      = :hash
+            and    timestamp = :timestamp
+        ''', _FileUpdateAdaptor.from_model(file_update))
+        row = cur.fetchone()
 
-            if row:
-                return row[0]
-            else:
-                raise sqlite3.DataError('No such FileUpdate')
+        if row:
+            return row[0]
 
         else:
-            raise sqlite3.InterfaceError('Not connected')
+            raise sqlite3.DataError('No such FileUpdate')
 
-    def create_update(self, new_file):
+    def add_new_model(self, new_file):
         '''
         Add a new FileUpdate to the database
 
         @param   new_file  FileUpdate model
         @return  Success (Boolean)
         '''
-        if self.connection:
-            self.connection.execute('''
+        try:
+            self._conn.execute('''
                 insert into mgrFileUpdate(location,  hash,  timestamp)
                             values       (:location, :hash, :timestamp)
-            ''', FileUpdateAdaptor.from_model(new_file))
+            ''', _FileUpdateAdaptor.from_model(new_file))
             return True
 
-        else:
+        except:
             return False
 
-    def log_event(self, file_update, event_id):
+    def log_event_for_model(self, file_update, event_id):
         '''
         Add a new event for a FileUpdate
 
@@ -187,42 +216,62 @@ class DB(object):
         @param   event_id     Event ID
         @return  Success (Boolean)
         '''
-        if self.connection:
-            file_id = self._get_file_id(file_update)
-            self.connection.execute('''
+        try:
+            file_id = self._get_file_id_by_model(file_update)
+            self._conn.execute('''
                 insert into mgrLog(file_id,  event_id)
                             values(:file_id, :event_id)
             ''', {'file_id': file_id, 'event_id': event_id})
             return True
 
-        else:
+        except:
             return False
 
-    def get_next(self):
+    def get_next_model_for_processing(self, auto_log_for_processing=True):
         '''
         Get the next FileUpdate for processing and update its state
 
+        @param   auto_log_for_processing  Automatically create the
+                                          processing event for the
+                                          retrieved model
         @return  FileUpdate model, or None
         '''
-        if self.connection:
-            cur = self.connection.execute('''
-                select location,
-                       hash,
-                       timestamp
-                from   mgrQueue
-                limit  1
-            ''')
-            row = cur.fetchone()
+        cur = self._conn.execute('''
+            select location,
+                   hash,
+                   timestamp
+            from   mgrQueue
+            limit  1
+        ''')
+        row = cur.fetchone()
 
-            if row:
-                to_process = FileUpdateAdaptor.to_model(row)
-                self.log_event(to_process, Event.processing)
-                return to_process
-            else:
-                return None
+        if row:
+            to_process = _FileUpdateAdaptor.to_model(row)
+            if auto_log_for_processing:
+                self.log_event_for_model(to_process, Event.processing)
+
+            return to_process
 
         else:
             return None
+
+    def get_processing_queue_size(self):
+        '''
+        Get the number of items ready for processing
+
+        @return Number of items in the queue
+        '''
+        cur = self._conn.execute('''
+            select queue_size
+            from   mgrQueueSize
+        ''')
+        row = cur.fetchone()
+
+        if row:
+            return row[0]
+
+        else:
+            return 0
 
     def _validate_schema(self):
         '''
@@ -230,9 +279,13 @@ class DB(object):
         I admit this is pretty ugly...but deal with it :P
 
         TODO See above regarding abstraction
-        TODO Schema checking (beyond existence)
+        TODO Schema checking (beyond existence): One could insert valid
+             and invalid data into the schema (and rolling back the
+             transaction) and check the exceptions. It's not pretty, but
+             it's much easier/less verbose than poking around the data
+             dictionary...
         '''
-        self.connection.executescript('''
+        self._conn.executescript('''
             create table if not exists mgrFileUpdate (
                 id         integer  primary key,
                 location   text     not null,
@@ -293,5 +346,9 @@ class DB(object):
                 and       cast(strftime('%s', 'now') as integer) > latest.timestamp + mgrEvents.ttq
                 order by  latest.timestamp asc;
             
+            create view if not exists mgrQueueSize as
+                select count(*) queue_size
+                from   mgrQueue;
+
             vacuum;
         ''')
