@@ -109,8 +109,16 @@ from cookiemonster.common.models import FileUpdate
 
 # TODO Testing code...
 
-if sqlite3.sqlite_version_info < (3, 7, 11):
-    raise sqlite3.NotSupportedError('Requires SQLite 3.7.11, or newer. You have %s.' % sqlite3.sqlite_version)
+# TODO Type hints
+
+# TODO Determine minimal compatible version
+_sqlite3_version_required = (3, 7, 11)
+if sqlite3.sqlite_version_info < _sqlite3_version_required:
+    error_text = 'Requires SQLite {required}, or newer. You have {actual}.'.format(
+        required='.'.join(str(i) for i in _sqlite3_version_required),
+        actual=sqlite3.sqlite_version
+    )
+    raise sqlite3.NotSupportedError(error_text)
 
 class _FileUpdateAdaptor(object):
     ''' Convert between FileUpdate model and DB representation '''
