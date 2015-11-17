@@ -344,7 +344,7 @@ class DB(object):
                                     default (strftime('%s', 'now'))
             );
 
-            create index if not exists mgrIdxLog on mgrLog (file_id, timestamp asc);
+            create index if not exists mgrIdxLog on mgrLog (file_id, id asc);
 
             create index if not exists mgrIdxLogTime on mgrLog (timestamp asc);
 
@@ -361,7 +361,7 @@ class DB(object):
                 from      mgrLog latest
                 left join mgrLog later
                 on        later.file_id    = latest.file_id
-                and       later.timestamp  > latest.timestamp
+                and       later.id         > latest.id
                 join      mgrFileUpdate
                 on        mgrFileUpdate.id = latest.file_id
                 join      mgrEvents
@@ -374,6 +374,21 @@ class DB(object):
             create view if not exists mgrQueueSize as
                 select count(*) queue_size
                 from   mgrQueue;
+
+            /* Remove orphaned "processing" records from the log
+               If the latest log entry for a FileUpdate is "processing"
+               then we know that the processor died before it finished
+               and, thus, these need to be reprocessed.               */
+
+            delete from mgrLog where id in (
+                select    latest.id
+                from      mgrLog latest
+                left join mgrLog later
+                on        later.file_id    = latest.file_id
+                and       later.id         > latest.id
+                where     later.id        is null
+                and       latest.event_id  = 2
+            );
 
             vacuum;
         ''')
