@@ -8,9 +8,9 @@ database.
 Exportable classes: `DB`, `Event`
 
 `DB` is to be instantiated with the SQLite database file (or in-memory
-representation) and provides an interface with it. It will also build
-the schema if it doesn't exist, or validate it if it does. Interface
-methods are as follows:
+representation), and provides an interface with it, and the failure lead
+time.  It will also build the schema if it doesn't exist, or validate it
+if it does.  Interface methods are as follows:
 
 * `add_new_model` Add a new model to the database and create the
   respective import log event
@@ -22,7 +22,7 @@ methods are as follows:
   requires processing (optionally marking it as such)
 
 * `get_processing_queue_size` Return the number of FileUpdate models in
-  the processing queue
+  the [pending for] processing queue
 
 `Event` is a simple enumeration class, not for instantiation, used with
 DB's `log_event_for_model` method. Enumerated constants are as follows:
@@ -101,7 +101,7 @@ Copyright (c) 2015 Genome Research Limited
 
 import sqlite3
 from time import mktime
-from datetime import datetime
+from datetime import datetime, timedelta
 from cookiemonster.common.models import FileUpdate
 
 # TODO Modicum of abstraction, rather than raw SQL calls... In general,
@@ -170,16 +170,25 @@ class DB(object):
     provide the interface to interact with the data.
     '''
 
-    def __init__(self, database):
+    def __init__(self, database, failure_lead_time):
         '''
         Connect to specified database and validate the schema
 
-        @param  database  SQLite database file
+        @param  database           SQLite database file
+        @param  failure_lead_time  Lead time before failed jobs rejoin
+                                   the queue
         '''
         self._conn = sqlite3.connect(database, isolation_level=None)
 
         if self._conn:
             self._validate_schema()
+
+            # Set the failure lead time
+            self._conn.execute('''
+              update mgrEvents
+              set    ttq = :ttq
+              where  id  = :failed_id
+            ''', {'failed_id': Event.failed, 'ttq': int(failure_lead_time.total_seconds())})
 
         else:
             raise sqlite3.InterfaceError('Could not connect to %s' % database)
@@ -246,10 +255,10 @@ class DB(object):
         '''
         Get the next FileUpdate for processing and update its state
 
-        @param   auto_log_for_processing  Automatically create the
-                                          processing event for the
-                                          retrieved model
-        @return  FileUpdate model, or None
+        @param  auto_log_for_processing  Automatically create the
+                                         processing event for the
+                                         retrieved model
+        @return FileUpdate model, or None
         '''
         cur = self._conn.execute('''
             select location,
@@ -323,7 +332,7 @@ class DB(object):
                         values   (1,  'imported',   0),
                                  (2,  'processing', null),
                                  (3,  'completed',  null),
-                                 (4,  'failed',     5 * 24 * 60 * 60);
+                                 (4,  'failed',     null);
 
             create table if not exists mgrLog (
                 id         integer  primary key,
