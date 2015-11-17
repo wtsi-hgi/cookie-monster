@@ -175,8 +175,7 @@ class DB(object):
         Connect to specified database and validate the schema
 
         @param  database           SQLite database file
-        @param  failure_lead_time  Lead time before failed jobs rejoin
-                                   the queue
+        @param  failure_lead_time  Time before failures are requeued
         '''
         self._conn = sqlite3.connect(database, isolation_level=None)
 

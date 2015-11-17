@@ -64,7 +64,10 @@ class DataManager(Listenable):
     '''
     def __init__(self, database: str, failure_lead_time: timedelta):
         '''
-        @param  database  SQLite database
+        Constructor
+
+        @param  database           SQLite database
+        @param  failure_lead_time  Time before failures are requeued
         '''
         super(DataManager, self).__init__()
         self._db = DB(database, failure_lead_time)
