@@ -9,8 +9,8 @@ Exportable classes: `DB`, `Event`
 
 `DB` is to be instantiated with the SQLite database file (or in-memory
 representation), and provides an interface with it, and the failure lead
-time.  It will also build the schema if it doesn't exist, or validate it
-if it does.  Interface methods are as follows:
+time. It will also build the schema if it doesn't exist, or validate it
+if it does. Interface methods are as follows:
 
 * `add_new_model` Add a new model to the database and create the
   respective import log event
@@ -87,7 +87,7 @@ this to whatever flavour-of-the-month abstraction you see fit.
 
 Dependencies
 ------------
-SQLite 3.7.11
+* SQLite 3.7.11
 
 Authors
 -------
@@ -101,6 +101,7 @@ Copyright (c) 2015 Genome Research Limited
 
 import sqlite3
 from typing import Optional, Tuple
+from enum import Enum
 from time import mktime
 from datetime import datetime, timedelta
 from cookiemonster.common.models import FileUpdate
@@ -156,7 +157,7 @@ class _FileUpdateAdaptor(object):
             datetime.fromtimestamp(row[timestamp_index])
         )
 
-class Event(object):
+class Event(Enum):
     ''' Event enumeration '''
     imported   = 1
     processing = 2
@@ -187,7 +188,7 @@ class DB(object):
               update mgrEvents
               set    ttq = :ttq
               where  id  = :failed_id
-            ''', {'failed_id': Event.failed, 'ttq': int(failure_lead_time.total_seconds())})
+            ''', {'failed_id': Event.failed.value, 'ttq': int(failure_lead_time.total_seconds())})
 
         else:
             raise sqlite3.InterfaceError('Could not connect to %s' % database)
@@ -231,7 +232,7 @@ class DB(object):
         except:
             return False
 
-    def log_event_for_model(self, file_update: FileUpdate, event_id: int) -> bool:
+    def log_event_for_model(self, file_update: FileUpdate, event_id: Event) -> bool:
         '''
         Add a new event for a FileUpdate
 
@@ -244,7 +245,7 @@ class DB(object):
             self._conn.execute('''
                 insert into mgrLog(file_id,  event_id)
                             values(:file_id, :event_id)
-            ''', {'file_id': file_id, 'event_id': event_id})
+            ''', {'file_id': file_id, 'event_id': event_id.value})
             return True
 
         except:
