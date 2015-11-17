@@ -100,6 +100,7 @@ Copyright (c) 2015 Genome Research Limited
 '''
 
 import sqlite3
+from typing import Optional, Tuple
 from time import mktime
 from datetime import datetime, timedelta
 from cookiemonster.common.models import FileUpdate
@@ -108,8 +109,6 @@ from cookiemonster.common.models import FileUpdate
 # this code is a bit of a big ball of mud and needs iterating against.
 
 # TODO Testing code...
-
-# TODO Type hints
 
 # TODO Determine minimal compatible version
 _sqlite3_version_required = (3, 7, 11)
@@ -123,7 +122,7 @@ if sqlite3.sqlite_version_info < _sqlite3_version_required:
 class _FileUpdateAdaptor(object):
     ''' Convert between FileUpdate model and DB representation '''
     @staticmethod
-    def from_model(file_update, location_key='location', hash_key='hash', timestamp_key='timestamp'):
+    def from_model(file_update: FileUpdate, location_key: str = 'location', hash_key: str = 'hash', timestamp_key: str = 'timestamp') -> dict:
         '''
         Convert a FileUpdate model into a dictionary concordant with the
         database schema
@@ -141,7 +140,7 @@ class _FileUpdateAdaptor(object):
         }
 
     @staticmethod
-    def to_model(row, location_index=0, hash_index=1, timestamp_index=2):
+    def to_model(row: Tuple[str, str, int], location_index: int = 0, hash_index: int = 1, timestamp_index: int = 2) -> FileUpdate:
         '''
         Convert a database row into a FileUpdate model
 
@@ -170,7 +169,7 @@ class DB(object):
     provide the interface to interact with the data.
     '''
 
-    def __init__(self, database, failure_lead_time):
+    def __init__(self, database: str, failure_lead_time: timedelta):
         '''
         Connect to specified database and validate the schema
 
@@ -198,7 +197,7 @@ class DB(object):
         if self._conn:
             self._conn.close()
 
-    def _get_file_id_by_model(self, file_update):
+    def _get_file_id_by_model(self, file_update: FileUpdate) -> int:
         ''' Get ID of FileUpdate '''
         cur = self._conn.execute('''
             select id
@@ -215,7 +214,7 @@ class DB(object):
         else:
             raise sqlite3.DataError('No such FileUpdate')
 
-    def add_new_model(self, new_file):
+    def add_new_model(self, new_file: FileUpdate) -> bool:
         '''
         Add a new FileUpdate to the database
 
@@ -232,7 +231,7 @@ class DB(object):
         except:
             return False
 
-    def log_event_for_model(self, file_update, event_id):
+    def log_event_for_model(self, file_update: FileUpdate, event_id: int) -> bool:
         '''
         Add a new event for a FileUpdate
 
@@ -251,7 +250,7 @@ class DB(object):
         except:
             return False
 
-    def get_next_model_for_processing(self, auto_log_for_processing=True):
+    def get_next_model_for_processing(self, auto_log_for_processing: bool = True) -> Optional[FileUpdate]:
         '''
         Get the next FileUpdate for processing and update its state
 
@@ -279,7 +278,7 @@ class DB(object):
         else:
             return None
 
-    def get_processing_queue_size(self):
+    def get_processing_queue_size(self) -> int:
         '''
         Get the number of items ready for processing
 
@@ -368,7 +367,7 @@ class DB(object):
                 on        mgrEvents.id     = latest.event_id
                 and       mgrEvents.ttq   is not null
                 where     later.id is null
-                and       cast(strftime('%s', 'now') as integer) > latest.timestamp + mgrEvents.ttq
+                and       cast(strftime('%s', 'now') as integer) >= latest.timestamp + mgrEvents.ttq
                 order by  latest.timestamp asc;
             
             create view if not exists mgrQueueSize as

@@ -49,6 +49,7 @@ GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
 
+from typing import Optional
 from datetime import timedelta
 from cookiemonster.common.listenable import Listenable
 from cookiemonster.common.models import FileUpdate
@@ -57,13 +58,11 @@ from cookiemonster.manager._db import DB, Event
 
 # TODO Testing code...
 
-# TODO Type hints
-
 class DataManager(Listenable):
     '''
     Manage the FileUpdate processing workflow
     '''
-    def __init__(self, database, failure_lead_time):
+    def __init__(self, database: str, failure_lead_time: timedelta):
         '''
         @param  database  SQLite database
         '''
@@ -71,7 +70,7 @@ class DataManager(Listenable):
         self._db = DB(database, failure_lead_time)
         self._listeners = []
 
-    def file_update_retrieval_listener(self, file_updates):
+    def file_update_retrieval_listener(self, file_updates: FileUpdateCollection):
         '''
         Listen to the retriever and import all the new FileUpdates that
         it broadcasts.
@@ -86,7 +85,7 @@ class DataManager(Listenable):
         if queue_size > 0:
             self.notify_listeners(queue_size)
 
-    def get_next_model_for_processing(self):
+    def get_next_model_for_processing(self) -> Optional[FileUpdate]:
         '''
         Get the next FileUpdate for processing and update its sate
 
@@ -94,7 +93,7 @@ class DataManager(Listenable):
         '''
         return self._db.get_next_model_for_processing()
 
-    def get_processing_queue_size(self):
+    def get_processing_queue_size(self) -> int:
         '''
         Get the number of items ready for processing
 
@@ -102,7 +101,7 @@ class DataManager(Listenable):
         '''
         return self._db.get_processing_queue_size()
 
-    def mark_model_as_completed(self, file_update):
+    def mark_model_as_completed(self, file_update: FileUpdate) -> bool:
         '''
         Mark a model as completed successfully
 
@@ -111,7 +110,7 @@ class DataManager(Listenable):
         '''
         return self._db.log_event_for_model(file_update, Event.completed)
 
-    def mark_model_as_failed(self, file_update):
+    def mark_model_as_failed(self, file_update: FileUpdate) -> bool:
         '''
         Mark a model as failed processing
 
