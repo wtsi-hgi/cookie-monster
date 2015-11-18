@@ -1,0 +1,4 @@
+[ ] Logic to ensure only the latest update to a file is set to be processed
+[ ] public interface to allow changes to the state of the work (complete(x), re-process(path), re-process-all())
+[ ] get all previous changes to file
+[ ] persist file metadata
