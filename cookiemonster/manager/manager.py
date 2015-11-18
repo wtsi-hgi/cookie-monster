@@ -29,10 +29,10 @@ class DataManager(object):
 
     def __call__(self):
         ''' Syntactic sugar '''
-        return self.produce()
+        return self.get()
 
     # TODO Better name? import?
-    def consume(self, models):
+    def add(self, models):
         '''
         Add the supplied list of models to the database, ready for
         processing
@@ -40,9 +40,14 @@ class DataManager(object):
         pass
 
     # TODO Better name? get?
-    def produce(self):
+    def get(self):
         '''
         Return a new FileUpdate model for processing, or None if we've
         exhausted the pool.
         '''
+        # TODO: Logic to ensure only the latest update to a file is set to be processed
         pass
+
+    # TODO: public interface to allow changes to the state of the work (complete(x), re-process(path), re-process-all())
+
+    # TODO: get all previous changes to file x

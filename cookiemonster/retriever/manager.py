@@ -6,7 +6,7 @@ from cookiemonster.retriever._models import QueryResult, RetrievalLog
 from cookiemonster.retriever._retriever import FileUpdateRetriever
 from cookiemonster.retriever.mappers import RetrievalLogMapper
 
-
+# TODO: In the future, this may not be periodics
 class RetrievalManager(Listenable):
     """
     Manages the periodic retrieval of file updates.

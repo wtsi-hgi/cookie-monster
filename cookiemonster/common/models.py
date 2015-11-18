@@ -31,8 +31,8 @@ class FileUpdate(Model):
         :param file_location: the location of the file that has been updated
         :param file_hash: hash of the file
         :param timestamp: the timestamp of when the file was updated
-        :return:
         """
         self.file_location = file_location
         self.file_hash = file_hash
         self.timestamp = timestamp
+        # TODO: Add key/value pairs

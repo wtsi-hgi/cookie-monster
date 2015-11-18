@@ -18,8 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 This file has been created on Nov 06, 2015.
 """
-
-from cookiemonster.common.models import FileUpdate, FileUpdateCollection
+from cookiemonster.common.collections import FileUpdateCollection
+from cookiemonster.common.models import FileUpdate
 
 
 class FileUpdatesHandler:
