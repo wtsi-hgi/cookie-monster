@@ -8,9 +8,9 @@ database.
 Exportable classes: `DB`, `Event`
 
 `DB` is to be instantiated with the SQLite database file (or in-memory
-representation) and provides an interface with it. It will also build
-the schema if it doesn't exist, or validate it if it does. Interface
-methods are as follows:
+representation), and provides an interface with it, and the failure lead
+time. It will also build the schema if it doesn't exist, or validate it
+if it does. Interface methods are as follows:
 
 * `add_new_model` Add a new model to the database and create the
   respective import log event
@@ -22,7 +22,7 @@ methods are as follows:
   requires processing (optionally marking it as such)
 
 * `get_processing_queue_size` Return the number of FileUpdate models in
-  the processing queue
+  the [pending for] processing queue
 
 `Event` is a simple enumeration class, not for instantiation, used with
 DB's `log_event_for_model` method. Enumerated constants are as follows:
@@ -87,7 +87,7 @@ this to whatever flavour-of-the-month abstraction you see fit.
 
 Dependencies
 ------------
-SQLite 3.7.11
+* SQLite 3.7.11
 
 Authors
 -------
@@ -100,8 +100,10 @@ Copyright (c) 2015 Genome Research Limited
 '''
 
 import sqlite3
+from typing import Optional, Tuple
+from enum import Enum
 from time import mktime
-from datetime import datetime
+from datetime import datetime, timedelta
 from cookiemonster.common.models import FileUpdate
 
 # TODO Modicum of abstraction, rather than raw SQL calls... In general,
@@ -109,13 +111,19 @@ from cookiemonster.common.models import FileUpdate
 
 # TODO Testing code...
 
-if sqlite3.sqlite_version_info < (3, 7, 11):
-    raise sqlite3.NotSupportedError('Requires SQLite 3.7.11, or newer. You have %s.' % sqlite3.sqlite_version)
+# TODO Determine minimal compatible version
+_sqlite3_version_required = (3, 7, 11)
+if sqlite3.sqlite_version_info < _sqlite3_version_required:
+    error_text = 'Requires SQLite {required}, or newer. You have {actual}.'.format(
+        required='.'.join(str(i) for i in _sqlite3_version_required),
+        actual=sqlite3.sqlite_version
+    )
+    raise sqlite3.NotSupportedError(error_text)
 
 class _FileUpdateAdaptor(object):
     ''' Convert between FileUpdate model and DB representation '''
     @staticmethod
-    def from_model(file_update, location_key='location', hash_key='hash', timestamp_key='timestamp'):
+    def from_model(file_update: FileUpdate, location_key: str = 'location', hash_key: str = 'hash', timestamp_key: str = 'timestamp') -> dict:
         '''
         Convert a FileUpdate model into a dictionary concordant with the
         database schema
@@ -133,7 +141,7 @@ class _FileUpdateAdaptor(object):
         }
 
     @staticmethod
-    def to_model(row, location_index=0, hash_index=1, timestamp_index=2):
+    def to_model(row: Tuple[str, str, int], location_index: int = 0, hash_index: int = 1, timestamp_index: int = 2) -> FileUpdate:
         '''
         Convert a database row into a FileUpdate model
 
@@ -149,7 +157,7 @@ class _FileUpdateAdaptor(object):
             datetime.fromtimestamp(row[timestamp_index])
         )
 
-class Event(object):
+class Event(Enum):
     ''' Event enumeration '''
     imported   = 1
     processing = 2
@@ -162,16 +170,24 @@ class DB(object):
     provide the interface to interact with the data.
     '''
 
-    def __init__(self, database):
+    def __init__(self, database: str, failure_lead_time: timedelta):
         '''
         Connect to specified database and validate the schema
 
-        @param  database  SQLite database file
+        @param  database           SQLite database file
+        @param  failure_lead_time  Time before failures are requeued
         '''
         self._conn = sqlite3.connect(database, isolation_level=None)
 
         if self._conn:
             self._validate_schema()
+
+            # Set the failure lead time
+            self._conn.execute('''
+              update mgrEvents
+              set    ttq = :ttq
+              where  id  = :failed_id
+            ''', {'failed_id': Event.failed.value, 'ttq': int(failure_lead_time.total_seconds())})
 
         else:
             raise sqlite3.InterfaceError('Could not connect to %s' % database)
@@ -181,7 +197,7 @@ class DB(object):
         if self._conn:
             self._conn.close()
 
-    def _get_file_id_by_model(self, file_update):
+    def _get_file_id_by_model(self, file_update: FileUpdate) -> int:
         ''' Get ID of FileUpdate '''
         cur = self._conn.execute('''
             select id
@@ -198,7 +214,7 @@ class DB(object):
         else:
             raise sqlite3.DataError('No such FileUpdate')
 
-    def add_new_model(self, new_file):
+    def add_new_model(self, new_file: FileUpdate) -> bool:
         '''
         Add a new FileUpdate to the database
 
@@ -215,7 +231,7 @@ class DB(object):
         except:
             return False
 
-    def log_event_for_model(self, file_update, event_id):
+    def log_event_for_model(self, file_update: FileUpdate, event_id: Event) -> bool:
         '''
         Add a new event for a FileUpdate
 
@@ -228,20 +244,20 @@ class DB(object):
             self._conn.execute('''
                 insert into mgrLog(file_id,  event_id)
                             values(:file_id, :event_id)
-            ''', {'file_id': file_id, 'event_id': event_id})
+            ''', {'file_id': file_id, 'event_id': event_id.value})
             return True
 
         except:
             return False
 
-    def get_next_model_for_processing(self, auto_log_for_processing=True):
+    def get_next_model_for_processing(self, auto_log_for_processing: bool = True) -> Optional[FileUpdate]:
         '''
         Get the next FileUpdate for processing and update its state
 
-        @param   auto_log_for_processing  Automatically create the
-                                          processing event for the
-                                          retrieved model
-        @return  FileUpdate model, or None
+        @param  auto_log_for_processing  Automatically create the
+                                         processing event for the
+                                         retrieved model
+        @return FileUpdate model, or None
         '''
         cur = self._conn.execute('''
             select location,
@@ -262,7 +278,7 @@ class DB(object):
         else:
             return None
 
-    def get_processing_queue_size(self):
+    def get_processing_queue_size(self) -> int:
         '''
         Get the number of items ready for processing
 
@@ -315,7 +331,7 @@ class DB(object):
                         values   (1,  'imported',   0),
                                  (2,  'processing', null),
                                  (3,  'completed',  null),
-                                 (4,  'failed',     5 * 24 * 60 * 60);
+                                 (4,  'failed',     null);
 
             create table if not exists mgrLog (
                 id         integer  primary key,
@@ -327,7 +343,7 @@ class DB(object):
                                     default (strftime('%s', 'now'))
             );
 
-            create index if not exists mgrIdxLog on mgrLog (file_id, timestamp asc);
+            create index if not exists mgrIdxLog on mgrLog (file_id, id asc);
 
             create index if not exists mgrIdxLogTime on mgrLog (timestamp asc);
 
@@ -344,19 +360,34 @@ class DB(object):
                 from      mgrLog latest
                 left join mgrLog later
                 on        later.file_id    = latest.file_id
-                and       later.timestamp  > latest.timestamp
+                and       later.id         > latest.id
                 join      mgrFileUpdate
                 on        mgrFileUpdate.id = latest.file_id
                 join      mgrEvents
                 on        mgrEvents.id     = latest.event_id
                 and       mgrEvents.ttq   is not null
                 where     later.id is null
-                and       cast(strftime('%s', 'now') as integer) > latest.timestamp + mgrEvents.ttq
+                and       cast(strftime('%s', 'now') as integer) >= latest.timestamp + mgrEvents.ttq
                 order by  latest.timestamp asc;
             
             create view if not exists mgrQueueSize as
                 select count(*) queue_size
                 from   mgrQueue;
+
+            /* Remove orphaned "processing" records from the log
+               If the latest log entry for a FileUpdate is "processing"
+               then we know that the processor died before it finished
+               and, thus, these need to be reprocessed.               */
+
+            delete from mgrLog where id in (
+                select    latest.id
+                from      mgrLog latest
+                left join mgrLog later
+                on        later.file_id    = latest.file_id
+                and       later.id         > latest.id
+                where     later.id        is null
+                and       latest.event_id  = 2
+            );
 
             vacuum;
         ''')
