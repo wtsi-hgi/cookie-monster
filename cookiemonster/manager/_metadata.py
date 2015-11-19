@@ -57,7 +57,8 @@ def _document_to_metadata(doc: couchdb.client.Document) -> Metadata:
     @param  doc  CouchDB document
     @return Metadata dictionary
     '''
-    return Metadata({key: value for key, value in doc.items() if key not in ['_id', '_rev']})
+    couch_keys = ['_id', '_rev']
+    return Metadata({key: value for key, value in doc.items() if key not in couch_keys})
 
 class MetadataDB(object):
     '''
@@ -87,14 +88,14 @@ class MetadataDB(object):
         @param  revision  Revision ID
         @return Metadata dictionary (or None)
         '''
-        key = str(file_id)
+        doc_key = str(file_id)
         output = None
 
-        if key in self._db:
+        if doc_key in self._db:
             if revision is None:
-                output = self._db[key]
+                output = self._db[doc_key]
             else:
-                output = next((doc for doc in self._db.revisions(key) if doc['_rev'] == revision), None)
+                output = next((doc for doc in self._db.revisions(doc_key) if doc['_rev'] == revision), None)
 
         if output:
             output = _document_to_metadata(output)
@@ -119,9 +120,11 @@ class MetadataDB(object):
         doc['_id'] = str(doc_key)
         
         if doc_key in self._db:
-            # Update
+            # Update (if necessary)
             current = _document_to_metadata(self._db[doc_key])
             if metadata != current:
+                # To avoid update conflicts, we must explicitly set the
+                # revision key to the latest
                 doc['_rev'] = self._db[doc_key]['_rev']
                 _, _rev = self._db.save(doc)
             else:
