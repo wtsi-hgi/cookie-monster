@@ -15,6 +15,8 @@ Copyright (c) 2015 Genome Research Limited
 
 from abc import ABCMeta
 from datetime import date
+from typing import Union, Dict, List
+import json
 
 
 class Model(metaclass=ABCMeta):
@@ -34,7 +36,6 @@ class Model(metaclass=ABCMeta):
             if other.__dict__[property] != self.__dict__[property]:
                 return False
         return True
-
 
 class Metadata(dict):
     '''
@@ -64,12 +65,14 @@ class Metadata(dict):
         else:
             super().__setitem__(key, [value])
 
+''' Metadata import type: Metadata, dictionary or (JSON) string '''
+_MetadataT = Union[Metadata, Dict[str, List[str]], dict, str]
 
 class FileUpdate(Model):
     """
     Model of a file update.
     """
-    def __init__(self, file_location: str, file_hash: hash, timestamp: date, metadata: Metadata):
+    def __init__(self, file_location: str, file_hash: hash, timestamp: date, metadata: _MetadataT):
         """
         Constructor.
         :param file_location: the location of the file that has been updated
@@ -80,4 +83,14 @@ class FileUpdate(Model):
         self.file_location = file_location
         self.file_hash = file_hash
         self.timestamp = timestamp
-        self.metadata = metadata
+
+        if type(metadata) is Metadata:
+            self.metadata = metadata
+        elif type(metadata) is dict:
+            # Canonicalise dictionary into Metadata
+            self.metadata = Metadata(metadata)
+        elif type(metadata) is str:
+            # Attempt to build Metadata from JSON
+            self.metadata = Metadata(json.loads(metadata))
+        else:
+            raise TypeError('Could not parse metadata')
