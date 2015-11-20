@@ -242,7 +242,7 @@ class WorkflowDB(object):
         mdb = self._db['metadata']
 
         # Get file path
-        file_location = sql.execute('''
+        file_location, = sql.execute('''
             select path
             from   mgrFiles
             where  id = :file_id
@@ -281,7 +281,7 @@ class WorkflowDB(object):
             metadata
         )
 
-    def _log_by_id(self, file_id: int, event_id, Event):
+    def _log_by_id(self, file_id: int, event_id: Event):
         '''
         Log an arbitrary event against a file ID, while keeping the log
         and metadata state consistent. Specifically:
@@ -328,7 +328,7 @@ class WorkflowDB(object):
                 and    state_id = :state_id
             ''', {
                 'file_id':  file_id,
-                'state_id': _Status.inflight
+                'state_id': _Status.inflight.value
             })
 
         if write_log:
@@ -340,7 +340,7 @@ class WorkflowDB(object):
                 'event_id': event_id.value
             })
 
-    def log(self, file_update: FileUpdate, event_id, Event):
+    def log(self, file_update: FileUpdate, event_id: Event):
         '''
         Log an arbitrary event against a FileUpdate model
         
@@ -428,7 +428,6 @@ class WorkflowDB(object):
                            timestamp   = :timestamp,
                            metadata_id = :metadata_id
                     where  id          = :meta_id
-                    and    state_id    = :state_id
                 ''', {
                     'meta_id':     meta_id,
                     'hash':        file_update.file_hash,
