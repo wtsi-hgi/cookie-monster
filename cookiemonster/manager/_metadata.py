@@ -28,7 +28,7 @@ Methods:
   revision
 
 * `upsert` Insert/update a metadata dictionary into the database by its
-  file ID.
+  file ID
 
 Dependencies
 ------------
@@ -110,9 +110,9 @@ class MetadataDB(object):
         @param  metadata  Metadata dictionary
         @return The revisions key for the document
 
-        n.b., If the metadata hasn't changed since the previous
-        revision, then no insert is performed and the current revision
-        key will be returned
+        n.b., If the metadata hasn't changed since the current revision,
+        then no insert is performed and that revision's key will be
+        returned
         '''
         doc_key = str(file_id)
 

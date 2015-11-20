@@ -84,6 +84,8 @@ class FileUpdate(Model):
         self.file_hash = file_hash
         self.timestamp = timestamp
 
+        # FIXME? This is probably a teensy bit "unpythonic".
+        # It will do for now...
         if type(metadata) is Metadata:
             self.metadata = metadata
         elif type(metadata) is dict:
