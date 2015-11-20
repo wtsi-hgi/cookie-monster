@@ -114,7 +114,7 @@ Copyright (c) 2015 Genome Research Limited
 '''
 
 import sqlite3
-from typing import Optional
+from typing import Optional, Tuple
 from enum import Enum
 from time import mktime
 from datetime import datetime, timedelta
@@ -210,21 +210,24 @@ class WorkflowDB(object):
 
         return file_id
 
-    def _get_event(self, file_id: int) -> Event:
+    def _get_event(self, file_id: int) -> Tuple[int, Event]:
         '''
         Get the latest event for a file by its ID
 
         @param  file_id  File ID
-        @return The latest Event
+        @return The latest Event, with its ID
         '''
         sql = self._db['workflow']
-        return Event(sql.execute('''
-            select event_id
+        log_id, event_id = sql.execute('''
+            select id,
+                   event_id
             from   mgrFileStatus
             where  file_id = :file_id
         ''', {
             'file_id': file_id
-        }).fetchone()[0])
+        }).fetchone()
+
+        return log_id, Event(event_id)
 
     def _fetch(self, file_id: int, status: _Status = _Status.latest) -> Optional[FileUpdate]:
         '''
@@ -278,34 +281,77 @@ class WorkflowDB(object):
             metadata
         )
 
-    def _log_by_id(self, file_id: int, event_id, Event) -> bool:
-# Check file already exists
-# - No: Create file, metadata and log
-# - Yes: Check metadata matches
-#   - Yes: Do nothing
-#   - No:  Check status
-#     - latest:   update metadata (no log)
-#     - inflight: update metadata and
-#                 reprocess exists:
-#                 - yes: update reprocess timestamp
-#                 - no:  insert reprocess log
-        pass
+    def _log_by_id(self, file_id: int, event_id, Event):
+        '''
+        Log an arbitrary event against a file ID, while keeping the log
+        and metadata state consistent. Specifically:
+        
+        * Each file should have at most one "reprocess" event; a new
+          "reprocess" event should just update the current ones
+          timestamp
+        * A "completed" or "failed" event should delete the inflight
+          metadata record for that file
+        * A "completed" or "failed" event should not be logged if there
+          is a pending "reprocess"
 
-    def log(self, file_update: FileUpdate, event_id, Event) -> bool:
+        @param  file_id   File ID
+        @param  event_id  Event
+        '''
+        sql = self._db['workflow']
+        write_log = True
+
+        if event_id is Event.reprocess:
+            # Update any existing reprocess event, rather
+            # than create a new one
+            log_id, current_event = self._get_event(file_id)
+            if current_event is Event.reprocess:
+                write_log = False
+                sql.execute('''
+                    update mgrLog
+                    set    timestamp = strftime('%s', 'now')
+                    where  id        = :log_id
+                ''', {
+                    'log_id': log_id   
+                })
+
+        elif event_id in [Event.completed, Event.failed]:
+            # Don't log if we want to reprocess
+            _, current_event = self._get_event(file_id)
+            if current_event is Event.reprocess:
+                write_log = False
+
+            # Delete inflight record
+            sql.execute('''
+                delete
+                from   mgrFileMeta
+                where  file_id  = :file_id
+                and    state_id = :state_id
+            ''', {
+                'file_id':  file_id,
+                'state_id': _Status.inflight
+            })
+
+        if write_log:
+            sql.execute('''
+                insert into mgrLog(file_id,  event_id)
+                            values(:file_id, :event_id)
+            ''', {
+                'file_id':  file_id,
+                'event_id': event_id.value
+            })
+
+    def log(self, file_update: FileUpdate, event_id, Event):
         '''
         Log an arbitrary event against a FileUpdate model
         
         @param  file_update FileUpdate model
         @param  event_id    Event
-        @return Success
 
         n.b., This is just a wrapper over the internal `_log_by_id`
         '''
         file_id = self._get_id(file_update)
         if file_id:
-            return self._log_by_id(file_id, event_id)
-        else:
-            return False
+            self._log_by_id(file_id, event_id)
 
     def upsert(self, file_update: FileUpdate) -> int:
         '''
