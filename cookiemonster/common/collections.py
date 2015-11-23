@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.models import Metadata, FileUpdate
 
 
 class FileUpdateCollection(list):
@@ -18,7 +18,7 @@ class FileUpdateCollection(list):
         if len(self) == 0:
             raise ValueError("No file updates in collection")
 
-        most_recent = [FileUpdate("", "", datetime.min)]
+        most_recent = [FileUpdate("", "", datetime.min, Metadata())]
         for file_update in self:
             assert len(most_recent) > 0
             most_recent_so_far = most_recent[0].timestamp
