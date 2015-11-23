@@ -17,16 +17,23 @@ def main():
     retrieval_log_database_location = ""
     retrieval_period = timedelta()
     file_updates_since = datetime.now()
-    workflow_database_location = ""
-    workflow_failure_lead_time = timedelta(days=5)
+    workflow_database_location = "foo.sqlite"
+    metadata_database_host = "http://localhost:5984"
+    metadata_database_name = "foo"
+    failure_lead_time = timedelta(days=5)
 
     # TODO: Setup other things
-    data_manager = DataManager(workflow_database_location, workflow_failure_lead_time)
+    data_manager = DataManager(
+        workflow_database_location,
+        metadata_database_host,
+        metadata_database_name,
+        failure_lead_time
+    )
 
     # Coordinates setup of data retrieval
     retrieval_manager = create_retrieval_manager(retrieval_period, retrieval_log_database_location)
     retrieval_manager.add_listener(on_file_updates_retrieved)
-    retrieval_manager.add_listener(data_manager.file_update_retrieval_listener)
+    retrieval_manager.add_listener(data_manager)
     retrieval_manager.start(file_updates_since)
 
 
