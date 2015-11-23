@@ -1,7 +1,6 @@
 '''
 Workflow Database Abstraction
 =============================
-
 Operations for managing the SQLite-based workflow database; including
 its creation, checking and interaction.
 
@@ -135,6 +134,10 @@ if sqlite3.sqlite_version_info < _sqlite3_version_required:
     )
     raise sqlite3.NotSupportedError(error_text)
 
+def _nuple(n: int = 1) -> Tuple[None, ...]:
+    ''' Produce an n-tuple of None '''
+    return (None,) * n
+
 def _unix_time(timestamp: datetime) -> int:
     ''' Convert datetime into Unix epoch '''
     return int(mktime(timestamp.timetuple()))
@@ -206,7 +209,7 @@ class WorkflowDB(object):
             where  path = :file_path
         ''', {
             'file_path': file_update.file_location
-        }).fetchone() or (None,)
+        }).fetchone() or _nuple()
 
         return file_id
 
@@ -248,7 +251,7 @@ class WorkflowDB(object):
             where  id = :file_id
         ''', {
             'file_id': file_id
-        }).fetchone() or (None,)
+        }).fetchone() or _nuple()
 
         if not file_location:
             return None
@@ -264,7 +267,7 @@ class WorkflowDB(object):
         ''', {
             'file_id':  file_id,
             'state_id': status.value
-        }).fetchone() or (None,) * 3
+        }).fetchone() or _nuple(3)
 
         if not metadata_id:
             return None
@@ -436,7 +439,8 @@ class WorkflowDB(object):
                 })
 
         # Write the log entry
-        self._log_by_id(file_id, Event.imported if new_file else Event.reprocess)
+        if new_file or new_metadata:
+            self._log_by_id(file_id, Event.imported if new_file else Event.reprocess)
 
         return file_id
 
@@ -446,13 +450,15 @@ class WorkflowDB(object):
         log appropriately
 
         @return Next FileUpdate to process (None, if empty)
+
+        TODO? Does it make sense to make this an iterator/generator?
         '''
         sql = self._db['workflow']
         next_id, = sql.execute('''
             select file_id
             from   mgrQueue
             limit  1
-        ''').fetchone() or (None,)
+        ''').fetchone() or _nuple()
 
         if not next_id:
             return None
@@ -534,7 +540,7 @@ class WorkflowDB(object):
 
             create table if not exists mgrLog (
                 id           integer  primary key,
-                file_id      integer  references mgrFileUpdate(id)
+                file_id      integer  references mgrFiles(id)
                                       not null,
                 event_id     integer  references mgrEvents(id)
                                       not null,
@@ -591,23 +597,15 @@ class WorkflowDB(object):
                "processing" logs. This MUST be done in this order. */
 
             delete from mgrLog where id in (
-                select    latest.id
-                from      mgrLog latest
-                left join mgrLog later
-                on        later.file_id    = latest.file_id
-                and       later.id         > latest.id
-                where     later.id        is null
-                and       latest.event_id  = 5 /* reprocess */
+                select id
+                from   mgrFileStatus
+                where  event_id = 5 /* reprocess */
             );
 
             delete from mgrLog where id in (
-                select    latest.id
-                from      mgrLog latest
-                left join mgrLog later
-                on        later.file_id    = latest.file_id
-                and       later.id         > latest.id
-                where     later.id        is null
-                and       latest.event_id  = 2 /* processing */
+                select id
+                from   mgrFileStatus
+                where  event_id = 2 /* processing */
             );
 
             delete from mgrFileMeta where state_id = 2; /* inflight */
