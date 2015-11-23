@@ -3,7 +3,7 @@ from datetime import timedelta, date, datetime
 from unittest.mock import MagicMock, call
 
 from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.models import Metadata, FileUpdate
 from cookiemonster.retriever._models import QueryResult, RetrievalLog
 from cookiemonster.retriever.manager import RetrievalManager
 from cookiemonster.tests.retriever.stubs import StubFileUpdateRetriever
@@ -30,8 +30,8 @@ class TestRetrievalManager(unittest.TestCase):
 
         # Setup mock FileUpdateRetriever
         self._file_updates = FileUpdateCollection([
-            FileUpdate("a", hash("b"), datetime(year=1999, month=1, day=2)),
-            FileUpdate("b", hash("c"), datetime(year=1998, month=12, day=20))])
+            FileUpdate("a", hash("b"), datetime(year=1999, month=1, day=2), Metadata()),
+            FileUpdate("b", hash("c"), datetime(year=1998, month=12, day=20), Metadata())])
         self._query_result = QueryResult(self._file_updates, TestRetrievalManager._TIME_TAKEN_TO_DO_RETRIEVE)
         self._file_update_retriever.query_for_all_file_updates_since = MagicMock(return_value=self._query_result)
 
