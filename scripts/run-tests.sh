@@ -1,4 +1,5 @@
 #!/bin/bash
-./scripts/pip-install-requirements.sh
-pip install -q nose
+pip install -q -r requirements.txt
+pip install -q -r test_requirements.txt
+
 nosetests -v

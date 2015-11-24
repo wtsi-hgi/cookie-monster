@@ -1,5 +1,6 @@
-# Cookie Monster
 [![Build Status](https://travis-ci.org/wtsi-hgi/cookie-monster.svg)](https://travis-ci.org/wtsi-hgi/cookie-monster)
+
+# Cookie Monster
 
 ## How to develop
 ### Testing
