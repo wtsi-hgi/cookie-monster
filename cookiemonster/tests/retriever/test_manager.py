@@ -2,8 +2,8 @@ import unittest
 from datetime import timedelta, date, datetime
 from unittest.mock import MagicMock, call
 
-from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.models import Metadata, FileUpdate
+from cookiemonster.common.collections import FileUpdateCollection, Metadata
+from cookiemonster.common.models import FileUpdate
 from cookiemonster.retriever._models import QueryResult, RetrievalLog
 from cookiemonster.retriever.manager import RetrievalManager
 from cookiemonster.tests.retriever.stubs import StubFileUpdateRetriever

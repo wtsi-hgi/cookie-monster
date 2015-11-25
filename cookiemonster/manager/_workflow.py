@@ -117,7 +117,7 @@ from typing import Optional, Tuple
 from enum import Enum
 from time import mktime
 from datetime import datetime, timedelta
-from cookiemonster.common.models import Metadata, FileUpdate
+from cookiemonster.common.models import FileUpdate
 from cookiemonster.manager._metadata import MetadataDB
 
 # TODO Modicum of abstraction, rather than raw SQL calls... In general,

@@ -1,7 +1,8 @@
 from datetime import timedelta, datetime
 
+from hgicommon.models import Model
+
 from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.models import Model
 
 
 class RetrievalLog(Model):

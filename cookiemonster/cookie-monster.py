@@ -3,7 +3,7 @@ from datetime import timedelta, datetime
 from sqlalchemy import create_engine
 
 from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.sqlalchemy_database_connector import SQLAlchemyDatabaseConnector
+from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
 from cookiemonster.retriever.irods.baton_retriever import BatonFileUpdateRetriever
 from cookiemonster.retriever.irods.irods_config import IrodsConfig
 from cookiemonster.retriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
