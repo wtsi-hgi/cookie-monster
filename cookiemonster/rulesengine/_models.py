@@ -1,7 +1,7 @@
 from typing import Callable, List, Any
 from hgicommon.models import Model
 
-from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.models import FileUpdate, Notification
 from cookiemonster.rulesengine._collections import DataEnvironment
 
 

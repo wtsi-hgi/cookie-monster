@@ -19,9 +19,9 @@ through from the retriever, through the data manager and on to
 downstream processing. Said processing will need to send messages back
 to the data manager via the following methods:
 
-* `get_next_for_processing` Return the next FileUpdate model (including
-  its previously processed version, where available) that requires
-  processing
+* `get_next_for_processing` Return the next FileProcessState model that
+  requires processing (i.e., the current FileUpdate to process and its
+  last processed state)
 
 * `queue_length` Return the number of FileUpdate models in the [pending
   for] processing queue
@@ -59,7 +59,7 @@ from datetime import timedelta
 from typing import Optional, Union, Tuple
 from hgicommon.listenable import Listenable
 from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.models import FileUpdate, FileProcessState
 from cookiemonster.manager._metadata import MetadataDB
 from cookiemonster.manager._workflow import WorkflowDB, Event
 
@@ -96,13 +96,11 @@ class DataManager(Listenable):
         if queue_size > 0:
             self.notify_listeners(queue_size)
 
-    def get_next_for_processing(self) -> Optional[Union[FileUpdate, Tuple[FileUpdate, FileUpdate]]]:
+    def get_next_for_processing(self) -> Optional[FileProcessState]:
         '''
         Get the next FileUpdate for processing and update its state
 
-        @return None, if nothing is available for processing
-                FileUpdate model, when no historical processing has been performed
-                (new FileUpdate, processed FileUpdate), when historical data exists
+        @return FileProcessState (None, if nothing found)
         '''
         return self._workflow.dequeue()
 

@@ -14,7 +14,12 @@ Copyright (c) 2015 Genome Research Limited
 '''
 import json
 from datetime import date
+<<<<<<< HEAD
 from typing import Union, Dict, List, Any
+=======
+from typing import Optional, Union, Dict, List
+
+>>>>>>> f8eca9da059e490b0ba6ff869f3edbb74ddd8796
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
 
@@ -50,6 +55,24 @@ class FileUpdate(Model):
             self.metadata = Metadata(json.loads(metadata))
         else:
             raise TypeError('Could not parse metadata')
+
+
+class FileProcessState(Model):
+    '''
+    Model file processing state
+    '''
+    def __init__(self, current_state: FileUpdate, processed_state: Optional[FileUpdate]):
+        '''
+        Constructor
+
+        @param  current_state   Current FileUpdate for processing
+        @param  processed_state Previously processed FileUpdate
+        '''
+        self.current_state   = current_state
+        self.processed_state = processed_state
+
+        # TODO? Generate diff...
+
 
 
 class Notification(Model):
