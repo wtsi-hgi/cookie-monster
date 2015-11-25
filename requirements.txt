@@ -3,3 +3,5 @@ CouchDB==1.0
 
 # Is this needed?
 mypy-lang==0.2.0
+
+git+https://github.com/wtsi-hgi/common-python.git@master#egg=hgicommon

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import create_engine
 
-from cookiemonster.common.sqlalchemy_database_connector import SQLAlchemyDatabaseConnector
+from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
 from cookiemonster.retriever._models import RetrievalLog
 from cookiemonster.retriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel

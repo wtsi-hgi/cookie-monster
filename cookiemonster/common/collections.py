@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import List
 
-from cookiemonster.common.models import Metadata, FileUpdate
+from hgicommon.collections import Metadata
+
+from cookiemonster.common.models import FileUpdate
 
 
 class FileUpdateCollection(list):

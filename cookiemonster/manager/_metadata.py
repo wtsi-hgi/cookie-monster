@@ -45,9 +45,11 @@ GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
 
-import couchdb
 from typing import Optional
-from cookiemonster.common.models import Metadata, FileUpdate
+
+import couchdb
+from hgicommon.collections import Metadata
+
 
 def _document_to_metadata(doc: couchdb.client.Document) -> Metadata:
     '''

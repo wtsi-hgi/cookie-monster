@@ -57,9 +57,9 @@ Copyright (c) 2015 Genome Research Limited
 
 from datetime import timedelta
 from typing import Optional, Union, Tuple
-from cookiemonster.common.models import FileUpdate
+from hgicommon.listenable import Listenable
 from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.listenable import Listenable
+from cookiemonster.common.models import FileUpdate
 from cookiemonster.manager._metadata import MetadataDB
 from cookiemonster.manager._workflow import WorkflowDB, Event
 

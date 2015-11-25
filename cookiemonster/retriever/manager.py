@@ -1,7 +1,8 @@
 from datetime import date, datetime, timedelta
 from threading import Timer, Thread
 
-from cookiemonster.common.listenable import Listenable
+from hgicommon.listenable import Listenable
+
 from cookiemonster.retriever._models import QueryResult, RetrievalLog
 from cookiemonster.retriever._retriever import FileUpdateRetriever
 from cookiemonster.retriever.mappers import RetrievalLogMapper

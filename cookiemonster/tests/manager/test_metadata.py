@@ -1,6 +1,8 @@
 import unittest
 from unittest import mock
+
 from cookiemonster.manager._metadata import MetadataDB
+
 
 class TestMetadataDB(unittest.TestCase):
     _DB   = 'foo'
