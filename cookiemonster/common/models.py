@@ -14,8 +14,7 @@ Copyright (c) 2015 Genome Research Limited
 '''
 import json
 from datetime import date
-from typing import Union, Dict, List
-
+from typing import Union, Dict, List, Any
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
 
@@ -51,3 +50,16 @@ class FileUpdate(Model):
             self.metadata = Metadata(json.loads(metadata))
         else:
             raise TypeError('Could not parse metadata')
+
+
+class Notification(Model):
+    """
+    A model of a notification that should be sent to an external process.
+    """
+    def __init__(self, external_process_name: str, data: Any=None):
+        """
+        Default constructor.
+        :param external_process_name: the name of the external process that should be informed
+        :param data: the data (if any) that should be given to the external process
+        """
+        raise NotImplementedError()

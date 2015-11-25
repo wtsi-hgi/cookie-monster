@@ -2,7 +2,7 @@ from typing import Callable, List, Any
 from hgicommon.models import Model
 
 from cookiemonster.common.models import FileUpdate
-from cookiemonster.rulesengine.collections import DataEnvironment
+from cookiemonster.rulesengine._collections import DataEnvironment
 
 
 class Rule(Model):
@@ -18,19 +18,6 @@ class Rule(Model):
         immutable description of a file update and immutable, known data
         :param action: an arbitrary function to execute if the matching criteria is met, which returns a `Decision`,
         given as input an immutable description of a file update and immutable, known data
-        """
-        raise NotImplementedError()
-
-
-class Notification(Model):
-    """
-    A model of a notification that should be sent to an external process.
-    """
-    def __init__(self, external_process_name: str, data: Any=None):
-        """
-        Default constructor.
-        :param external_process_name: the name of the external process that should be informed
-        :param data: the data (if any) that should be given to the external process
         """
         raise NotImplementedError()
 

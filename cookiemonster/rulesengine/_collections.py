@@ -1,6 +1,6 @@
 from typing import List
 
-from cookiemonster.rulesengine.models import Rule
+from cookiemonster.rulesengine._models import Rule
 
 
 class RuleProcessingQueue:
