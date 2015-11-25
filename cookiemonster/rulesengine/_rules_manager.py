@@ -12,20 +12,20 @@ class RulesManager:
         Gets a list of rules that have been defined.
         :return: ordered set of rules
         """
-        pass
+        raise NotImplementedError()
 
     def add_rule(self, rule: Rule):
         """
         Adds a new rule.
         :param rule: the rule to add
         """
-        pass
+        raise NotImplementedError()
 
     def remove_rule(self, rule: Rule):
         """
         The rule to remove. Will raise a `ValueError` if the rule does not exist.
         :param rule: the rule to remove
         """
-        pass
+        raise NotImplementedError()
 
 
