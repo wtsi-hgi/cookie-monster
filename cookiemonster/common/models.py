@@ -14,12 +14,9 @@ Copyright (c) 2015 Genome Research Limited
 '''
 import json
 from datetime import date
-<<<<<<< HEAD
-from typing import Union, Dict, List, Any
-=======
+from typing import Any
 from typing import Optional, Union, Dict, List
 
->>>>>>> f8eca9da059e490b0ba6ff869f3edbb74ddd8796
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
 
@@ -72,7 +69,6 @@ class FileProcessState(Model):
         self.processed_state = processed_state
 
         # TODO? Generate diff...
-
 
 
 class Notification(Model):

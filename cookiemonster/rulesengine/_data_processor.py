@@ -44,4 +44,3 @@ class DataProcessorManager(metaclass=ABCMeta):
         :param notifications: list of external processes that are to be notified
         """
         pass
-
