@@ -93,7 +93,8 @@ Notes:
   in flight.
 
 FIXME? This schema is not ideal, as attested by the above policy on
-logic that has to be handled externally.
+logic that has to be handled externally. I'm tempted to put everything
+in CouchDB...
 
 FIXME I'm not using transactions productively, so there's a chance that
 data will go out of sync in the event of a crash or concurrent updates
@@ -450,8 +451,6 @@ class WorkflowDB(object):
         log appropriately
 
         @return Next FileUpdate to process (None, if empty)
-
-        TODO? Does it make sense to make this an iterator/generator?
         '''
         sql = self._db['workflow']
         next_id, = sql.execute('''

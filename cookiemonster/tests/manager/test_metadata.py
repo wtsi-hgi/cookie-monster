@@ -7,13 +7,13 @@ class TestMetadataDB(unittest.TestCase):
     _HOST = 'bar'
 
     @mock.patch('cookiemonster.manager._metadata.couchdb')
-    def test_constructor(self, mock_couch):
+    def test_metadata_init(self, mock_couch):
         # Connect and create
+        mock_couch.Server().__contains__.return_value = False
         _ = MetadataDB(TestMetadataDB._DB, TestMetadataDB._HOST)
 
         mock_couch.Server.assert_called_with(TestMetadataDB._HOST)
         mock_couch.Server().__contains__.assert_called_with(TestMetadataDB._DB)
-        self.assertFalse(mock_couch.Server().__contains__.return_value)
         mock_couch.Server().create.assert_called_with(TestMetadataDB._DB)
         mock_couch.Server().__getitem__.assert_called_with(TestMetadataDB._DB)
 

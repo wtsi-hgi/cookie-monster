@@ -31,6 +31,10 @@ manager via the following methods:
   processing; this will return it to the queue, after the specified lead
   time
 
+* `mark_as_reprocess` Mark a FileUpdate model as requiring reprocessing;
+  this will return it to the queue immediately, once any currently
+  inflight processing has completed
+
 An instantiated `DataManager` is callable and this acts as the listener
 to the retriever. When a message is sent to it, the import process is
 started and, ultimately, the data manager will broadcast its own message
@@ -121,3 +125,11 @@ class DataManager(Listenable):
         @param  file_update  FileUpdate model
         '''
         return self._workflow.log(file_update, Event.failed)
+
+    def mark_as_reprocess(self, file_update: FileUpdate):
+        '''
+        Mark a model for reprocessing
+
+        @param  file_update  FileUpdate model
+        '''
+        return self._workflow.log(file_update, Event.reprocess)
