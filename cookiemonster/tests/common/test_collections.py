@@ -1,7 +1,9 @@
 import unittest
 from datetime import datetime
 
-from cookiemonster.common.collections import FileUpdateCollection, Metadata
+from hgicommon.collections import Metadata
+
+from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.models import FileUpdate
 
 
@@ -10,7 +12,7 @@ class TestFileUpdateCollection(unittest.TestCase):
     Tests for `FileUpdateCollection`.
     """
     def setUp(self):
-        self.metadata = Metadata({"key": "value"})
+        self.metadata = Metadata()
 
     def test_empty_as_default(self):
         self.assertEquals(len(FileUpdateCollection()), 0)

@@ -54,10 +54,11 @@ from typing import Optional
 
 from hgicommon.listenable import Listenable
 
-from cookiemonster.common.models import FileUpdate
 from cookiemonster.common.collections import FileUpdateCollection
+from cookiemonster.common.models import FileUpdate
 from cookiemonster.manager._metadata import MetadataDB
 from cookiemonster.manager._workflow import WorkflowDB, Event
+
 
 class DataManager(Listenable):
     '''

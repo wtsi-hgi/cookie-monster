@@ -16,8 +16,8 @@ import json
 from datetime import date
 from typing import Union, Dict, List
 
+from hgicommon.collections import Metadata
 from hgicommon.models import Model
-from cookiemonster.common.collections import Metadata
 
 """ Metadata import type: Metadata, dictionary or (JSON) string """
 _MetadataT = Union[Metadata, Dict[str, List[str]], dict, str]

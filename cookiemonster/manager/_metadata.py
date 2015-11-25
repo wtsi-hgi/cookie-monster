@@ -48,8 +48,7 @@ Copyright (c) 2015 Genome Research Limited
 from typing import Optional
 
 import couchdb
-
-from cookiemonster.common.collections import Metadata
+from hgicommon.collections import Metadata
 
 
 def _document_to_metadata(doc: couchdb.client.Document) -> Metadata:
