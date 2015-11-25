@@ -2,6 +2,7 @@ from typing import Callable, List, Any
 from hgicommon.models import Model
 
 from cookiemonster.common.models import FileUpdate
+from cookiemonster.rulesengine.collections import DataEnvironment
 
 
 class Rule(Model):
@@ -10,22 +11,15 @@ class Rule(Model):
     """
     def __init__(self,
                  matching_criteria: Callable[[FileUpdate, DataEnvironment], bool],
-                 action: Callable[[FileUpdate, DataEnvironment], RuleDecision]):
+                 action: Callable[[FileUpdate, DataEnvironment], Decision]):
         """
         Default constructor.
-        :param matching_criteria: an arbitrary function that returns `True` if the rule is matched, given as input the
-        description of a file update and an immutable environment containing known data
-        :param action: an arbitrary function to execute if the matching criteria is met, which returns a `RuleDecision`,
-        given as input the description of a file update and an immutable environment containing known data
+        :param matching_criteria: an arbitrary function that returns `True` if the rule is matched, given as input an
+        immutable description of a file update and immutable, known data
+        :param action: an arbitrary function to execute if the matching criteria is met, which returns a `Decision`,
+        given as input an immutable description of a file update and immutable, known data
         """
-        pass
-
-
-class DataEnvironment(dict):
-    """
-    The environment that holds the data that has been loaded and is available for use when evaluating a rule.
-    """
-    pass
+        raise NotImplementedError()
 
 
 class Notification(Model):
@@ -38,10 +32,10 @@ class Notification(Model):
         :param external_process_name: the name of the external process that should be informed
         :param data: the data (if any) that should be given to the external process
         """
-        pass
+        raise NotImplementedError()
 
 
-class RuleDecision(Model):
+class Decision(Model):
     """
     A model of the decision that has outcome from matching a rule.
     """
@@ -51,5 +45,5 @@ class RuleDecision(Model):
         :param notifications: list of notifications for external processes
         :param terminate_processing: whether the data processor should stop processing the update
         """
-        pass
+        raise NotImplementedError()
 
