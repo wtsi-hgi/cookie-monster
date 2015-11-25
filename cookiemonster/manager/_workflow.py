@@ -122,7 +122,7 @@ from typing import Optional, Union, Tuple
 from enum import Enum
 from time import mktime
 from datetime import datetime, timedelta
-from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.models import FileUpdate, FileProcessState
 from cookiemonster.manager._metadata import MetadataDB
 
 # TODO Modicum of abstraction, rather than raw SQL calls... In general,
@@ -464,14 +464,12 @@ class WorkflowDB(object):
 
         return file_id
 
-    def dequeue(self) -> Optional[Union[FileUpdate, Tuple[FileUpdate, FileUpdate]]]:
+    def dequeue(self) -> Optional[FileProcessState]:
         '''
         Dequeue the next FileUpdate to be processed and update the event
         log appropriately
 
-        @return None, if nothing is available for processing
-                FileUpdate model, when no historical processing has been performed
-                (new FileUpdate, processed FileUpdate), when historical data exists
+        @return FileProcessState (None, if nothing found)
         '''
         sql = self._db['workflow']
         next_id, = sql.execute('''
@@ -504,7 +502,7 @@ class WorkflowDB(object):
         current_state   = self._fetch(next_id)
         processed_state = self._fetch(next_id, _Status.processed)
 
-        return (current_state, processed_state) if processed_state else current_state
+        return FileProcessState(current_state, processed_state)
 
     def length(self) -> int:
         '''
