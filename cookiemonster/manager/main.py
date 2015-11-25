@@ -14,12 +14,14 @@ DataManager
 database, the host URL and name of its CouchDB database and the lead
 time for failed jobs to reappear on the queue. Otherwise, it listens to
 the retriever for updates and provides a Listenable interface for any
-upstream processing: the effect being that of a message rippling through
-from the retriever, through the data manager and on to upstream
-processing. Said processing will need to send messages back to the data
-manager via the following methods:
+downstream processing: the effect being that of a message rippling
+through from the retriever, through the data manager and on to
+downstream processing. Said processing will need to send messages back
+to the data manager via the following methods:
 
-* `get_next` Return the next FileUpdate model that requires processing
+* `get_next_for_processing` Return the next FileUpdate model (including
+  its previously processed version, where available) that requires
+  processing
 
 * `queue_length` Return the number of FileUpdate models in the [pending
   for] processing queue
@@ -31,10 +33,14 @@ manager via the following methods:
   processing; this will return it to the queue, after the specified lead
   time
 
+* `mark_as_reprocess` Mark a FileUpdate model as requiring reprocessing;
+  this will return it to the queue immediately, once any currently
+  inflight processing has completed
+
 An instantiated `DataManager` is callable and this acts as the listener
 to the retriever. When a message is sent to it, the import process is
 started and, ultimately, the data manager will broadcast its own message
-for upstream listeners. That message will be the current queue length,
+for downstream listeners. That message will be the current queue length,
 regardless of any changes.
 
 Authors
@@ -50,15 +56,12 @@ Copyright (c) 2015 Genome Research Limited
 # TODO Testing code...
 
 from datetime import timedelta
-from typing import Optional
-
+from typing import Optional, Union, Tuple
 from hgicommon.listenable import Listenable
-
 from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.models import FileUpdate
 from cookiemonster.manager._metadata import MetadataDB
 from cookiemonster.manager._workflow import WorkflowDB, Event
-
 
 class DataManager(Listenable):
     '''
@@ -93,13 +96,15 @@ class DataManager(Listenable):
         if queue_size > 0:
             self.notify_listeners(queue_size)
 
-    def get_next(self) -> Optional[FileUpdate]:
+    def get_next_for_processing(self) -> Optional[Union[FileUpdate, Tuple[FileUpdate, FileUpdate]]]:
         '''
-        Get the next FileUpdate for processing and update its sate
+        Get the next FileUpdate for processing and update its state
 
-        @return FileUpdate model (None, if none found)
+        @return None, if nothing is available for processing
+                FileUpdate model, when no historical processing has been performed
+                (new FileUpdate, processed FileUpdate), when historical data exists
         '''
-        return self._workflow.next()
+        return self._workflow.dequeue()
 
     def queue_length(self) -> int:
         '''
@@ -124,3 +129,11 @@ class DataManager(Listenable):
         @param  file_update  FileUpdate model
         '''
         return self._workflow.log(file_update, Event.failed)
+
+    def mark_as_reprocess(self, file_update: FileUpdate):
+        '''
+        Mark a model for reprocessing
+
+        @param  file_update  FileUpdate model
+        '''
+        return self._workflow.log(file_update, Event.reprocess)
