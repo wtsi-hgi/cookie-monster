@@ -14,10 +14,10 @@ DataManager
 database, the host URL and name of its CouchDB database and the lead
 time for failed jobs to reappear on the queue. Otherwise, it listens to
 the retriever for updates and provides a Listenable interface for any
-upstream processing: the effect being that of a message rippling through
-from the retriever, through the data manager and on to upstream
-processing. Said processing will need to send messages back to the data
-manager via the following methods:
+downstream processing: the effect being that of a message rippling
+through from the retriever, through the data manager and on to
+downstream processing. Said processing will need to send messages back
+to the data manager via the following methods:
 
 * `get_next_for_processing` Return the next FileUpdate model (including
   its previously processed version, where available) that requires
@@ -40,7 +40,7 @@ manager via the following methods:
 An instantiated `DataManager` is callable and this acts as the listener
 to the retriever. When a message is sent to it, the import process is
 started and, ultimately, the data manager will broadcast its own message
-for upstream listeners. That message will be the current queue length,
+for downstream listeners. That message will be the current queue length,
 regardless of any changes.
 
 Authors

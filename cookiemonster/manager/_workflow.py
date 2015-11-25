@@ -64,17 +64,19 @@ iRODS metadata is stored in an external database by `mgrFiles.id` and a
 revision key (`mgrFileMeta.metadata_id`).
 
 The workflow for each file is kept in a log (`mgrLog`) and the queue for
-upstream processing is derived from this (as the view `mgrQueue`) using
-each file's latest record's TTQ ("time to queue", in seconds), where
-priority is based on the latest event's timestamp.
+downstream processing is derived from this (as the view `mgrQueue`)
+using each file's latest record's TTQ ("time to queue", in seconds),
+where priority is based on the latest event's timestamp.
 
 It is possible that an update to a file will come while that file is
-currently being processed upstream. As such, we keep up to two versions
-of each file's metadata: the latest and the "inflight", for when a file
-is being processed. A discrepancy between these two versions indicate
-that a file will need reprocessing.
+currently being processed downstream. It is also necessary, should a
+file need reprocessing, to pass downstream processing its previous state
+for comparison. To this end, we keep up to three versions of each file's
+metadata: the latest (which is always present); the "inflight", for when
+a file is being processed; and the "processed", once processing has
+returned.
 
-In the event of an upstream crash, orphaned "processing" (and, for
+In the event of an downstream crash, orphaned "processing" (and, for
 inflight changes, "reprocess") records should be removed at startup,
 which will put them back on the queue for processing. If this step were
 omitted, said files would be forever, erroneously marked as inflight,
@@ -88,9 +90,9 @@ Notes:
 * If multiple reprocessing requests are issued for any file, this is
   only stored once on the log (updating the timestamp), rather than
   creating multiple reprocess records.
-* If the upstream processor finishes with a file, but there has been an
-  interim reprocessing request, the processing status (success/fail) is
-  not recorded.
+* If the downstream processor finishes with a file, but there has been
+  an interim reprocessing request, the processing status (success/fail)
+  is NOT recorded.
 * A reprocessing request must not be fulfilled while a file is currently
   in flight.
 
