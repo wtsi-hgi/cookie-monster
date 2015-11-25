@@ -31,7 +31,9 @@ Methods:
 * `log` Log an arbitrary event against a model ("arbitrary" modulo
   applicable events per `Event`)
 
-* `next` Get the next FileUpdate model that requires processing
+* `dequeue` Get the next FileUpdate model (and the previously processed
+  version, where available) that requires processing and update its
+  state, thus dequeueing it
 
 * `length` Return the length of the queue
 
@@ -114,7 +116,7 @@ Copyright (c) 2015 Genome Research Limited
 '''
 
 import sqlite3
-from typing import Optional, Tuple
+from typing import Optional, Union, Tuple
 from enum import Enum
 from time import mktime
 from datetime import datetime, timedelta
@@ -153,8 +155,9 @@ class Event(Enum):
 
 class _Status(Enum):
     ''' File metadata status enumeration '''
-    latest   = 1
-    inflight = 2
+    latest    = 1
+    inflight  = 2
+    processed = 3
 
 class WorkflowDB(object):
     '''
@@ -293,8 +296,10 @@ class WorkflowDB(object):
         * Each file should have at most one "reprocess" event; a new
           "reprocess" event should just update the current ones
           timestamp
-        * A "completed" or "failed" event should delete the inflight
-          metadata record for that file
+        * A "completed" or "failed" event should replace any "processed"
+          metadata with the "inflight" record for that file (n.b., it is
+          arguable that the failed state doesn't need to be recorded,
+          but is for sake of completeness and consistency)
         * A "completed" or "failed" event should not be logged if there
           is a pending "reprocess"
 
@@ -324,7 +329,7 @@ class WorkflowDB(object):
             if current_event is Event.reprocess:
                 write_log = False
 
-            # Delete inflight record
+            # Delete previously processed state record
             sql.execute('''
                 delete
                 from   mgrFileMeta
@@ -332,7 +337,19 @@ class WorkflowDB(object):
                 and    state_id = :state_id
             ''', {
                 'file_id':  file_id,
-                'state_id': _Status.inflight.value
+                'state_id': _Status.processed.value
+            })
+
+            # Mark the now-finished inflight record to processed
+            sql.execute('''
+                update mgrFileMeta
+                set    state_id = :processed_state
+                where  file_id  = :file_id
+                and    state_id = :inflight_state
+            ''', {
+                'file_id':         file_id,
+                'inflight_state':  _Status.inflight.value,
+                'processed_state': _Status.processed.value
             })
 
         if write_log:
@@ -445,12 +462,14 @@ class WorkflowDB(object):
 
         return file_id
 
-    def next(self) -> Optional[FileUpdate]:
+    def dequeue(self) -> Optional[Union[FileUpdate, Tuple[FileUpdate, FileUpdate]]]:
         '''
         Dequeue the next FileUpdate to be processed and update the event
         log appropriately
 
-        @return Next FileUpdate to process (None, if empty)
+        @return None, if nothing is available for processing
+                FileUpdate model, when no historical processing has been performed
+                (new FileUpdate, processed FileUpdate), when historical data exists
         '''
         sql = self._db['workflow']
         next_id, = sql.execute('''
@@ -478,8 +497,12 @@ class WorkflowDB(object):
             'file_id':  next_id,
             'state_id': _Status.latest.value
         })
+        
+        # Get FileUpdate models
+        current_state   = self._fetch(next_id)
+        processed_state = self._fetch(next_id, _Status.processed)
 
-        return self._fetch(next_id)
+        return (current_state, processed_state) if processed_state else current_state
 
     def length(self) -> int:
         '''
@@ -526,7 +549,9 @@ class WorkflowDB(object):
                                       not null,
                 hash         text     not null,
                 timestamp    integer  not null,
-                metadata_id  text     not null
+                metadata_id  text     not null,
+
+                unique (file_id, state_id)
             );
 
             create table if not exists mgrEvents (
@@ -548,13 +573,15 @@ class WorkflowDB(object):
             );
 
             /* Indices */
-            create index if not exists mgrIdxLog on mgrLog (file_id, id asc);
-            create index if not exists mgrIdxLogTime on mgrLog (timestamp asc);
+            create index if not exists mgrIdxLog       on mgrLog(file_id, id asc);
+            create index if not exists mgrIdxLogTime   on mgrLog(timestamp asc);
+            create index if not exists mgrIdxFileState on mgrFileMeta(state_id);
 
             /* Enumerations */
             insert or replace into mgrFileStates (id, description)
                                    values        (1,  'latest'),
-                                                 (2,  'inflight');
+                                                 (2,  'inflight'),
+                                                 (3,  'processed');
 
             insert or replace into mgrEvents     (id, description,  ttq)
                                    values        (1,  'imported',   0),

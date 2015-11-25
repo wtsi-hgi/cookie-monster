@@ -19,7 +19,9 @@ from the retriever, through the data manager and on to upstream
 processing. Said processing will need to send messages back to the data
 manager via the following methods:
 
-* `get_next` Return the next FileUpdate model that requires processing
+* `get_next_for_processing` Return the next FileUpdate model (including
+  its previously processed version, where available) that requires
+  processing
 
 * `queue_length` Return the number of FileUpdate models in the [pending
   for] processing queue
@@ -54,7 +56,7 @@ Copyright (c) 2015 Genome Research Limited
 # TODO Testing code...
 
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, Union, Tuple
 from cookiemonster.common.models import FileUpdate
 from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.listenable import Listenable
@@ -94,13 +96,15 @@ class DataManager(Listenable):
         if queue_size > 0:
             self.notify_listeners(queue_size)
 
-    def get_next(self) -> Optional[FileUpdate]:
+    def get_next_for_processing(self) -> Optional[Union[FileUpdate, Tuple[FileUpdate, FileUpdate]]]:
         '''
-        Get the next FileUpdate for processing and update its sate
+        Get the next FileUpdate for processing and update its state
 
-        @return FileUpdate model (None, if none found)
+        @return None, if nothing is available for processing
+                FileUpdate model, when no historical processing has been performed
+                (new FileUpdate, processed FileUpdate), when historical data exists
         '''
-        return self._workflow.next()
+        return self._workflow.dequeue()
 
     def queue_length(self) -> int:
         '''
