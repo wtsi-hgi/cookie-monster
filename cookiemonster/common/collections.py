@@ -38,6 +38,7 @@ class Metadata(dict):
         """
         Override constructor, so base and kwargs are canonicalised
         """
+        super(Metadata, self).__init__(**kwargs)
         if base and type(base) is dict:
             for key, value in base.items():
                 self.__setitem__(key, value)
