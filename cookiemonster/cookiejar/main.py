@@ -1,47 +1,8 @@
 '''
-Data Manager
-============
-Listen for file updates from the retriever, store them and manage their
-processing workflow by interfacing with the rule engine processor. This
-implies that the data manager becomes the authoritative source for the
-processing workflow.
+Cookie Jar
+==========
 
-Exportable classes: `DataManager`
-
-DataManager
------------
-`DataManager` is to be instantiated with an address to its SQLite
-database, the host URL and name of its CouchDB database and the lead
-time for failed jobs to reappear on the queue. Otherwise, it listens to
-the retriever for updates and provides a Listenable interface for any
-downstream processing: the effect being that of a message rippling
-through from the retriever, through the data manager and on to
-downstream processing. Said processing will need to send messages back
-to the data manager via the following methods:
-
-* `get_next_for_processing` Return the next FileProcessState model that
-  requires processing (i.e., the current FileUpdate to process and its
-  last processed state)
-
-* `queue_length` Return the number of FileUpdate models in the [pending
-  for] processing queue
-
-* `mark_as_successful` Mark a FileUpdate model as having been
-  successfully processed
-
-* `mark_as_failed` Mark a FileUpdate model as having failed its
-  processing; this will return it to the queue, after the specified lead
-  time
-
-* `mark_as_reprocess` Mark a FileUpdate model as requiring reprocessing;
-  this will return it to the queue immediately, once any currently
-  inflight processing has completed
-
-An instantiated `DataManager` is callable and this acts as the listener
-to the retriever. When a message is sent to it, the import process is
-started and, ultimately, the data manager will broadcast its own message
-for downstream listeners. That message will be the current queue length,
-regardless of any changes.
+TODO: Redo documentation!!
 
 Authors
 -------
@@ -55,6 +16,7 @@ Copyright (c) 2015 Genome Research Limited
 
 # TODO Testing code...
 
+# TODO Change this to match new interface requirements
 from datetime import timedelta
 from typing import Optional, Union, Tuple
 from hgicommon.listenable import Listenable
@@ -63,46 +25,71 @@ from cookiemonster.common.models import FileUpdate, FileProcessState
 from cookiemonster.cookiejar._dbi import DBI
 from cookiemonster.cookiejar._workflow import WorkflowDB, Event
 
+# TODO Cookie, CookieCrumbs and CookieProcessState models
+
 class CookieJar(Listenable):
     '''
-    Manage and orchestrate the FileUpdate processing workflow
+    Manage and orchestrate data objects' metadata and the processing
+    workflow
     '''
-    def __init__(self, workflow_db: str, metadata_host: str, metadata_db: str, failure_lead_time: timedelta):
+    def __init__(self, db_host: str, db_prefix: str):
         '''
         Constructor
-        
-        @param  workflow_db        Workflow database address
-        @param  metadata_host      Metadata database host
-        @param  metadata_db        Metadata database name
-        @param  failure_lead_time  Time before failures are requeued
+        @param  db_host    Database host URL
+        @param  db_prefix  Database name prefix
+        TODO Others??
         '''
-        super().__init__()
-        self._mdb = DBI(metadata_db, metadata_host)
-        self._workflow = WorkflowDB(workflow_db, self._mdb, failure_lead_time)
-        self._listeners = []
+        pass
 
-    def __call__(self, file_updates: FileUpdateCollection):
+    def __call__(self, file_update: FileUpdate):
         '''
-        Listen to the retriever and import all the new FileUpdates that
-        it broadcasts
+        Append/update metadata from a FileUpdate model. This is intended
+        to be used as the listener to the upstream retriever and will
+        convert the FileUpdate model's metadata into CookieCrumbs
+        '''
+        # TODO Is there any need to make a distinction between general
+        # and specific metadata models, given they'll both ultimately be
+        # of the same form?...
 
-        @param  file_updates  Collection of file updates
-        '''
-        for file_update in file_updates:
-            self._workflow.upsert(file_update)
-        
-        # Broadcast queue size
-        queue_size = self.queue_length()
-        if queue_size > 0:
-            self.notify_listeners(queue_size)
+        # self.enrich_metadata(file_update.file_location, ...)
+        pass
 
-    def get_next_for_processing(self) -> Optional[FileProcessState]:
+    def enrich_metadata(self, path: str, metadata: CookieCrumbs):
         '''
-        Get the next FileUpdate for processing and update its state
+        Append/update metadata for a given file, thus changing its state
+        and putting it back on the queue
 
-        @return FileProcessState (None, if nothing found)
+        @param  path      File path
+        @param  metadata  Metadata
         '''
-        return self._workflow.dequeue()
+        pass
+
+    def mark_as_failed(self, path: str, requeue_delay: timedelta):
+        '''
+        Mark a file as having failed processing, thus returning it to
+        the queue after a specified period
+
+        @param  path           File path
+        @param  requeue_delay  Time to wait before requeuing
+        '''
+        pass
+
+    def mark_as_reprocess(self, path: str):
+        '''
+        Mark a file for reprocessing, regardless of changes to its
+        metadata, returning it to the queue immediately
+
+        @param  path  File path
+        '''
+        pass
+
+    def get_next_for_processing(self) -> CookieProcessState:
+        '''
+        Get the next Cookie for processing and update its state
+
+        @return CookieProcessState
+        '''
+        pass
 
     def queue_length(self) -> int:
         '''
@@ -110,28 +97,4 @@ class CookieJar(Listenable):
 
         @return Number of items in the queue
         '''
-        return self._workflow.length()
-
-    def mark_as_completed(self, file_update: FileUpdate):
-        '''
-        Mark a model as completed successfully
-
-        @param  file_update  FileUpdate model
-        '''
-        return self._workflow.log(file_update, Event.completed)
-
-    def mark_as_failed(self, file_update: FileUpdate):
-        '''
-        Mark a model as failed processing
-
-        @param  file_update  FileUpdate model
-        '''
-        return self._workflow.log(file_update, Event.failed)
-
-    def mark_as_reprocess(self, file_update: FileUpdate):
-        '''
-        Mark a model for reprocessing
-
-        @param  file_update  FileUpdate model
-        '''
-        return self._workflow.log(file_update, Event.reprocess)
+        pass
