@@ -1,14 +1,14 @@
 import unittest
 from unittest import mock
 
-from cookiemonster.manager._metadata import MetadataDB
+from cookiemonster.cookiejar._metadata import MetadataDB
 
 
 class TestMetadataDB(unittest.TestCase):
     _DB   = 'foo'
     _HOST = 'bar'
 
-    @mock.patch('cookiemonster.manager._metadata.couchdb')
+    @mock.patch('cookiemonster.cookiejar._metadata.couchdb')
     def test_metadata_init(self, mock_couch):
         # Connect and create
         mock_couch.Server().__contains__.return_value = False

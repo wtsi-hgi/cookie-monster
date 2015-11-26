@@ -9,7 +9,7 @@ from cookiemonster.retriever.irods.irods_config import IrodsConfig
 from cookiemonster.retriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel
 from cookiemonster.retriever.manager import RetrievalManager
-from cookiemonster.manager import DataManager
+from cookiemonster.cookiejar import DataManager
 
 
 def main():

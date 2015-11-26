@@ -60,8 +60,8 @@ from typing import Optional, Union, Tuple
 from hgicommon.listenable import Listenable
 from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.models import FileUpdate, FileProcessState
-from cookiemonster.manager._metadata import MetadataDB
-from cookiemonster.manager._workflow import WorkflowDB, Event
+from cookiemonster.cookiejar._metadata import MetadataDB
+from cookiemonster.cookiejar._workflow import WorkflowDB, Event
 
 class DataManager(Listenable):
     '''

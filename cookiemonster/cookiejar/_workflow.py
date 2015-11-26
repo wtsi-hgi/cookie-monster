@@ -123,7 +123,7 @@ from enum import Enum
 from time import mktime
 from datetime import datetime, timedelta
 from cookiemonster.common.models import FileUpdate, FileProcessState
-from cookiemonster.manager._metadata import MetadataDB
+from cookiemonster.cookiejar._metadata import MetadataDB
 
 # TODO Modicum of abstraction, rather than raw SQL calls... In general,
 # this code is a bit of a big ball of mud and needs iterating against.
