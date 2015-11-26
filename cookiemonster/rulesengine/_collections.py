@@ -42,6 +42,13 @@ class RuleProcessingQueue:
         raise NotImplementedError()
 
 
+class RuleCollection(list):
+    """
+    Collection of rules.
+    """
+    pass
+
+
 class DataEnvironment(dict):
     """
     The environment that holds the data that has been loaded and is available for use when evaluating a rule.
