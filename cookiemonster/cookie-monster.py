@@ -8,7 +8,7 @@ from cookiemonster.retriever.irods.baton_retriever import BatonFileUpdateRetriev
 from cookiemonster.retriever.irods.irods_config import IrodsConfig
 from cookiemonster.retriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel
-from cookiemonster.retriever.manager import RetrievalManager
+from cookiemonster.retriever.manager import PeriodicRetrievalManager
 from cookiemonster.cookiejar import CookieJar
 
 
@@ -56,7 +56,7 @@ def setup_retrieval_log_database(database_location : str):
     SQLAlchemyModel.metadata.create_all(bind=engine)
 
 
-def create_retrieval_manager(retrieval_period: timedelta, retrieval_log_database_location: str) -> RetrievalManager:
+def create_retrieval_manager(retrieval_period: timedelta, retrieval_log_database_location: str) -> PeriodicRetrievalManager:
     """
     Factory function for creating a file update retrieval manager.
     :param retrieval_period: the period between file update retrieves
@@ -69,5 +69,5 @@ def create_retrieval_manager(retrieval_period: timedelta, retrieval_log_database
     database_connector = SQLAlchemyDatabaseConnector(retrieval_log_database_location)
     retrieval_log_mapper = SQLAlchemyRetrievalLogMapper(database_connector)
 
-    retrieval_manager = RetrievalManager(retrieval_period, file_update_retriever, retrieval_log_mapper)
+    retrieval_manager = PeriodicRetrievalManager(retrieval_period, file_update_retriever, retrieval_log_mapper)
     return retrieval_manager

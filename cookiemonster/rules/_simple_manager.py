@@ -1,7 +1,7 @@
 from typing import Any, List
 
 from cookiemonster.common.models import FileUpdate, Notification
-from cookiemonster.manager import DataManager
+from cookiemonster.cookiejar import CookieJar
 from cookiemonster.rules.manager import ProcessorManager
 from cookiemonster.rules._rules import RulesManager
 from cookiemonster.rules._simple_processor import SimpleProcessor
@@ -11,7 +11,7 @@ class SimpleProcessorManager(ProcessorManager):
     """
     Basic implementation to of managing the continuous processing of file updates.
     """
-    def __init__(self, number_of_processors: int, data_manager: DataManager, rules_manager: RulesManager, notifier: Any):
+    def __init__(self, number_of_processors: int, data_manager: CookieJar, rules_manager: RulesManager, notifier: Any):
         """
         Default constructor.
         :param number_of_processors:
