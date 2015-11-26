@@ -19,17 +19,10 @@ Copyright (c) 2015 Genome Research Limited
 # TODO Change this to match new interface requirements
 from abc import ABCMeta, abstractmethod
 from datetime import timedelta
-from typing import Any
 
 from hgicommon.listenable import Listenable
 
-from cookiemonster.common.models import FileUpdate
-
-
-# TODO Cookie, CookieCrumbs and CookieProcessState models
-CookieCrumbs = Any
-Cookie = Any
-CookieProcessState = Any
+from cookiemonster.common.models import CookieCrumbs, CookieProcessState
 
 
 class CookieJar(Listenable, metaclass=ABCMeta):
