@@ -1,6 +1,7 @@
 import copy
 
-from cookiemonster.rules._collections import RuleCollection
+from typing import Set
+
 from cookiemonster.rules._models import Rule
 
 
@@ -9,9 +10,9 @@ class RulesManager:
     Manages the rules that are used by data processors.
     """
     def __init__(self):
-        self._rules = RuleCollection()
+        self._rules = []
 
-    def get_rules(self) -> RuleCollection:
+    def get_rules(self) -> Set[Rule]:
         """
         Gets a copy of the collection of rules that have been defined.
         :return: clopy of the collection of rules

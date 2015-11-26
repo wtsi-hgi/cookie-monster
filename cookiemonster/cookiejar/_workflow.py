@@ -163,7 +163,7 @@ class _Status(Enum):
 
 class WorkflowDB(object):
     '''
-    Create (if necessary) and check the database schema, plus provide
+    Create (if necessary) and process_any_jobs the database schema, plus provide
     the interface to interact with the data.
     '''
     def __init__(self, workflow_db: str, metadata_db: DBI, failure_lead_time: timedelta):
@@ -516,13 +516,13 @@ class WorkflowDB(object):
 
     def _validate_schema(self):
         '''
-        Build/check the database schema, where necessary, by SQL script
+        Build/process_any_jobs the database schema, where necessary, by SQL script
         I admit this is pretty ugly...but deal with it :P
 
         TODO See above regarding abstraction
         TODO Schema checking (beyond existence): One could insert valid
              and invalid data into the schema (and rolling back the
-             transaction) and check the exceptions. It's not pretty, but
+             transaction) and process_any_jobs the exceptions. It's not pretty, but
              it's much easier/less verbose than poking around the data
              dictionary...
         '''
@@ -559,7 +559,7 @@ class WorkflowDB(object):
                 description  text     unique
                                       not null,
                 ttq          integer  default (null)
-                                      check (ttq is null or ttq >= 0)
+                                      process_any_jobs (ttq is null or ttq >= 0)
             );
 
             create table if not exists mgrLog (

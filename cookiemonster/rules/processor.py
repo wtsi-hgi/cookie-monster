@@ -1,8 +1,8 @@
 import copy
 from abc import ABCMeta, abstractmethod
-from typing import List, Callable, Any, Union
-from cookiemonster.common.models import Notification
-from cookiemonster.rules._collections import RuleCollection
+from typing import List, Callable, Union, Set
+
+from cookiemonster.common.models import Notification, CookieProcessState
 from cookiemonster.rules._models import Rule
 
 
@@ -11,10 +11,11 @@ class Processor(metaclass=ABCMeta):
     Processor for a single file update.
     """
     @abstractmethod
-    def process(self, work: Any, rules: RuleCollection, on_complete: Callable[[List[Notification]], None]):
+    def process(
+            self, job: CookieProcessState, rules: Set[Rule], on_complete: Callable[[List[Notification]], None]):
         """
         Processes the given file update.
-        :param work: TODO
+        :param job: TODO
         :param rules: the rules to use when processing the file update
         :param on_complete: the on complete method that must be called when the processing has completed
         """
@@ -27,7 +28,7 @@ class RuleProcessingQueue:
 
     Not thread-safe.
     """
-    def __init__(self, rules: RuleCollection):
+    def __init__(self, rules: Set[Rule]):
         """
         Default constructor.
         :param rules: the rules to be processed
@@ -45,7 +46,7 @@ class RuleProcessingQueue:
         """
         return len(self._not_processed) > 0
 
-    def get_all(self) -> RuleCollection:
+    def get_all(self) -> List[Rule]:
         """
         Gets all of the rules.
         :return: all of the rules

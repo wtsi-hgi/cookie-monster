@@ -99,8 +99,9 @@ class CookieJar(Listenable, metaclass=ABCMeta):
     @abstractmethod
     def get_next_for_processing(self) -> CookieProcessState:
         """
-        Get the next Cookie for processing and update its state
+        Get the next Cookie for processing and update its state.
 
+        This method is thread-safe.
         @return CookieProcessState
         """
         pass

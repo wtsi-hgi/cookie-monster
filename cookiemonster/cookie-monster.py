@@ -52,7 +52,7 @@ def setup_retrieval_log_database(database_location : str):
     :param database_location: the location of teh retrieval log database
     """
     engine = create_engine(database_location)
-    # TODO: Need to check if the database is already there and what create_all does in this situation
+    # TODO: Need to process_any_jobs if the database is already there and what create_all does in this situation
     SQLAlchemyModel.metadata.create_all(bind=engine)
 
 

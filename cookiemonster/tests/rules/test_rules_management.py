@@ -1,6 +1,6 @@
 import unittest
 
-from cookiemonster.rules._rules import RulesManager
+from cookiemonster.rules._rules_management import RulesManager
 from cookiemonster.tests.rules._mocks import create_mock_rule
 
 

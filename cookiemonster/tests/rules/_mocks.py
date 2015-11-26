@@ -13,3 +13,5 @@ def create_mock_rule(distinguisher: str="") -> Rule:
         lambda file_update, data_environment: True,
         lambda file_update, data_environment: RuleAction([Notification(distinguisher)], True)
     )
+
+

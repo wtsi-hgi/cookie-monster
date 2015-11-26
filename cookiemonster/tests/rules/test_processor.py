@@ -1,6 +1,5 @@
 import unittest
 
-from cookiemonster.rules._collections import RuleCollection
 from cookiemonster.rules.processor import RuleProcessingQueue
 from cookiemonster.tests.rules._mocks import create_mock_rule
 
@@ -10,8 +9,8 @@ class TestRuleProcessingQueue(unittest.TestCase):
     Unit tests for `RuleProcessingQueue`.
     """
     def setUp(self):
-        self.rules = RuleCollection()
-        for i in range(3):
+        self.rules = []
+        for i in range(10):
             self.rules.append(create_mock_rule(i))
 
     def test_constructor(self):
@@ -24,7 +23,7 @@ class TestRuleProcessingQueue(unittest.TestCase):
         self.assertTrue(rule_processing_queue.has_unprocessed_rules())
 
     def test_has_unprocessed_rules_with_no_unprocessed_rules(self):
-        rule_processing_queue = RuleProcessingQueue(RuleCollection())
+        rule_processing_queue = RuleProcessingQueue([])
         self.assertFalse(rule_processing_queue.has_unprocessed_rules())
 
     def test_get_next_when_next_exists(self):
@@ -33,7 +32,7 @@ class TestRuleProcessingQueue(unittest.TestCase):
         self.assertEquals(rule_processing_queue.get_all(), self.rules)
 
     def test_get_next_when_no_next_exists(self):
-        rule_processing_queue = RuleProcessingQueue(RuleCollection())
+        rule_processing_queue = RuleProcessingQueue([])
         self.assertIsNone(rule_processing_queue.get_next_unprocessed())
 
     def test_mark_as_processed_unprocessed_rule(self):

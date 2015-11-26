@@ -2,8 +2,7 @@ from typing import Callable, List
 
 from hgicommon.models import Model
 
-from cookiemonster.common.models import FileUpdate, Notification
-from cookiemonster.rules._collections import DataEnvironment
+from cookiemonster.common.models import Notification, CookieProcessState
 
 
 class RuleAction(Model):
@@ -22,17 +21,17 @@ class RuleAction(Model):
 
 class Rule(Model):
     """
-    Model of a rule that defines an action that should be executed if a criteria is matched.
+    A model of a rule that defines an action that should be executed if a criteria is matched.
     """
     def __init__(self,
-                 matching_criteria: Callable[[DataEnvironment], bool],
-                 action_generator: Callable[[DataEnvironment], RuleAction]):
+                 matching_criteria: Callable[[CookieProcessState], bool],
+                 action_generator: Callable[[CookieProcessState], RuleAction]):
         """
         Default constructor.
         :param matching_criteria: an arbitrary function that returns `True` if the rule is matched, given as input an
-        immutable description of a file update and immutable, known data
+        immutable set of data know about the process target
         :param action_generator: an arbitrary function to execute if the matching criteria is met, which returns the
-        rule's action, given as input an immutable description of a file update and immutable, known data
+        rule's action, given as input an immutable set of data know about the process target
         """
         self.matching_criteria = matching_criteria
         self.action_generator = action_generator
