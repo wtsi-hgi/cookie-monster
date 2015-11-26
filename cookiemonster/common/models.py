@@ -12,23 +12,34 @@ License
 GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
-import json
 from datetime import date
-from typing import Any
-from typing import Optional, Union, Dict, List
+from typing import Any, Optional
 
-from hgicommon.collections import Metadata
 from hgicommon.models import Model
+from hgicommon.collections import Metadata
 
-""" Metadata import type: Metadata, dictionary or (JSON) string """
-_MetadataT = Union[Metadata, Dict[str, List[str]], dict, str]
+
+class IRODSMetadata(Metadata):
+    '''
+    IRODS metadata is in the form of "AVUs" (attribute-value-unit
+    tuples). We disregard the unit because we aren't using them.
+    Otherwise, attributes may have many values. For comparisons sake,
+    we therefore canonicalise all attributes for a value into an ordered
+    list of distinct elements.
+    '''
+    def set(self, key, value):
+        '''
+        Canonicalise the value before insertion
+        '''
+        canonical_value = sorted(set(value)) if type(value) is list else [value]
+        super().__setitem__(key, canonical_value)
 
 
 class FileUpdate(Model):
     """
     Model of a file update.
     """
-    def __init__(self, file_location: str, file_hash: hash, timestamp: date, metadata: _MetadataT):
+    def __init__(self, file_location: str, file_hash: hash, timestamp: date, metadata: IRODSMetadata):
         """
         Constructor.
         :param file_location: the location of the file that has been updated
@@ -39,31 +50,42 @@ class FileUpdate(Model):
         self.file_location = file_location
         self.file_hash = file_hash
         self.timestamp = timestamp
-
-        # FIXME? This is probably a teensy bit "unpythonic".
-        # It will do for now...
-        if type(metadata) is Metadata:
-            self.metadata = metadata
-        elif type(metadata) is dict:
-            # Canonicalise dictionary into Metadata
-            self.metadata = Metadata(metadata)
-        elif type(metadata) is str:
-            # Attempt to build Metadata from JSON
-            self.metadata = Metadata(json.loads(metadata))
-        else:
-            raise TypeError('Could not parse metadata')
+        self.metadata = metadata
 
 
-class FileProcessState(Model):
+class CookieCrumbs(Metadata):
+    '''
+    CookieCrumbs is just an alias of the generic metadata model
+    '''
+    pass
+
+
+class Cookie(Model):
+    '''
+    A "Cookie" is a representation of a file's "complete" metadata, in
+    as much as its ever complete
+    '''
+    def __init__(self, path: str):
+        '''
+        Constructor
+        @param  path  File path
+        '''
+        self.path     = path
+        self.metadata = CookieCrumbs()
+
+    # TODO? Enrich method...
+
+
+class CookieProcessState(Model):
     '''
     Model file processing state
     '''
-    def __init__(self, current_state: FileUpdate, processed_state: Optional[FileUpdate]):
+    def __init__(self, current_state: Cookie, processed_state: Optional[Cookie]):
         '''
         Constructor
 
-        @param  current_state   Current FileUpdate for processing
-        @param  processed_state Previously processed FileUpdate
+        @param  current_state   Current Cookie for processing
+        @param  processed_state Previously processed Cookie
         '''
         self.current_state   = current_state
         self.processed_state = processed_state
