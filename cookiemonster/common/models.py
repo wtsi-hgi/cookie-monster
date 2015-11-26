@@ -81,4 +81,5 @@ class Notification(Model):
         :param external_process_name: the name of the external process that should be informed
         :param data: the data (if any) that should be given to the external process
         """
-        raise NotImplementedError()
+        self.external_process_name = external_process_name
+        self.data = data

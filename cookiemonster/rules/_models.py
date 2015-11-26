@@ -1,8 +1,23 @@
-from typing import Callable, List, Any
+from typing import Callable, List
+
 from hgicommon.models import Model
 
 from cookiemonster.common.models import FileUpdate, Notification
-from cookiemonster.rulesengine._collections import DataEnvironment
+from cookiemonster.rules._collections import DataEnvironment
+
+
+class RuleAction(Model):
+    """
+    A model of the action that has outcome from matching a rule.
+    """
+    def __init__(self, notifications: List[Notification], terminate_processing: bool):
+        """
+        Default constructor.
+        :param notifications: list of notifications for external processes
+        :param terminate_processing: whether the data processor should stop processing the update
+        """
+        self.notifications = notifications
+        self.terminate_processing = terminate_processing
 
 
 class Rule(Model):
@@ -19,17 +34,5 @@ class Rule(Model):
         :param action_generator: an arbitrary function to execute if the matching criteria is met, which returns the
         rule's action, given as input an immutable description of a file update and immutable, known data
         """
-        raise NotImplementedError()
-
-
-class RuleAction(Model):
-    """
-    A model of the action that has outcome from matching a rule.
-    """
-    def __init__(self, notifications: List[Notification], terminate_processing: bool):
-        """
-        Default constructor.
-        :param notifications: list of notifications for external processes
-        :param terminate_processing: whether the data processor should stop processing the update
-        """
-        raise NotImplementedError()
+        self.matching_criteria = matching_criteria
+        self.action_generator = action_generator

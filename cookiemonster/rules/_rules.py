@@ -1,32 +1,40 @@
-from typing import List
+import copy
 
-from cookiemonster.rulesengine._models import Rule
+from cookiemonster.rules._collections import RuleCollection
+from cookiemonster.rules._models import Rule
 
 
 class RulesManager:
     """
     Manages the rules that are used by data processors.
     """
-    def get_rules(self) -> List[Rule]:
+    def __init__(self):
+        self._rules = RuleCollection()
+
+    def get_rules(self) -> RuleCollection:
         """
-        Gets a list of rules that have been defined.
-        :return: ordered set of rules
+        Gets a copy of the collection of rules that have been defined.
+        :return: clopy of the collection of rules
         """
-        raise NotImplementedError()
+        return copy.deepcopy(self._rules)
 
     def add_rule(self, rule: Rule):
         """
         Adds a new rule.
         :param rule: the rule to add
         """
-        raise NotImplementedError()
+        if rule in self._rules:
+            raise ValueError("Rule has already been defined: %s" % rule)
+        self._rules.append(rule)
 
     def remove_rule(self, rule: Rule):
         """
         The rule to remove. Will raise a `ValueError` if the rule does not exist.
         :param rule: the rule to remove
         """
-        raise NotImplementedError()
+        if rule not in self._rules:
+            raise ValueError("Rule has not been defined: %s" % rule)
+        self._rules.remove(rule)
 
 
 class InFileRulesMonitor:
