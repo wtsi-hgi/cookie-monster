@@ -60,10 +60,10 @@ from typing import Optional, Union, Tuple
 from hgicommon.listenable import Listenable
 from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.models import FileUpdate, FileProcessState
-from cookiemonster.cookiejar._metadata import MetadataDB
+from cookiemonster.cookiejar._dbi import DBI
 from cookiemonster.cookiejar._workflow import WorkflowDB, Event
 
-class DataManager(Listenable):
+class CookieJar(Listenable):
     '''
     Manage and orchestrate the FileUpdate processing workflow
     '''
@@ -77,7 +77,7 @@ class DataManager(Listenable):
         @param  failure_lead_time  Time before failures are requeued
         '''
         super().__init__()
-        self._mdb = MetadataDB(metadata_db, metadata_host)
+        self._mdb = DBI(metadata_db, metadata_host)
         self._workflow = WorkflowDB(workflow_db, self._mdb, failure_lead_time)
         self._listeners = []
 
