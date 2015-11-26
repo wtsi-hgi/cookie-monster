@@ -18,14 +18,17 @@ Copyright (c) 2015 Genome Research Limited
 
 # TODO Change this to match new interface requirements
 from datetime import timedelta
-from typing import Optional, Union, Tuple
+
 from hgicommon.listenable import Listenable
-from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.models import FileUpdate, FileProcessState
-from cookiemonster.cookiejar._dbi import DBI
-from cookiemonster.cookiejar._workflow import WorkflowDB, Event
+from typing import Any
+
+from cookiemonster.common.models import FileUpdate
+
 
 # TODO Cookie, CookieCrumbs and CookieProcessState models
+CookieCrumbs = Any
+Cookie = Any
+CookieProcessState = Any
 
 class CookieJar(Listenable):
     '''
@@ -39,6 +42,7 @@ class CookieJar(Listenable):
         @param  db_prefix  Database name prefix
         TODO Others??
         '''
+        super(CookieJar, self).__init__()
         pass
 
     def __call__(self, file_update: FileUpdate):
