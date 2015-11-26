@@ -74,6 +74,14 @@ class CookieJar(Listenable):
         '''
         pass
 
+    def mark_as_complete(self, path: str):
+        '''
+        Mark a file as having completed processing
+
+        @param  path  File path
+        '''
+        pass
+
     def mark_as_reprocess(self, path: str):
         '''
         Mark a file for reprocessing, regardless of changes to its
