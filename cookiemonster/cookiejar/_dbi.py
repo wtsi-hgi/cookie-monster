@@ -1,17 +1,17 @@
 '''
-Metadata Database Abstraction
-=============================
-Operations for managing and interacting with the CouchDB-based metadata
-database.
+Database Interface
+==================
+Abstraction layer over a document-based database
 
-Exportable classes: `MetadataDB`
+Exportable classes: `DBI`
 
-MetadataDB
-----------
-`MetadataDB` should be instantiated with the CouchDB database name and
-the host URL (defaults to `http://localhost:5984`), upon which it will
-acquire a connection. (If the database does not exist, it will be
-created.)
+DBI
+---
+`DBI` should be instantiated with the database name and the host URL
+(defaults to `http://localhost:5984`), upon which it will acquire a
+connection (and create the database, if it does not exist).
+
+TODO!
 
 The metadata from iRODS comes in the form of "AVUs", which are given a
 canonical form in the FileUpdate model, thus serialising them into a
@@ -59,10 +59,11 @@ def _document_to_metadata(doc: couchdb.client.Document) -> Metadata:
     @param  doc  CouchDB document
     @return Metadata dictionary
     '''
-    couch_keys = ['_id', '_rev']
-    return Metadata({key: value for key, value in doc.items() if key not in couch_keys})
+    # couch_keys = ['_id', '_rev']
+    # return Metadata({key: value for key, value in doc.items() if key not in couch_keys})
+    pass
 
-class MetadataDB(object):
+class DBI(object):
     '''
     Connect (and create, if necessary) to the metadata database, plus
     provide an interface to interact with the data

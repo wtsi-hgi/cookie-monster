@@ -123,7 +123,7 @@ from enum import Enum
 from time import mktime
 from datetime import datetime, timedelta
 from cookiemonster.common.models import FileUpdate, FileProcessState
-from cookiemonster.manager._metadata import MetadataDB
+from cookiemonster.cookiejar._dbi import DBI
 
 # TODO Modicum of abstraction, rather than raw SQL calls... In general,
 # this code is a bit of a big ball of mud and needs iterating against.
@@ -166,7 +166,7 @@ class WorkflowDB(object):
     Create (if necessary) and check the database schema, plus provide
     the interface to interact with the data.
     '''
-    def __init__(self, workflow_db: str, metadata_db: MetadataDB, failure_lead_time: timedelta):
+    def __init__(self, workflow_db: str, metadata_db: DBI, failure_lead_time: timedelta):
         '''
         Connect to specified database and validate the schema
 
