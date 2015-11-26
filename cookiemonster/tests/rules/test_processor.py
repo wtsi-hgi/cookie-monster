@@ -16,16 +16,16 @@ class TestRuleProcessingQueue(unittest.TestCase):
 
     def test_constructor(self):
         rule_processing_queue = RuleProcessingQueue(self.rules)
-        self.assertTrue(rule_processing_queue.exists_unprocessed_rules())
+        self.assertTrue(rule_processing_queue.has_unprocessed_rules())
         self.assertEquals(len(rule_processing_queue.get_all()), len(self.rules))
 
-    def test_exists_unprocessed_rules_with_unprocessed_rules(self):
+    def test_has_unprocessed_rules_with_unprocessed_rules(self):
         rule_processing_queue = RuleProcessingQueue(self.rules)
-        self.assertTrue(rule_processing_queue.exists_unprocessed_rules())
+        self.assertTrue(rule_processing_queue.has_unprocessed_rules())
 
-    def test_exists_unprocessed_rules_with_no_unprocessed_rules(self):
+    def test_has_unprocessed_rules_with_no_unprocessed_rules(self):
         rule_processing_queue = RuleProcessingQueue(RuleCollection())
-        self.assertFalse(rule_processing_queue.exists_unprocessed_rules())
+        self.assertFalse(rule_processing_queue.has_unprocessed_rules())
 
     def test_get_next_when_next_exists(self):
         rule_processing_queue = RuleProcessingQueue(self.rules)
@@ -40,7 +40,7 @@ class TestRuleProcessingQueue(unittest.TestCase):
         rule_processing_queue = RuleProcessingQueue(self.rules)
 
         processed_rules = []
-        while rule_processing_queue.exists_unprocessed_rules():
+        while rule_processing_queue.has_unprocessed_rules():
             rule = rule_processing_queue.get_next_unprocessed()
             self.assertNotIn(rule, processed_rules)
             rule_processing_queue.mark_as_processed(rule)
@@ -58,7 +58,7 @@ class TestRuleProcessingQueue(unittest.TestCase):
         rule_processing_queue.reset_all_marked_as_processed()
 
         unprocessed_counter = 0
-        while rule_processing_queue.exists_unprocessed_rules():
+        while rule_processing_queue.has_unprocessed_rules():
             rule_processing_queue.mark_as_processed(rule_processing_queue.get_next_unprocessed())
             unprocessed_counter += 1
         self.assertEquals(unprocessed_counter, len(self.rules))

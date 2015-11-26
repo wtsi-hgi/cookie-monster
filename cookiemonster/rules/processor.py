@@ -11,11 +11,10 @@ class Processor(metaclass=ABCMeta):
     Processor for a single file update.
     """
     @abstractmethod
-    def process(
-            self, information: Any, rules: RuleCollection, on_complete: Callable[[List[Notification]], None]):
+    def process(self, work: Any, rules: RuleCollection, on_complete: Callable[[List[Notification]], None]):
         """
         Processes the given file update.
-        :param information: the file update to process
+        :param work: TODO
         :param rules: the rules to use when processing the file update
         :param on_complete: the on complete method that must be called when the processing has completed
         """
@@ -39,7 +38,7 @@ class RuleProcessingQueue:
         for rule in rules:
             self._not_processed.append(rule)
 
-    def exists_unprocessed_rules(self) -> bool:
+    def has_unprocessed_rules(self) -> bool:
         """
         Returns whether or not there exists rules that have not been processed.
         :return: whether there are rules that have not been processed
@@ -58,7 +57,7 @@ class RuleProcessingQueue:
         Gets the next rule that should be processed.
         :return: the next rule to be processed, else `None` if no more rules to process
         """
-        if not self.exists_unprocessed_rules():
+        if not self.has_unprocessed_rules():
             return None
         return copy.deepcopy(self._not_processed[-1])
 

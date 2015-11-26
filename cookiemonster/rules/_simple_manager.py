@@ -5,6 +5,7 @@ from cookiemonster.cookiejar import CookieJar
 from cookiemonster.rules.manager import ProcessorManager
 from cookiemonster.rules._rules import RulesManager
 from cookiemonster.rules._simple_processor import SimpleProcessor
+from cookiemonster.rules.processor import Processor
 
 
 class SimpleProcessorManager(ProcessorManager):
@@ -19,12 +20,16 @@ class SimpleProcessorManager(ProcessorManager):
         :param rules_manager:
         :param notifier:
         """
-        self.number_of_processors = number_of_processors
         self._data_manager = data_manager
         self._rules_manager = rules_manager
         self._notifier = notifier
 
+        self._idle_processors = []
         self._busy_processors = []
+
+        for i in range(number_of_processors):
+            processor = Processor()
+            self._idle_processors.append(processor)
 
     def on_information(self):
         if self._are_free_processors():
@@ -54,4 +59,4 @@ class SimpleProcessorManager(ProcessorManager):
         Whether there are free data processors.
         :return: `True` if there are free processors, `False` otherwise
         """
-        return self.number_of_processors - len(self._busy_processors)
+        return len(self._idle_processors) - len(self._busy_processors)

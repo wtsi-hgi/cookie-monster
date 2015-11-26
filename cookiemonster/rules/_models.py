@@ -25,8 +25,8 @@ class Rule(Model):
     Model of a rule that defines an action that should be executed if a criteria is matched.
     """
     def __init__(self,
-                 matching_criteria: Callable[[FileUpdate, DataEnvironment], bool],
-                 action_generator: Callable[[FileUpdate, DataEnvironment], RuleAction]):
+                 matching_criteria: Callable[[DataEnvironment], bool],
+                 action_generator: Callable[[DataEnvironment], RuleAction]):
         """
         Default constructor.
         :param matching_criteria: an arbitrary function that returns `True` if the rule is matched, given as input an
