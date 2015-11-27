@@ -6,7 +6,7 @@ maintaining a processing queue. That is, when new/updated metadata is
 retrieved for a file, that file then becomes eligible for
 (re)processing. This cycle is performed until the file is ultimately
 marked as completed (although any later enrichment would again push it
-back into the processing queue)
+back into the processing queue).
 
 Exportable Classes: `CookieJar`
 
