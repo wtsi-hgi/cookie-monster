@@ -84,7 +84,7 @@ class SimpleProcessorManager(ProcessorManager):
             self, job: CookieProcessState, rules_matched: bool, notifications: List[Notification]=()):
         if rules_matched:
             for notification in notifications:
-                self._notifier.do(notification)
+                self._notifier.do(notification, job)
             self._cookie_jar.mark_as_complete(job.path)
         else:
             next_data = self._data_manager.load_next(job.current_state)
