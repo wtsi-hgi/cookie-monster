@@ -1,21 +1,20 @@
 import copy
-
 from typing import Set
 
-from cookiemonster.rules._models import Rule
+from cookiemonster.processor._models import Rule
 
 
 class RulesManager:
     """
-    Manages the rules that are used by data processors.
+    Manages the processor that are used by data processors.
     """
     def __init__(self):
         self._rules = set()
 
     def get_rules(self) -> Set[Rule]:
         """
-        Gets a copy of the collection of rules that have been defined.
-        :return: clopy of the collection of rules
+        Gets a copy of the collection of processor that have been defined.
+        :return: clopy of the collection of processor
         """
         return copy.deepcopy(self._rules)
 
@@ -40,13 +39,13 @@ class RulesManager:
 
 class InFileRulesMonitor:
     """
-    Whether changes to the rules, defined by changes in the files in the directory.
+    Whether changes to the processor, defined by changes in the files in the directory.
     """
     def __init__(self, directory_location: str, rules_manager: RulesManager):
         """
         Default constructor.
-        :param directory_location: the location of the rules
-        :param rules_manager: the rules manager to update about changes in the rules
+        :param directory_location: the location of the processor
+        :param rules_manager: the processor manager to update about changes in the processor
         """
         raise NotImplementedError()
 
@@ -59,12 +58,12 @@ class InFileRulesMonitor:
 
     def start(self):
         """
-        Starts monitoring rules in the directory.
+        Starts monitoring processor in the directory.
         """
         raise NotImplementedError()
 
     def stop(self):
         """
-        Stops monitoring rules in the directory.
+        Stops monitoring processor in the directory.
         """
         raise NotImplementedError()

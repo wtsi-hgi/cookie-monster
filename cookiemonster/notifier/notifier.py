@@ -7,3 +7,4 @@ class Notifier(metaclass=ABCMeta):
     @abstractmethod
     def do(self, notification: Notification):
         pass
+

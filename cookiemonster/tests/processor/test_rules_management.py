@@ -1,7 +1,7 @@
 import unittest
 
-from cookiemonster.rules._rules_management import RulesManager
-from cookiemonster.tests.rules._mocks import create_mock_rule
+from cookiemonster.processor._rules_management import RulesManager
+from cookiemonster.tests.processor._mocks import create_mock_rule
 
 
 class TestRulesManager(unittest.TestCase):

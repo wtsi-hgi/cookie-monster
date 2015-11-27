@@ -1,6 +1,6 @@
 from cookiemonster.common.models import Notification
-from cookiemonster.rules._models import Rule
-from cookiemonster.rules._models import RuleAction
+from cookiemonster.processor._models import Rule
+from cookiemonster.processor._models import RuleAction
 
 
 def create_mock_rule(distinguisher: str="") -> Rule:
