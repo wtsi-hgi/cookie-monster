@@ -1,3 +1,4 @@
+from threading import Lock, Thread
 from typing import Any, List, Optional
 
 from cookiemonster.common.models import Notification, CookieProcessState
@@ -10,7 +11,7 @@ from cookiemonster.rules.processor import Processor
 
 class SimpleProcessorManager(ProcessorManager):
     """
-    Simple implementation to of managing the continuous processing of file updates.
+    Simple implementation of managing the continuous processing of new data.
     """
     def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules_manager: RulesManager, notifier: Any):
         """
@@ -24,12 +25,13 @@ class SimpleProcessorManager(ProcessorManager):
         self._rules_manager = rules_manager
         self._notifier = notifier
 
-        self._idle_processors = []
-        self._busy_processors = []
+        self._idle_processors = set()
+        self._busy_processors = set()
+        self._lists_lock = Lock()
 
         for i in range(number_of_processors):
             processor = SimpleProcessor()
-            self._idle_processors.append(processor)
+            self._idle_processors.add(processor)
 
     def process_any_jobs(self):
         processor = self._claim_processor()
@@ -38,30 +40,52 @@ class SimpleProcessorManager(ProcessorManager):
             job = self._data_manager.get_next_for_processing()
 
             if job is not None:
-                def on_complete(notifications: List[Notification]):
-                    self._busy_processors.remove(processor)
-                    self.on_processed(job, notifications)
+                def on_complete(rules_matched: bool, notifications: List[Notification]):
+                    self.on_job_processed(job, rules_matched, notifications)
+                    self._release_processor(processor)
                     self.process_any_jobs()
 
-                processor.process(job, self._rules_manager.get_rules(), on_complete)
+                Thread(target=processor.process, args=(job, self._rules_manager.get_rules(), on_complete)).start()
+            else:
+                self._release_processor(processor)
 
-    def on_processed(self, job: CookieProcessState, notifications: List[Notification]):
+    def on_job_processed(
+            self, job: CookieProcessState, rules_matched: bool, notifications: List[Notification]=()):
         job_id = job.path
 
-        if len(notifications) == 0:
-            self._data_manager.mark_as_failed(job_id)   # TODO: Correct method call?
-            raise NotImplementedError()    # TODO: Load additional data
-        else:
+        if rules_matched:
             for notification in notifications:
                 self._notifier.add(notification)
             self._data_manager.mark_as_complete(job_id)
+        else:
+            self._data_manager.mark_as_failed(job_id)   # TODO: Correct method call?
+            raise NotImplementedError()    # TODO: Load additional data
 
     def _claim_processor(self) -> Optional[Processor]:
         """
-        TODO: Make synchronous
-        :return:
+        Claims a processor.
+
+        Thread-safe.
+        :return: the claimed processor, else `None` if no were available
         """
         if len(self._idle_processors) == 0:
             return None
-        return self._idle_processors.pop()
+        self._lists_lock.acquire()
+        processor = self._idle_processors.pop()
+        self._busy_processors.add(processor)
+        self._lists_lock.release()
+        return processor
 
+    def _release_processor(self, processor: Processor):
+        """
+        Releases a processor.
+
+        Thread-safe.
+        :param processor: the processor that is currently in use and should be released
+        """
+        assert processor in self._busy_processors
+        assert processor not in self._idle_processors
+        self._lists_lock.acquire()
+        self._busy_processors.remove(processor)
+        self._idle_processors.add(processor)
+        self._lists_lock.release()

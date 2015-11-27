@@ -1,6 +1,6 @@
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import List
+from typing import List, Optional
 
 from cookiemonster.common.models import Notification, CookieProcessState
 
@@ -17,11 +17,13 @@ class ProcessorManager(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def on_processed(self, job: CookieProcessState, notifications: List[Notification]):
+    def on_job_processed(
+            self, job: CookieProcessState, rules_matched: bool, notifications: List[Notification]=()):
         """
         Called when processing of a job has been completed
         :param job: the job that has been processed
-        :param notifications: list of external processes that are to be notified. List should be empty if no decision
-        could be made with the known information
+        :param rules_matched: whether at least one rule was matched during the processing
+        :param notifications: list of external processes that are to be notified. List should only be givne if rules
+        were matched
         """
         pass
