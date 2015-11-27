@@ -49,6 +49,9 @@ class BiscuitTin(CookieJar):
         self._queue    = DBI(db_host, '{}-queue'.format(db_prefix))
         self._metadata = DBI(db_host, '{}-metadata'.format(db_prefix))
 
+        # Initialise listeners 
+        super().__init__()
+
     def __call__(self, file_update: FileUpdate):
         '''
         Proxy to enrich_metadata, taking a FileUpdate model as input and
