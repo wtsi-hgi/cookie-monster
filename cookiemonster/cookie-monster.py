@@ -8,13 +8,14 @@ from mock import MagicMock
 from sqlalchemy import create_engine
 
 from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.models import FileUpdate, CookieProcessState, Notification
 from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
 from cookiemonster.notifier.notifier import Notifier
 from cookiemonster.notifier.printing_notifier import PrintingNotifier
 from cookiemonster.processor._data_management import DataManager
+from cookiemonster.processor._models import Rule, RuleAction, DataLoader
 from cookiemonster.processor._rules_management import RulesManager
 from cookiemonster.processor.processor import ProcessorManager
 from cookiemonster.processor.simple_processor import SimpleProcessorManager
@@ -73,16 +74,31 @@ def main():
         processor_manager.process_any_jobs()
     cookie_jar.add_listener(prompt_processor_manager_to_process_new_jobs)
 
-    file_update = FileUpdate("file_id", hash("hash"), datetime.min, Metadata())
-    query_result = QueryResult(FileUpdateCollection([file_update]), timedelta(seconds=42))
-    retrieval_manager._file_update_retriever.query_for_all_file_updates_since = MagicMock(side_effect=[query_result])
+
+    # Let's see if the setup works!
+    file_update_1 = FileUpdate("file_id_1", hash("hash"), datetime.min, Metadata())
+    query_result_1 = QueryResult(FileUpdateCollection([file_update_1]), timedelta(seconds=42))
+
+    file_update_2 = FileUpdate("file_id_2", hash("hash"), datetime.min, Metadata())
+    query_result_2 = QueryResult(FileUpdateCollection([file_update_2]), timedelta(seconds=24))
+
+    blank_query_results = [QueryResult(FileUpdateCollection(), timedelta(seconds=11)) for _ in range(1000)]
+
+    retrieval_manager._file_update_retriever.query_for_all_file_updates_since = MagicMock(
+        side_effect=[query_result_1, query_result_2] + blank_query_results)
+
+    rule_1 = Rule(
+        lambda known_data: known_data.path == "file_id_1",
+        lambda known_data: RuleAction(set([Notification("External process interested in file_id_1")]), known_data))
+    rules_manager.add_rule(rule_1)
+    rule_2 = Rule(
+        lambda known_data: known_data.path == "file_id_2",
+        lambda known_data: RuleAction(set([Notification("External process interested in file_id_2")]), known_data))
+    rules_manager.add_rule(rule_2)
 
     # Start the data retrieval manger
     retrieval_manager.start(file_updates_since)
     logging.debug("Started retrieval manager")
-
-
-    sleep(30)
 
 
 def setup_retrieval_log_database(database_location : str):

@@ -135,7 +135,8 @@ class PeriodicRetrievalManager(RetrievalManager):
         else:
             interval = retrieve_next_at - PeriodicRetrievalManager._get_current_time()
             # Run timer in same thread
-            self._timer = Timer(interval.total_seconds(), self._do_retrieve_periodically, retrieve_next_at).run()
+            self._timer = Timer(
+                interval.total_seconds(), self._do_retrieve_periodically, args=(retrieve_next_at, )).run()
 
     @staticmethod
     def _get_current_time() -> datetime:
