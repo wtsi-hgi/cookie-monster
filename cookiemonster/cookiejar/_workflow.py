@@ -214,7 +214,7 @@ class WorkflowDB(object):
             from   mgrFiles
             where  path = :file_path
         ''', {
-            'file_path': file_update.file_location
+            'file_path': file_update.file_id
         }).fetchone() or _nuple()
 
         return file_id
@@ -422,7 +422,7 @@ class WorkflowDB(object):
                 insert into mgrFiles(path)
                             values  (:file_path)
             ''', {
-                'file_path': file_update.file_location   
+                'file_path': file_update.file_id
             })
             
             file_id      = cursor.lastrowid

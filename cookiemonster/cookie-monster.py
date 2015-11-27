@@ -1,44 +1,104 @@
-from datetime import timedelta, datetime
+import logging
+import tempfile
+from datetime import timedelta, datetime, date
+from time import sleep
 
+from hgicommon.collections import Metadata
+from mock import MagicMock
 from sqlalchemy import create_engine
 
 from cookiemonster.common.collections import FileUpdateCollection
+from cookiemonster.common.models import FileUpdate, CookieProcessState, Notification
 from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
-from cookiemonster.retriever.irods.baton_retriever import BatonFileUpdateRetriever
+from cookiemonster.cookiejar import CookieJar
+from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
+from cookiemonster.notifier.notifier import Notifier
+from cookiemonster.notifier.printing_notifier import PrintingNotifier
+from cookiemonster.processor._data_management import DataManager
+from cookiemonster.processor._models import Rule, RuleAction, DataLoader
+from cookiemonster.processor._rules_management import RulesManager
+from cookiemonster.processor.processor import ProcessorManager
+from cookiemonster.processor.simple_processor import SimpleProcessorManager
+from cookiemonster.retriever._models import QueryResult
 from cookiemonster.retriever.irods.irods_config import IrodsConfig
-from cookiemonster.retriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel
+from cookiemonster.retriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.manager import PeriodicRetrievalManager
-from cookiemonster.cookiejar import BiscuitTin
+from cookiemonster.tests.retriever.stubs import StubFileUpdateRetriever
 
 
 def main():
     # TODO: These values need to be loaded from config file/passed in through CLI
-    retrieval_log_database_location = ""
-    retrieval_period = timedelta()
-    file_updates_since = datetime.now()
-    
+    retrieval_log_database_location = "sqlite:///%s" % tempfile.mkstemp()[1]
+    retrieval_period = timedelta(seconds=5)
+    file_updates_since = datetime.min
+
+    number_of_processors = 5
+
     manager_db_host = "http://localhost:5984"
     manager_db_prefix = "cookiemonster"
-    
-    failure_lead_time = timedelta(days=5)
 
-    # TODO: Setup other things
-    cookie_jar = BiscuitTin(manager_db_host, manager_db_prefix)
+    # Setup database for retrieval log
+    setup_retrieval_log_database(retrieval_log_database_location)
 
-    # Coordinates setup of data retrieval
+    # Setup data retrieval manager
     retrieval_manager = create_retrieval_manager(retrieval_period, retrieval_log_database_location)
-    retrieval_manager.add_listener(on_file_updates_retrieved)
-    retrieval_manager.add_listener(cookie_jar)
+
+    # Setup data manager (loads more data about a file)
+    data_manager = DataManager()
+
+    # Setup cookie jar
+    # cookie_jar = BiscuitTin(manager_db_host, manager_db_prefix)
+    cookie_jar = InMemoryCookieJar()    # type: CookieJar
+
+    # Setup rules manager
+    rules_manager = RulesManager()
+
+    # Setup notifier
+    notifier = PrintingNotifier()   # type: Notifier
+
+    # Setup the data processor manager
+    processor_manager = SimpleProcessorManager(
+        number_of_processors, cookie_jar, rules_manager, data_manager, notifier)    # type: ProcessorManager
+
+    # Connect the cookie jar to the retrieval manager
+    def put_file_update_in_cookie_jar(file_updates: FileUpdateCollection):
+        for file_update in file_updates:
+            # FIXME: Metadata is actually a superclass of CookieCrumbs...
+            metadata = file_update.metadata
+            cookie_jar.enrich_metadata(file_update.file_id, metadata)
+    retrieval_manager.add_listener(put_file_update_in_cookie_jar)
+
+    # Connect the data processor manager to the cookie jar
+    def prompt_processor_manager_to_process_new_jobs(*args):
+        processor_manager.process_any_jobs()
+    cookie_jar.add_listener(prompt_processor_manager_to_process_new_jobs)
+
+
+    # Let's see if the setup works!
+    file_update_1 = FileUpdate("file_id_1", hash("hash"), datetime.min, Metadata())
+    query_result_1 = QueryResult(FileUpdateCollection([file_update_1]), timedelta(seconds=42))
+
+    file_update_2 = FileUpdate("file_id_2", hash("hash"), datetime.min, Metadata())
+    query_result_2 = QueryResult(FileUpdateCollection([file_update_2]), timedelta(seconds=24))
+
+    blank_query_results = [QueryResult(FileUpdateCollection(), timedelta(seconds=11)) for _ in range(1000)]
+
+    retrieval_manager._file_update_retriever.query_for_all_file_updates_since = MagicMock(
+        side_effect=[query_result_1, query_result_2] + blank_query_results)
+
+    rule_1 = Rule(
+        lambda known_data: known_data.path == "file_id_1",
+        lambda known_data: RuleAction(set([Notification("External process interested in file_id_1")]), known_data))
+    rules_manager.add_rule(rule_1)
+    rule_2 = Rule(
+        lambda known_data: known_data.path == "file_id_2",
+        lambda known_data: RuleAction(set([Notification("External process interested in file_id_2")]), known_data))
+    rules_manager.add_rule(rule_2)
+
+    # Start the data retrieval manger
     retrieval_manager.start(file_updates_since)
-
-
-def on_file_updates_retrieved(file_updates: FileUpdateCollection):
-    """
-    Method that will be called when file updates are retrieved.
-    :param file_updates: the file updates that have been retrieved
-    """
-    raise NotImplementedError()
+    logging.debug("Started retrieval manager")
 
 
 def setup_retrieval_log_database(database_location : str):
@@ -60,10 +120,16 @@ def create_retrieval_manager(retrieval_period: timedelta, retrieval_log_database
     :return: the retrieval manager
     """
     irods_config = IrodsConfig()
-    file_update_retriever = BatonFileUpdateRetriever(irods_config)
+    # file_update_retriever = BatonFileUpdateRetriever(irods_config)
+    file_update_retriever = StubFileUpdateRetriever()
 
     database_connector = SQLAlchemyDatabaseConnector(retrieval_log_database_location)
     retrieval_log_mapper = SQLAlchemyRetrievalLogMapper(database_connector)
 
     retrieval_manager = PeriodicRetrievalManager(retrieval_period, file_update_retriever, retrieval_log_mapper)
     return retrieval_manager
+
+
+if __name__ == "__main__":
+    logging.root.setLevel("DEBUG")
+    main()

@@ -12,11 +12,11 @@ License
 GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
-from datetime import date
+from datetime import datetime
 from typing import Any, Optional
 
-from hgicommon.models import Model
 from hgicommon.collections import Metadata
+from hgicommon.models import Model
 
 from cookiemonster.common.enums import MetadataNS
 
@@ -41,15 +41,15 @@ class FileUpdate(Model):
     """
     Model of a file update.
     """
-    def __init__(self, file_location: str, file_hash: hash, timestamp: date, metadata: IRODSMetadata):
+    def __init__(self, file_id: str, file_hash: hash, timestamp: datetime, metadata: Metadata):
         """
         Constructor.
-        :param file_location: the location of the file that has been updated
+        :param file_id: a unique identifier of the file that has been updated
         :param file_hash: hash of the file
         :param timestamp: the timestamp of when the file was updated
         :param metadata: the metadata of the file
         """
-        self.file_location = file_location
+        self.file_id = file_id
         self.file_hash = file_hash
         self.timestamp = timestamp
         self.metadata = metadata

@@ -26,6 +26,8 @@ class InMemoryCookieJar(CookieJar):
             current_state = Cookie(path)
             current_state.metadata = metadata
             self._known_data[path] = CookieProcessState(current_state)
+            self._waiting.append(path)
+            self.notify_listeners(None)     # FIXME: Should not be forced to give `None`
         else:
             known = self._known_data[path]
             known.processed_state = known.current_state
@@ -54,8 +56,11 @@ class InMemoryCookieJar(CookieJar):
         self._assert_was_being_processed(path)
         self._processing.remove(path)
         self._waiting.append(path)
+        self.notify_listeners(None)     # FIXME: Should not be forced to give `None`
 
     def get_next_for_processing(self) -> Optional[CookieProcessState]:
+        if len(self._waiting) == 0:
+            return None
         path = self._waiting.pop()
         self._processing.append(path)
         return self._known_data[path]
