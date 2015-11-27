@@ -32,7 +32,7 @@ class IRODSMetadata(Metadata):
         Canonicalise the value before insertion
         '''
         canonical_value = sorted(set(value)) if type(value) is list else [value]
-        super().__setitem__(key, canonical_value)
+        super().set(key, canonical_value)
 
 
 class FileUpdate(Model):
@@ -87,10 +87,11 @@ class CookieProcessState(Model):
         @param  current_state   Current Cookie for processing
         @param  processed_state Previously processed Cookie
         '''
-        self.current_state   = current_state
-        self.processed_state = processed_state
+        self.path            = current_state.path
+        self.current_state   = current_state.metadata
+        self.processed_state = processed_state.metadata if processed_state else None
 
-        # TODO? Generate diff...
+        # TODO? Generate diff automagically...
 
 
 class Notification(Model):

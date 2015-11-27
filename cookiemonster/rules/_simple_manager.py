@@ -46,7 +46,7 @@ class SimpleProcessorManager(ProcessorManager):
                 processor.process(job, self._rules_manager.get_rules(), on_complete)
 
     def on_processed(self, job: CookieProcessState, notifications: List[Notification]):
-        job_id = job.current_state.path
+        job_id = job.path
 
         if len(notifications) == 0:
             self._data_manager.mark_as_failed(job_id)   # TODO: Correct method call?
