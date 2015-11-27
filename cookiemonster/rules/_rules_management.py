@@ -10,7 +10,7 @@ class RulesManager:
     Manages the rules that are used by data processors.
     """
     def __init__(self):
-        self._rules = []
+        self._rules = set()
 
     def get_rules(self) -> Set[Rule]:
         """
@@ -26,7 +26,7 @@ class RulesManager:
         """
         if rule in self._rules:
             raise ValueError("Rule has already been defined: %s" % rule)
-        self._rules.append(rule)
+        self._rules.add(rule)
 
     def remove_rule(self, rule: Rule):
         """

@@ -14,7 +14,8 @@ class TestRulesManager(unittest.TestCase):
     def test_add_rule(self):
         rule = create_mock_rule()
         self.rules_manager.add_rule(rule)
-        self.assertEquals(self.rules_manager.get_rules(), [rule])
+        self.assertIn(rule, self.rules_manager.get_rules())
+        self.assertEquals(len(self.rules_manager.get_rules()), 1)
 
     def test_add_rule_that_has_been_already_added(self):
         rule = create_mock_rule()
@@ -26,7 +27,7 @@ class TestRulesManager(unittest.TestCase):
         self.rules_manager.add_rule(rule)
         assert rule in self.rules_manager.get_rules()
         self.rules_manager.remove_rule(rule)
-        self.assertEquals(self.rules_manager.get_rules(), [])
+        self.assertEquals(len(self.rules_manager.get_rules()), 0)
 
     def test_remove_rule_that_does_not_exist(self):
         self.assertRaises(ValueError, self.rules_manager.remove_rule, create_mock_rule())

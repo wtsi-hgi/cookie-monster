@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Optional
 
 from cookiemonster.common.models import CookieCrumbs, CookieProcessState, Notification
 from cookiemonster.cookiejar import CookieJar
@@ -18,7 +19,7 @@ class StubCookieJar(CookieJar):
     def mark_as_complete(self, path: str):
         pass
 
-    def get_next_for_processing(self) -> CookieProcessState:
+    def get_next_for_processing(self) -> Optional[CookieProcessState]:
         pass
 
     def mark_as_reprocess(self, path: str):

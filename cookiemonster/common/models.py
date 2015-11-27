@@ -80,7 +80,7 @@ class CookieProcessState(Model):
     '''
     Model file processing state
     '''
-    def __init__(self, current_state: Cookie, processed_state: Optional[Cookie]):
+    def __init__(self, current_state: Cookie, processed_state: Optional[Cookie]=None):
         '''
         Constructor
 

@@ -19,6 +19,7 @@ Copyright (c) 2015 Genome Research Limited
 # TODO Change this to match new interface requirements
 from abc import ABCMeta, abstractmethod
 from datetime import timedelta
+from typing import Optional
 
 from hgicommon.listenable import Listenable
 
@@ -97,7 +98,7 @@ class CookieJar(Listenable, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_next_for_processing(self) -> CookieProcessState:
+    def get_next_for_processing(self) -> Optional[CookieProcessState]:
         """
         Get the next Cookie for processing and update its state.
 

@@ -1,4 +1,4 @@
-from typing import Callable, List
+from typing import Callable, Set
 
 from hgicommon.models import Model
 
@@ -9,10 +9,10 @@ class RuleAction(Model):
     """
     A model of the action that has outcome from matching a rule.
     """
-    def __init__(self, notifications: List[Notification], terminate_processing: bool):
+    def __init__(self, notifications: Set[Notification], terminate_processing: bool):
         """
         Default constructor.
-        :param notifications: list of notifications for external processes
+        :param notifications: set of notifications for external processes
         :param terminate_processing: whether the data processor should stop processing the update
         """
         self.notifications = notifications

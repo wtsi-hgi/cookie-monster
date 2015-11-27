@@ -1,6 +1,6 @@
 import copy
 from abc import ABCMeta, abstractmethod
-from typing import List, Callable, Union, Set
+from typing import Callable, Set, Optional
 
 from cookiemonster.common.models import Notification, CookieProcessState
 from cookiemonster.rules._models import Rule
@@ -11,13 +11,14 @@ class Processor(metaclass=ABCMeta):
     Processor for a single file update.
     """
     @abstractmethod
-    def process(
-            self, job: CookieProcessState, rules: Set[Rule], on_complete: Callable[[List[Notification]], None]):
+    def process(self, job: CookieProcessState, rules: Set[Rule],
+                on_complete: Callable[[bool, Optional[Set[Notification]]], None]):
         """
         Processes the given file update.
-        :param job: TODO
-        :param rules: the rules to use when processing the file update
-        :param on_complete: the on complete method that must be called when the processing has completed
+        :param job: the job that is to be processed
+        :param rules: the rules to use when processing the job
+        :param on_complete: called when the processing has completed. First argument indicates if at least one rule was
+        matched and the second is a set of notifications that were generated.
         """
         pass
 
@@ -46,14 +47,14 @@ class RuleProcessingQueue:
         """
         return len(self._not_processed) > 0
 
-    def get_all(self) -> List[Rule]:
+    def get_all(self) -> Set[Rule]:
         """
         Gets all of the rules.
         :return: all of the rules
         """
-        return copy.deepcopy(self._not_processed + self._processed)
+        return copy.deepcopy(set(self._not_processed + self._processed))
 
-    def get_next_unprocessed(self) -> Union[Rule, None]:
+    def get_next_unprocessed(self) -> Optional[Rule]:
         """
         Gets the next rule that should be processed.
         :return: the next rule to be processed, else `None` if no more rules to process
