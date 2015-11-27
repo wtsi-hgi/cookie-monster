@@ -14,11 +14,8 @@ provided host: `{prefix}-queue` and `{prefix}-metadata`, which will
 manage the processing queue and metadata for files (using their path as
 document IDs), respectively.
 
-In additional, instantiations are callable as a proxy to
-`enrich_metadata`, with the caveat of data passed as `FileUpdate`
-models, which will be appropriately munged into `CookieCrumbs`. The
-intention is that this proxy will serve as the listener to the data
-retriever.
+`BiscuitTin` implements `Listenable`; when metadata is enriched, it will
+broadcast the current queue length to all downstream listeners.
 
 Authors
 -------
@@ -36,7 +33,7 @@ from typing import Optional
 from cookiemonster.common.enums import MetadataNS
 from cookiemonster.common.models import FileUpdate, CookieCrumbs, CookieProcessState
 from cookiemonster.cookiejar._cookiejar import CookieJar
-from cookiemonster.cookiejar._dbi import DBI
+from cookiemonster.cookiejar._dbi import QueueDB, MetadataDB
 
 class BiscuitTin(CookieJar):
     def __init__(self, db_host: str, db_prefix: str):
@@ -46,29 +43,11 @@ class BiscuitTin(CookieJar):
         @param  db_host    Database host URL
         @param  db_prefix  Database name prefix
         '''
-        self._queue    = DBI(db_host, '{}-queue'.format(db_prefix))
-        self._metadata = DBI(db_host, '{}-metadata'.format(db_prefix))
+        self._queue = QueueDB(db_host, '{}-queue'.format(db_prefix))
+        self._metadata = MetadataDB(db_host, '{}-metadata'.format(db_prefix))
 
         # Initialise listeners 
         super().__init__()
-
-    def __call__(self, file_update: FileUpdate):
-        '''
-        Proxy to enrich_metadata, taking a FileUpdate model as input and
-        converting it appropriately
-
-        @param  file_update  A FileUpdate model from upstream
-        '''
-        path = file_update.file_location
-        metadata = CookieCrumbs()
-
-        # Convert IRODS metadata into CookieCrumbs
-        metadata.set(MetadataNS.IRODS.FileSystem, 'hash', file_update.file_hash)
-        metadata.set(MetadataNS.IRODS.FileSystem, 'timestamp', file_update.timestamp)
-        for key, value in file_update.metadata.items():
-            metadata.set(MetadataNS.IRODS.AVUs, key, value)
-
-        self.enrich_metadata(path, metadata)
 
     def enrich_metadata(self, path: str, metadata: CookieCrumbs):
         pass

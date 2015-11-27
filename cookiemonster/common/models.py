@@ -61,23 +61,23 @@ class CookieCrumbs(Metadata):
     the notable extension that attributes are namespaced by source and
     section. For the sake of consistency and commonality, recognised
     namespaces are enumerated under MetadataNS and the `get` and `set`
-    methods are overloaded to expect this extra parameter. In the
-    underlying representation, everything is converted to a colon-
+    methods have namespaced equivalents with this extra parameter. In
+    the underlying representation, everything is converted to a colon-
     -delimited string (i.e., `{source}:{section}:{key}`).
 
-    Note that the __getitem__ and __setitem__ magic methods are NOT
-    overridden, so the string representation must be used when
-    interfacing in this manner (e.g., data['foo:bar:baz'] = 123)
+    Note that the original and __getitem__ and __setitem__ magic methods
+    are NOT overridden, so the string representation must be used when
+    interfacing in this manner (e.g., data['foo:bar:baz'] = 123, etc.)
     '''
     @staticmethod
     def _to_attribute(namespace: MetadataNS, key: str) -> str:
         return '{}:{}'.format(namespace.value, key)
 
-    def get(self, namespace: MetadataNS, key: str, default=None):
+    def get_by_namespace(self, namespace: MetadataNS, key: str, default=None):
         attribute = CookieCrumbs._to_attribute(namespace, key)
         super().get(attribute, default)
 
-    def set(self, namespace: MetadataNS, key: str, value):
+    def set_by_namespace(self, namespace: MetadataNS, key: str, value):
         attribute = CookieCrumbs._to_attribute(namespace, key)
         super().set(attribute, value)
 

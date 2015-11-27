@@ -19,7 +19,7 @@ Copyright (c) 2015 Genome Research Limited
 from enum import Enum
 
 class MetadataNS(object):
-    class IRODS(Enum):
+    class iRODS(Enum):
         FileSystem = 'irods:fs'
         AVUs       = 'irods:avu'
         ACLs       = 'irods:acl'
