@@ -51,7 +51,7 @@ class SimpleProcessorManager(ProcessorManager):
 
     def on_job_processed(
             self, job: CookieProcessState, rules_matched: bool, notifications: List[Notification]=()):
-        job_id = job.current_state.path
+        job_id = job.path
 
         if rules_matched:
             for notification in notifications:
