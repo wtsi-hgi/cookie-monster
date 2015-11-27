@@ -7,7 +7,7 @@ from cookiemonster.common.models import CookieProcessState, Cookie, Notification
 from cookiemonster.processor._data_management import DataManager
 from cookiemonster.processor._models import RuleAction, DataLoader, Rule
 from cookiemonster.processor._rules_management import RulesManager
-from cookiemonster.processor._simple_processor import SimpleProcessorManager
+from cookiemonster.processor.simple_processor import SimpleProcessorManager
 from cookiemonster.processor.processor import RuleProcessingQueue
 from cookiemonster.tests.processor._mocks import create_mock_rule
 from cookiemonster.tests.processor._stubs import StubCookieJar, StubNotifier

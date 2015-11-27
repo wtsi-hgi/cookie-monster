@@ -74,6 +74,9 @@ class SimpleProcessorManager(ProcessorManager):
                     self.process_any_jobs()
 
                 Thread(target=processor.process, args=(job, self._rules_manager.get_rules(), on_complete)).start()
+
+                # Process more jobs if possible
+                self.process_any_jobs()
             else:
                 self._release_processor(processor)
 

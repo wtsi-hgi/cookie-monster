@@ -4,6 +4,7 @@ from cookiemonster.common.models import CookieCrumbs, Cookie
 from cookiemonster.processor._models import DataLoader
 
 
+# TODO: Requires a better name...
 class DataManager:
     """
     TODO
