@@ -4,27 +4,41 @@ Database Interface
 Abstraction layer over a revisionable document-based database (i.e.,
 CouchDB)
 
-Exportable classes: `DBI`
+Exportable classes: `QueueDB`, `MetadataDB`
 
 DBI
 ---
-`DBI` should be instantiated with the database host URL and the database
-name, upon which it will acquire a connection (and create the database,
-if it does not exist).
-
-TODO! Redo interface and documentation
-
-As far as the database's structure is concerned, the `_id` will
-correspond with that assigned by the workflow database (albeit,
-stringified) and CouchDB's revision system will be used productively.
+`DBI` is the base CouchDB class used to provide a common interface with
+the database instance. It should be the parent of instantiable classes,
+which should initialise it with the database host URL and database name.
+Upon which, it will acquire a connection and create the database, if it
+does not already exist.
 
 Methods:
 
-* `fetch` Get a metadata dictionary by its ID and, optionally, its
-  revision
+* `fetch` Get a document by its ID and, optionally, its revision
 
-* `upsert` Insert/update a metadata dictionary into the database by its
-  file ID
+* `upsert` Insert/update a document into the database by its ID
+
+QueueDB
+-------
+TODO
+
+Schema:
+
+    _id             file path
+    state           new | changed | potentially changed | complete
+    queue_from      queue timestamp (Unix time)
+    last_processed  null | metadata revision ID
+
+MetadataDB
+----------
+TODO
+
+Schema:
+
+    _id             file path
+    [Metadata key-values...]
 
 Dependencies
 ------------
@@ -44,20 +58,10 @@ Copyright (c) 2015 Genome Research Limited
 from typing import Optional
 
 import couchdb
+from couchdb.client import Document
+
 from hgicommon.collections import Metadata
 
-
-def _document_to_metadata(doc: couchdb.client.Document) -> Metadata:
-    '''
-    Strip out the CouchDB keys (_id and _rev) from a document and return
-    the canonicalised metadata dictionary
-
-    @param  doc  CouchDB document
-    @return Metadata dictionary
-    '''
-    # couch_keys = ['_id', '_rev']
-    # return Metadata({key: value for key, value in doc.items() if key not in couch_keys})
-    pass
 
 class DBI(object):
     '''
@@ -79,58 +83,107 @@ class DBI(object):
 
         self._db = self._couch[database]
 
-    def fetch(self, file_id: int, revision: Optional[str] = None) -> Optional[Metadata]:
+    def fetch(self, key: str, revision: Optional[str] = None) -> Optional[Document]:
         '''
-        Get a metadata document by its ID and, optionally, revision
+        Get a database document by its ID and, optionally, revision
 
-        @param  file_id   File ID number
+        @param  key       Document ID
         @param  revision  Revision ID
-        @return Metadata dictionary (or None)
+        @return Database document (or None, if not found)
         '''
-        doc_key = str(file_id)
         output = None
 
-        if doc_key in self._db:
+        if key in self._db:
             if revision is None:
-                output = self._db[doc_key]
+                output = self._db[key]
             else:
-                output = next((doc for doc in self._db.revisions(doc_key) if doc['_rev'] == revision), None)
-
-        if output:
-            output = _document_to_metadata(output)
+                output = next((doc for doc in self._db.revisions(key) if doc['_rev'] == revision), None)
 
         return output
 
-    def upsert(self, file_id: int, metadata: Metadata) -> str:
+    def upsert(self, key: str, document: dict) -> str:
         '''
-        Insert or update a metadata document by ID
+        Insert or update a document by ID
 
-        @param  file_id   File ID number
-        @param  metadata  Metadata dictionary
-        @return The revisions key for the document
+        @param  key       Document ID
+        @param  document  Dictionary
+        @return The revision ID for the document
 
-        n.b., If the metadata hasn't changed since the current revision,
-        then no insert is performed and that revision's key will be
+        n.b., If the document hasn't changed since the current revision,
+        then no insert is performed and that revision's ID will be
         returned
         '''
-        doc_key = str(file_id)
 
-        doc = metadata.copy()
-        doc['_id'] = str(doc_key)
-        
-        if doc_key in self._db:
-            # Update (if necessary)
-            current = _document_to_metadata(self._db[doc_key])
-            if metadata != current:
-                # To avoid update conflicts, we must explicitly set the
-                # revision key to the latest
-                doc['_rev'] = self._db[doc_key]['_rev']
-                _, _rev = self._db.save(doc)
-            else:
-                _rev = self._db[doc_key]['_rev']
+        # Check key exists
+        #   If it does, fetch it
+        #     Check for changes
+        #       Yes  update
+        #       No   do nothing
+        #   If it doesn't, we insert
 
-        else:
-            # Insert
-            _, _rev = self._db.save(doc)
+        # TODO: Update this...
+        # doc = document.copy()
+        # doc['_id'] = str(doc_key)
+        # 
+        # if doc_key in self._db:
+        #     # Update (if necessary)
+        #     current = _document_to_metadata(self._db[doc_key])
+        #     if metadata != current:
+        #         # To avoid update conflicts, we must explicitly set the
+        #         # revision key to the latest
+        #         doc['_rev'] = self._db[doc_key]['_rev']
+        #         _, _rev = self._db.save(doc)
+        #     else:
+        #         _rev = self._db[doc_key]['_rev']
 
-        return _rev
+        # else:
+        #     # Insert
+        #     _, _rev = self._db.save(doc)
+
+        # return _rev
+
+
+class QueueDB(DBI):
+    '''
+    Interface for creating and interacting with the queue database
+    '''
+    def __init__(self, host: str, database: str):
+        '''
+        Constructor: Connect to the database and create the processing
+        queue view, if necessary. The view shows all non-complete
+        documents with a `queue_from` time on or before the current
+        host time.
+
+        @param  host      CouchDB host URL
+        @param  database  Database name
+        '''
+        super().__init__(host, database)
+
+        # Create views
+        self.upsert('_design/queue', {
+            'language': 'javascript',
+            'views': {
+                'to_process': {
+                    'map': '''function(doc) {
+                        var now = Math.floor(Date.now() / 1000);
+
+                        if (doc.state != 'complete' && doc.queue_from <= now) {
+                            emit(doc.queue_from, {
+                                path:           doc._id,
+                                last_processed: doc.last_processed
+                            });
+                        }
+                    }''',
+
+                    'reduce': '_count'
+                }
+            }
+        })
+
+
+class MetadataDB(DBI):
+    '''
+    Interface for creating and interacting with the metadata database
+    '''
+    def __init__(self, host: str, database: str):
+        super().__init__(host, database)
