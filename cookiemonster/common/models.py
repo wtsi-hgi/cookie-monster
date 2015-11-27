@@ -18,6 +18,8 @@ from typing import Any, Optional
 from hgicommon.models import Model
 from hgicommon.collections import Metadata
 
+from cookiemonster.common.enums import MetadataNS
+
 
 class IRODSMetadata(Metadata):
     '''
@@ -55,9 +57,29 @@ class FileUpdate(Model):
 
 class CookieCrumbs(Metadata):
     '''
-    CookieCrumbs is just an alias of the generic metadata model
+    CookieCrumbs is just an alias of the generic metadata model, with
+    the notable extension that attributes are namespaced by source and
+    section. For the sake of consistency and commonality, recognised
+    namespaces are enumerated under MetadataNS and the `get` and `set`
+    methods are overloaded to expect this extra parameter. In the
+    underlying representation, everything is converted to a colon-
+    -delimited string (i.e., `{source}:{section}:{key}`).
+
+    Note that the __getitem__ and __setitem__ magic methods are NOT
+    overridden, so the string representation must be used when
+    interfacing in this manner (e.g., data['foo:bar:baz'] = 123)
     '''
-    pass
+    @staticmethod
+    def _to_attribute(namespace: MetadataNS, key: str) -> str:
+        return '{}:{}'.format(namespace.value, key)
+
+    def get(self, namespace: MetadataNS, key: str, default=None):
+        attribute = CookieCrumbs._to_attribute(namespace, key)
+        super().get(attribute, default)
+
+    def set(self, namespace: MetadataNS, key: str, value):
+        attribute = CookieCrumbs._to_attribute(namespace, key)
+        super().set(attribute, value)
 
 
 class Cookie(Model):

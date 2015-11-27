@@ -9,7 +9,7 @@ from cookiemonster.retriever.irods.irods_config import IrodsConfig
 from cookiemonster.retriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel
 from cookiemonster.retriever.manager import PeriodicRetrievalManager
-from cookiemonster.cookiejar import CookieJar
+from cookiemonster.cookiejar import BiscuitTin
 
 
 def main():
@@ -17,18 +17,14 @@ def main():
     retrieval_log_database_location = ""
     retrieval_period = timedelta()
     file_updates_since = datetime.now()
-    workflow_database_location = "foo.sqlite"
-    metadata_database_host = "http://localhost:5984"
-    metadata_database_name = "foo"
+    
+    manager_db_host = "http://localhost:5984"
+    manager_db_prefix = "cookiemonster"
+    
     failure_lead_time = timedelta(days=5)
 
     # TODO: Setup other things
-    cookie_jar = CookieJar(
-        workflow_database_location,
-        metadata_database_host,
-        metadata_database_name,
-        failure_lead_time
-    )
+    cookie_jar = BiscuitTin(manager_db_host, manager_db_prefix)
 
     # Coordinates setup of data retrieval
     retrieval_manager = create_retrieval_manager(retrieval_period, retrieval_log_database_location)
