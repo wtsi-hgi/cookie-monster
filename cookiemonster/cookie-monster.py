@@ -34,10 +34,8 @@ def main():
 
     number_of_processors = 5
 
-    # workflow_database_location = "foo.sqlite"
-    # metadata_database_host = "http://localhost:5984"
-    # metadata_database_name = "foo"
-    # failure_lead_time = timedelta(days=5)
+    manager_db_host = "http://localhost:5984"
+    manager_db_prefix = "cookiemonster"
 
     # Setup database for retrieval log
     setup_retrieval_log_database(retrieval_log_database_location)
@@ -49,6 +47,7 @@ def main():
     data_manager = DataManager()
 
     # Setup cookie jar
+    # cookie_jar = BiscuitTin(manager_db_host, manager_db_prefix)
     cookie_jar = InMemoryCookieJar()    # type: CookieJar
 
     # Setup rules manager

@@ -1,22 +1,18 @@
 '''
 Database Interface
 ==================
-Abstraction layer over a document-based database
+Abstraction layer over a revisionable document-based database (i.e.,
+CouchDB)
 
 Exportable classes: `DBI`
 
 DBI
 ---
-`DBI` should be instantiated with the database name and the host URL
-(defaults to `http://localhost:5984`), upon which it will acquire a
-connection (and create the database, if it does not exist).
+`DBI` should be instantiated with the database host URL and the database
+name, upon which it will acquire a connection (and create the database,
+if it does not exist).
 
-TODO!
-
-The metadata from iRODS comes in the form of "AVUs", which are given a
-canonical form in the FileUpdate model, thus serialising them into a
-JSON document and performing comparisons against the database is
-trivial.
+TODO! Redo interface and documentation
 
 As far as the database's structure is concerned, the `_id` will
 correspond with that assigned by the workflow database (albeit,
@@ -65,18 +61,18 @@ def _document_to_metadata(doc: couchdb.client.Document) -> Metadata:
 
 class DBI(object):
     '''
-    Connect (and create, if necessary) to the metadata database, plus
-    provide an interface to interact with the data
+    Connect (and create, if necessary) to the database on the specified
+    host, plus provide an interface to interact with the data
     '''
-    def __init__(self, database: str, url: str = 'http://localhost:5984'):
+    def __init__(self, host: str, database: str):
         '''
         Constructor: Acquire connection with the CouchDB host and use
         (and create) the database
 
+        @param  host      CouchDB host URL
         @param  database  Database name
-        @param  url       CouchDB host URL
         '''
-        self._couch = couchdb.Server(url)
+        self._couch = couchdb.Server(host)
         
         if database not in self._couch:
             self._couch.create(database)
