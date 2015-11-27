@@ -1,8 +1,8 @@
 import unittest
 
-from cookiemonster.rules._models import Rule
-from cookiemonster.rules.processor import RuleProcessingQueue
-from cookiemonster.tests.rules._mocks import create_mock_rule
+from cookiemonster.processor._models import Rule
+from cookiemonster.processor.processor import RuleProcessingQueue
+from cookiemonster.tests.processor._mocks import create_mock_rule
 
 
 class TestRuleProcessingQueue(unittest.TestCase):

@@ -1,8 +1,8 @@
 from typing import List, Callable, Set, Optional
 
 from cookiemonster.common.models import Notification, CookieProcessState
-from cookiemonster.rules._models import Rule
-from cookiemonster.rules.processor import Processor, RuleProcessingQueue
+from cookiemonster.processor._models import Rule
+from cookiemonster.processor.processor import Processor, RuleProcessingQueue
 
 
 class SimpleProcessor(Processor):

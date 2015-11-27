@@ -23,7 +23,7 @@ class ProcessorManager(metaclass=ABCMeta):
         Called when processing of a job has been completed
         :param job: the job that has been processed
         :param rules_matched: whether at least one rule was matched during the processing
-        :param notifications: list of external processes that are to be notified. List should only be givne if rules
+        :param notifications: list of external processes that are to be notified. List should only be givne if processor
         were matched
         """
         pass
