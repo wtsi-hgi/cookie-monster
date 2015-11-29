@@ -81,6 +81,7 @@ class PeriodicRetrievalManager(RetrievalManager):
         self._retrieval_period = retrieval_period
         self._timer = None
         self._running = False
+        self._started = False
 
     def start(self, file_updates_since: datetime=datetime.min):
         """
@@ -88,9 +89,9 @@ class PeriodicRetrievalManager(RetrievalManager):
         :param file_updates_since: the time from which to get file updates from (defaults to getting all updates).
         """
         # FIXME: single start logic
-        # if self._running:
-        #     raise RuntimeError("Already running")
-        # self._running = True
+        if self._started:
+            raise RuntimeError("Already started")
+        self._started = True
         Thread(target=self.run, args=(file_updates_since, )).start()
 
     def run(self, file_updates_since: datetime=datetime.min):
@@ -109,7 +110,8 @@ class PeriodicRetrievalManager(RetrievalManager):
         if self._timer is not None:
             self._timer.cancel()
             self._timer = None
-            self._running = True
+            self._running = False
+            self._started = False
             logging.debug("Stopped periodic retrieval manger")
 
     def _do_retrieve_periodically(self, retrieval_was_scheduled_for: datetime):

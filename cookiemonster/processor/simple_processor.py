@@ -84,17 +84,17 @@ class SimpleProcessorManager(ProcessorManager):
             self, job: CookieProcessState, rules_matched: bool, notifications: List[Notification]=()):
         if rules_matched:
             for notification in notifications:
-                self._notifier.do(notification, job)
+                self._notifier.do(notification)
             self._cookie_jar.mark_as_complete(job.path)
         else:
-            next_data = self._data_manager.load_next(job.current_state)
+            more_data = self._data_manager.load_next(job.current_state)
 
-            if next_data is None:
+            if more_data is None:
                 # FIXME: No guarantee that such a notification can be given
                 self._notifier.do(Notification("unknown", job.path))
                 self._cookie_jar.mark_as_complete(job.path)
             else:
-                self._cookie_jar.enrich_metadata(job.path, next_data)
+                self._cookie_jar.enrich_metadata(job.path, more_data)
                 self._cookie_jar.mark_as_reprocess(job.path)
 
     def _claim_processor(self) -> Optional[Processor]:

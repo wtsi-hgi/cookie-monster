@@ -12,7 +12,7 @@ from cookiemonster.tests.retriever.stubs import StubFileUpdateRetriever
 from cookiemonster.tests.retriever.stubs import StubRetrievalLogMapper
 
 
-_SINCE = date.min
+_SINCE = datetime.min
 _TIME_TAKEN_TO_DO_RETRIEVE = timedelta(seconds=10)
 
 
@@ -135,17 +135,16 @@ class TestPeriodicRetrievalManager(unittest.TestCase):
     def test__do_retrieve_periodically(self):
         # Setup
         self._retrieval_manager._do_retrieve = MagicMock()
-        retrieval_scheduled_for = _SINCE
         self._retrieval_manager._schedule_next_periodic_retrieve = MagicMock()
 
         # Call SUT method
-        self._retrieval_manager._do_retrieve_periodically(retrieval_scheduled_for)
+        self._retrieval_manager._do_retrieve_periodically(_SINCE)
 
         # Assert that _do_retrieve was called
-        self._retrieval_manager._do_retrieve.assert_called_once_with(retrieval_scheduled_for)
+        self._retrieval_manager._do_retrieve.assert_called_once_with(_SINCE)
         # Assert that next cycle was scheduled
         self._retrieval_manager._schedule_next_periodic_retrieve.assert_called_once_with(
-            retrieval_scheduled_for + TestPeriodicRetrievalManager._RETRIEVAL_PERIOD)
+            _SINCE + TestPeriodicRetrievalManager._RETRIEVAL_PERIOD)
 
 
 if __name__ == '__main__':

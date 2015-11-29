@@ -52,8 +52,7 @@ class TestSimpleProcessorManager(unittest.TestCase):
     def test_process_any_jobs_when_jobs_and_free_processors(self):
         number_of_jobs = 50
         self.cookie_jar.get_next_for_processing = MagicMock(
-            side_effect=[self.job for _ in range(number_of_jobs)]
-                        + [None for _ in range(TestSimpleProcessorManager._NUMBER_OF_PROCESSORS)])
+            side_effect=[self.job for _ in range(number_of_jobs)] + [None for _ in range(100)])
 
         semaphore = Semaphore(0)
 
@@ -99,6 +98,9 @@ class TestSimpleProcessorManager(unittest.TestCase):
     def test_on_job_processed_when_rules_matched(self):
         notifications = [Notification("a", "b"), Notification("c", "d")]
 
+        self.rules_manager.remove_rule(self.rule)
+        assert len(self.rules_manager.get_rules()) == 0
+
         self.cookie_jar.mark_as_reprocess = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock()
         self.notifier.do = MagicMock()
@@ -106,7 +108,7 @@ class TestSimpleProcessorManager(unittest.TestCase):
         self.process_manager.on_job_processed(self.job, True, notifications)
         self.cookie_jar.mark_as_reprocess.assert_not_called()
         self.cookie_jar.mark_as_complete.assert_called_once_with(self.job.path)
-        self.notifier.do.assert_has_calls([call(notification) for notification in notifications])
+        self.notifier.do.assert_has_calls([call(notification) for notification in notifications], True)
 
 
 class TestRuleProcessingQueue(unittest.TestCase):
@@ -133,8 +135,7 @@ class TestRuleProcessingQueue(unittest.TestCase):
 
     def test_get_next_when_next_exists(self):
         rule_processing_queue = RuleProcessingQueue(self.rules)
-        self.assertIn(rule_processing_queue.get_next_unprocessed(), self.rules)
-        self.assertSetEqual(rule_processing_queue.get_all(), self.rules)
+        self.assertIsInstance(rule_processing_queue.get_next_unprocessed(), Rule)
 
     def test_get_next_when_no_next_exists(self):
         rule_processing_queue = RuleProcessingQueue(set())

@@ -11,7 +11,5 @@ def create_mock_rule(distinguisher: str="") -> Rule:
     """
     return Rule(
         lambda file_update, data_environment: True,
-        lambda file_update, data_environment: RuleAction([Notification(distinguisher)], True)
+        lambda file_update, data_environment: RuleAction(set([Notification(distinguisher)]), True)
     )
-
-

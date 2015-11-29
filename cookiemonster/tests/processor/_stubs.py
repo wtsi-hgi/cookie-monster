@@ -34,4 +34,5 @@ class StubNotifier(Notifier):
     Stub implementation of `Notifier`.
     """
     def do(self, notification: Notification):
+        assert isinstance(notification, Notification)
         pass
