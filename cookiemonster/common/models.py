@@ -18,23 +18,8 @@ from typing import Any, Union, Optional
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
 
-from cookiemonster.common.enums import MetadataNS, EnrichmentSource
 from cookiemonster.common.collections import EnrichmentCollection
-
-
-class Enrichment(Model):
-    '''
-    Metadata enrichment process model
-    '''
-    def __init__(self, source: Union[EnrichmentSource, str], timestamp: datetime):
-        '''
-        Constructor
-
-        @param  source     Source of metadata enrichment
-        @param  timestamp  Timestamp of enrichment
-        '''
-        self.source    = source
-        self.timestamp = timestamp
+from cookiemonster.common.enums import MetadataNS, EnrichmentSource
 
 
 class IRODSMetadata(Metadata):
@@ -98,21 +83,46 @@ class CookieCrumbs(Metadata):
         super().set(attribute, value)
 
 
+class Enrichment(Model):
+    '''
+    Metadata enrichment model
+    '''
+    def __init__(self, source: Union[EnrichmentSource, str], timestamp: datetime, metadata: CookieCrumbs):
+        '''
+        Constructor
+
+        @param  source     Source of metadata enrichment
+        @param  timestamp  Timestamp of enrichment
+        '''
+        self.source    = source
+        self.timestamp = timestamp
+        self.metadata  = metadata
+
+
 class Cookie(Model):
     '''
-    A "Cookie" is a representation of a file's "complete" metadata, in
-    as much as its ever complete
+    A "Cookie" is a representation of a file's iteratively enriched
+    metadata
     '''
     def __init__(self, path: str):
         '''
         Constructor
         @param  path  File path
         '''
-        self.path       = path
+        self.path = path
         self.enrichments = EnrichmentCollection()
-        self.metadata   = CookieCrumbs()
+        self.metadata = CookieCrumbs()
 
-    # TODO? Enrich method...
+    def get_metadata_by_namespace(self, namespace: MetadataNS, key: str, default=None):
+        '''
+        Fetch the latest existing metadata by namespace and key
+
+        @param  namespace  Namespace
+        @param  key        Attribute name
+        @param  default    Default value, if key doesn't exist
+        '''
+        # TODO
+        pass
 
 
 class Notification(Model):
