@@ -14,7 +14,7 @@ Copyright (c) 2015 Genome Research Limited
 '''
 from datetime import datetime
 from functools import total_ordering
-from typing import Any, Union, Optional, Set
+from typing import Any, Union, Set
 
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
@@ -100,7 +100,7 @@ class Cookie(Model):
         # to get the most recent
         return next((enrichment.metadata[key] for enrichment in reversed(sourced) if key in enrichment.metadata), default)
 
-    def get_metadata_sources(self) -> Set[EnrichmentSource]:
+    def get_metadata_sources(self) -> Set[Union[EnrichmentSource, str]]:
         '''
         Fetch the distinct enrichment sources for which metadata exists
         '''
