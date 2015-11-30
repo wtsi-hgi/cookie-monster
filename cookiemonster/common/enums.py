@@ -45,5 +45,5 @@ class ProcessingQueueState(Enum):
 
 
 class EnrichmentSource(Enum):
-    iRODS = 'irods'
+    IRODS = 'irods'
     TODO  = 'todo'

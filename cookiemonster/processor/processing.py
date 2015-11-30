@@ -4,7 +4,7 @@ from abc import abstractmethod
 from threading import Lock
 from typing import List, Optional, Set, Callable
 
-from cookiemonster.common.models import Notification, CookieProcessState
+from cookiemonster.common.models import Notification, CookieProcessState, Cookie
 from cookiemonster.processor._models import Rule
 
 
@@ -13,12 +13,12 @@ class Processor(metaclass=ABCMeta):
     Processor for a single file update.
     """
     @abstractmethod
-    def process(self, job: CookieProcessState, rules: Set[Rule],
+    def process(self, cookie: Cookie, rules: Set[Rule],
                 on_complete: Callable[[bool, Optional[Set[Notification]]], None]):
         """
-        Processes the given file update.
-        :param job: the job that is to be processed
-        :param rules: the processor to use when processing the job
+        Processes the given cookie.
+        :param cookie: the cookie that is to be processed
+        :param rules: the processor to use when processing the cookie
         :param on_complete: called when the processing has completed. First argument indicates if at least one rule was
         matched and the second is a set of notifications that were generated.
         """
@@ -30,18 +30,17 @@ class ProcessorManager(metaclass=ABCMeta):
     Manages the continuous processing of file updates.
     """
     @abstractmethod
-    def process_any_jobs(self):
+    def process_any_cookie_jobs(self):
         """
-        Check for new jobs that are to be processed and proceses them if they are available.
+        Check for new cookie jobs that are to be processed and process them if they are available.
         """
         pass
 
     @abstractmethod
-    def on_job_processed(
-            self, job: CookieProcessState, rules_matched: bool, notifications: List[Notification]=()):
+    def on_cookie_processed(self, cookie: Cookie, rules_matched: bool, notifications: List[Notification]=()):
         """
-        Called when processing of a job has been completed
-        :param job: the job that has been processed
+        Called when processing of a cookie has been completed
+        :param cookie: the cookie that has been processed
         :param rules_matched: whether at least one rule was matched during the processing
         :param notifications: list of external processes that are to be notified. List should only be givne if processor
         were matched

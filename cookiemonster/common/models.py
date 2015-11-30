@@ -109,7 +109,7 @@ class Cookie(Model):
         @param  path  File path
         '''
         self.path       = path
-        self.enrichment = EnrichmentCollection()
+        self.enrichments = EnrichmentCollection()
         self.metadata   = CookieCrumbs()
 
     # TODO? Enrich method...

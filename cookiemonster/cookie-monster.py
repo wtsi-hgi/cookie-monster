@@ -18,7 +18,7 @@ from cookiemonster.processor._data_management import DataLoaderManager
 from cookiemonster.processor._models import Rule, RuleAction, DataLoader
 from cookiemonster.processor._rules_management import RulesManager
 from cookiemonster.processor.processing import ProcessorManager
-from cookiemonster.processor.basic_processoring import BasicProcessorManager
+from cookiemonster.processor.basic_processing import BasicProcessorManager
 from cookiemonster.retriever._models import QueryResult
 from cookiemonster.retriever.irods.irods_config import IrodsConfig
 from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel
@@ -71,7 +71,7 @@ def main():
 
     # Connect the data processor manager to the cookie jar
     def prompt_processor_manager_to_process_new_jobs(*args):
-        processor_manager.process_any_jobs()
+        processor_manager.process_any_cookie_jobs()
     cookie_jar.add_listener(prompt_processor_manager_to_process_new_jobs)
 
 
@@ -108,7 +108,7 @@ def setup_retrieval_log_database(database_location : str):
     :param database_location: the location of teh retrieval log database
     """
     engine = create_engine(database_location)
-    # TODO: Need to process_any_jobs if the database is already there and what create_all does in this situation
+    # TODO: Need to process_any_cookie_jobs if the database is already there and what create_all does in this situation
     SQLAlchemyModel.metadata.create_all(bind=engine)
 
 

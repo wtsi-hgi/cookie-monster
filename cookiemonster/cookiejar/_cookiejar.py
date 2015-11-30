@@ -60,7 +60,7 @@ from typing import Union, Optional
 from hgicommon.listenable import Listenable
 
 from cookiemonster.common.enums import EnrichmentSource
-from cookiemonster.common.models import CookieCrumbs
+from cookiemonster.common.models import CookieCrumbs, Enrichment
 
 
 class CookieJar(Listenable, metaclass=ABCMeta):
@@ -69,7 +69,7 @@ class CookieJar(Listenable, metaclass=ABCMeta):
     intrinsic processing queue, where new metadata implies reprocessing
     '''
     @abstractmethod
-    def enrich_metadata(self, path: str, source: Union[EnrichmentSource, str], metadata: CookieCrumbs):
+    def enrich_metadata(self, path: str, en: Enrichment, metadata: CookieCrumbs):
         '''
         Append/update metadata for a given file, thus changing its state
         and putting it back on the queue (or adding it, if its new)
