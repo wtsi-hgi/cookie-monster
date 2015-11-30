@@ -2,19 +2,17 @@
 Common Enumerations
 ===================
 
-MetadataNS
-----------
-This is a two-tier enumeration used to namespace attributes from
-different sources and appropriate sections
-
-ProcessingQueueStates
----------------------
-The potential states in which `Cookie`s can find themselves in on the
-processing queue [cookie jar]
+Note that enum values are for the sake of persistent storage and should
+be unique.
 
 EnrichmentSource
 ----------------
 The metadata enrichment sources (e.g., iRODS, SequenceScape, etc.)
+
+ProcessingQueueState
+--------------------
+The potential states in which `Cookie`s can find themselves in on the
+processing queue [cookie jar]
 
 Authors
 -------
@@ -27,23 +25,12 @@ Copyright (c) 2015 Genome Research Limited
 '''
 from enum import Enum
 
-class MetadataNS(object):
-    class iRODS(Enum):
-        FileSystem = 'irods:fs'
-        AVUs       = 'irods:avu'
-        ACLs       = 'irods:acl'
-
-    class SequenceScape(Enum):
-        TODO       = 'sequencescape:todo'
-
-    class FileHeader(Enum):
-        TODO       = 'header:todo'
+class EnrichmentSource(Enum):
+    iRODS         = 'irods'
+    SequenceScape = 'sequencescape'
+    FileHeader    = 'fileheader'
+    # TODO? Expand this list appropriately
 
 
 class ProcessingQueueState(Enum):
     TODO = 'TODO'
-
-
-class EnrichmentSource(Enum):
-    IRODS = 'irods'
-    TODO  = 'todo'

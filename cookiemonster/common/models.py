@@ -13,13 +13,14 @@ GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
 from datetime import datetime
-from typing import Any, Union, Optional
+from functools import total_ordering
+from typing import Any, Union, Optional, Set
 
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
 
 from cookiemonster.common.collections import EnrichmentCollection
-from cookiemonster.common.enums import MetadataNS, EnrichmentSource
+from cookiemonster.common.enums import EnrichmentSource
 
 
 class IRODSMetadata(Metadata):
@@ -56,38 +57,12 @@ class FileUpdate(Model):
         self.metadata = metadata
 
 
-class CookieCrumbs(Metadata):
-    '''
-    CookieCrumbs is just an alias of the generic metadata model, with
-    the notable extension that attributes are namespaced by source and
-    section. For the sake of consistency and commonality, recognised
-    namespaces are enumerated under MetadataNS and the `get` and `set`
-    methods have namespaced equivalents with this extra parameter. In
-    the underlying representation, everything is converted to a colon-
-    -delimited string (i.e., `{source}:{section}:{key}`).
-
-    Note that the original and __getitem__ and __setitem__ magic methods
-    are NOT overridden, so the string representation must be used when
-    interfacing in this manner (e.g., data['foo:bar:baz'] = 123, etc.)
-    '''
-    @staticmethod
-    def _to_attribute(namespace: MetadataNS, key: str) -> str:
-        return '{}:{}'.format(namespace.value, key)
-
-    def get_by_namespace(self, namespace: MetadataNS, key: str, default=None):
-        attribute = CookieCrumbs._to_attribute(namespace, key)
-        super().get(attribute, default)
-
-    def set_by_namespace(self, namespace: MetadataNS, key: str, value):
-        attribute = CookieCrumbs._to_attribute(namespace, key)
-        super().set(attribute, value)
-
-
+@total_ordering
 class Enrichment(Model):
     '''
     Metadata enrichment model
     '''
-    def __init__(self, source: Union[EnrichmentSource, str], timestamp: datetime, metadata: CookieCrumbs):
+    def __init__(self, source: Union[EnrichmentSource, str], timestamp: datetime, metadata: Metadata):
         '''
         Constructor
 
@@ -97,6 +72,10 @@ class Enrichment(Model):
         self.source    = source
         self.timestamp = timestamp
         self.metadata  = metadata
+
+    def __lt__(self, other):
+        ''' Order enrichments by their timestamp '''
+        return (self.timestamp < other.timestamp)
 
 
 class Cookie(Model):
@@ -111,18 +90,37 @@ class Cookie(Model):
         '''
         self.path = path
         self.enrichments = EnrichmentCollection()
-        self.metadata = CookieCrumbs()
 
-    def get_metadata_by_namespace(self, namespace: MetadataNS, key: str, default=None):
+    def enrich(self, enrichment: Enrichment):
         '''
-        Fetch the latest existing metadata by namespace and key
+        Append an enrichment
 
-        @param  namespace  Namespace
-        @param  key        Attribute name
-        @param  default    Default value, if key doesn't exist
+        @param  enrichment  The enrichment
         '''
-        # TODO
-        pass
+        self.enrichments.append(enrichments)
+
+    def get_metadata_by_source(self, source: Union[EnrichmentSource, str], key: str, default=None):
+        '''
+        Fetch the latest existing metadata by source and key
+
+        @param  source   Enrichment source
+        @param  key      Attribute name
+        @param  default  Default value, if key doesn't exist
+        '''
+        # The enrichment collection will be built up chronologically, so
+        # the following list comprehension is guaranteed to be in the
+        # same relative order...
+        sourced = [enrichment for enrichment in self.enrichments if enrichment.source == source]
+
+        # ...thus we can check from the last to the first for a match,
+        # to get the most recent
+        return next((enrichment.metadata[key] for enrichment in reversed(sourced) if key in enrichment.metadata), default)
+
+    def get_metadata_sources(self) -> Set[EnrichmentSource]:
+        '''
+        Fetch the distinct enrichment sources for which metadata exists
+        '''
+        return {enrichment.source for enrichment in self.enrichments}
 
 
 class Notification(Model):
