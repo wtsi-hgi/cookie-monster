@@ -3,7 +3,7 @@ from typing import List
 
 from hgicommon.collections import Metadata
 
-from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.models import FileUpdate, Enrichment
 
 
 class FileUpdateCollection(list):
@@ -30,3 +30,10 @@ class FileUpdateCollection(list):
                 most_recent.append(file_update)
 
         return most_recent
+
+
+class EnrichmentSource(list):
+    '''
+    Collection of `Enrichment` instances; extends `list`
+    '''
+    pass

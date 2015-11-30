@@ -8,7 +8,7 @@ from mock import MagicMock
 from sqlalchemy import create_engine
 
 from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.models import FileUpdate, CookieProcessState, Notification
+from cookiemonster.common.models import FileUpdate, Notification
 from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar

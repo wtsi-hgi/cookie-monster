@@ -15,9 +15,10 @@ CookieJar
 `CookieJar` implements the abstract base class (interface) for Cookie
 Jars. Such implementations must define the following methods:
 
-* `enrich_metadata` should update/append provided metadata to the
-  repository for the specified file. If a change is detected, then said
-  file should be queued for processing (if it isn't already)
+* `enrich_metadata` should update/append provided metadata (and its
+  source) to the repository for the specified file. If a change is
+  detected, then said file should be queued for processing (if it isn't
+  already)
 
 * `mark_as_failed` should mark a file as having failed processing. This
   should have the effect of requeueing the file after a specified grace
@@ -54,11 +55,12 @@ Copyright (c) 2015 Genome Research Limited
 
 from abc import ABCMeta, abstractmethod
 from datetime import timedelta
-from typing import Optional
+from typing import Union, Optional
 
 from hgicommon.listenable import Listenable
 
-from cookiemonster.common.models import CookieCrumbs, CookieProcessState
+from cookiemonster.common.enums import EnrichmentSource
+from cookiemonster.common.models import CookieCrumbs
 
 
 class CookieJar(Listenable, metaclass=ABCMeta):
@@ -67,7 +69,7 @@ class CookieJar(Listenable, metaclass=ABCMeta):
     intrinsic processing queue, where new metadata implies reprocessing
     '''
     @abstractmethod
-    def enrich_metadata(self, path: str, metadata: CookieCrumbs):
+    def enrich_metadata(self, path: str, source: Union[EnrichmentSource, str], metadata: CookieCrumbs):
         '''
         Append/update metadata for a given file, thus changing its state
         and putting it back on the queue (or adding it, if its new)
@@ -108,12 +110,12 @@ class CookieJar(Listenable, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_next_for_processing(self) -> Optional[CookieProcessState]:
+    def get_next_for_processing(self) -> Optional[Cookie]:
         '''
         Get the next Cookie for processing and update its queue state
 
-        @return The next CookieProcessState for processing (None, if the
-                queue is empty)
+        @return The next Cookie for processing (None, if the queue is
+                empty)
         @note   This method is thread-safe
         '''
         pass

@@ -13,12 +13,28 @@ GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Union, Optional
 
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
 
-from cookiemonster.common.enums import MetadataNS
+from cookiemonster.common.enums import MetadataNS, EnrichmentSource
+from cookiemonster.common.collections import EnrichmentCollection
+
+
+class Enrichment(Model):
+    '''
+    Metadata enrichment process model
+    '''
+    def __init__(self, source: Union[EnrichmentSource, str], timestamp: datetime):
+        '''
+        Constructor
+
+        @param  source     Source of metadata enrichment
+        @param  timestamp  Timestamp of enrichment
+        '''
+        self.source    = source
+        self.timestamp = timestamp
 
 
 class IRODSMetadata(Metadata):
@@ -92,28 +108,11 @@ class Cookie(Model):
         Constructor
         @param  path  File path
         '''
-        self.path     = path
-        self.metadata = CookieCrumbs()
+        self.path       = path
+        self.enrichment = EnrichmentCollection()
+        self.metadata   = CookieCrumbs()
 
     # TODO? Enrich method...
-
-
-class CookieProcessState(Model):
-    '''
-    Model file processing state
-    '''
-    def __init__(self, current_state: Cookie, processed_state: Optional[Cookie]=None):
-        '''
-        Constructor
-
-        @param  current_state   Current Cookie for processing
-        @param  processed_state Previously processed Cookie
-        '''
-        self.path            = current_state.path
-        self.current_state   = current_state.metadata
-        self.processed_state = processed_state.metadata if processed_state else None
-
-        # TODO? Generate diff automagically...
 
 
 class Notification(Model):

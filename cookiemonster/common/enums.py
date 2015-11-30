@@ -7,6 +7,15 @@ MetadataNS
 This is a two-tier enumeration used to namespace attributes from
 different sources and appropriate sections
 
+ProcessingQueueStates
+---------------------
+The potential states in which `Cookie`s can find themselves in on the
+processing queue [cookie jar]
+
+EnrichmentSource
+----------------
+The metadata enrichment sources (e.g., iRODS, SequenceScape, etc.)
+
 Authors
 -------
 * Christopher Harrison <ch12@sanger.ac.uk>
@@ -29,3 +38,12 @@ class MetadataNS(object):
 
     class FileHeader(Enum):
         TODO       = 'header:todo'
+
+
+class ProcessingQueueState(Enum):
+    TODO = 'TODO'
+
+
+class EnrichmentSource(Enum):
+    iRODS = 'irods'
+    TODO  = 'todo'

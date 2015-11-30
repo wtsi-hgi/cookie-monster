@@ -32,7 +32,7 @@ TODO
 Schema:
 
     _id             file path
-    state           new | changed | maybe changed | processing | complete
+    state           [ProcessingQueueState]
     queue_from      queue timestamp (Unix time)
     last_processed  null | metadata revision ID
 
@@ -66,6 +66,8 @@ import couchdb
 from couchdb.client import Document
 
 from hgicommon.collections import Metadata
+
+from cookiemonster.common.enums import ProcessingQueueState
 
 
 class _DBI(object):
