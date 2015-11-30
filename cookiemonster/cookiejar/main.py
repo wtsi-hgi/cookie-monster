@@ -28,10 +28,10 @@ Copyright (c) 2015 Genome Research Limited
 '''
 
 from datetime import timedelta
-from typing import Union, Optional
+from typing import Optional
 
-from cookiemonster.common.enums import MetadataNS, EnrichmentSource
-from cookiemonster.common.models import FileUpdate, CookieCrumbs
+from cookiemonster.common.enums import MetadataNS
+from cookiemonster.common.models import FileUpdate, Enrichment
 from cookiemonster.cookiejar._cookiejar import CookieJar
 from cookiemonster.cookiejar._dbi import Bert, Ernie
 
@@ -49,7 +49,7 @@ class BiscuitTin(CookieJar):
         # Initialise listeners 
         super().__init__()
 
-    def enrich_metadata(self, path: str, source: Union[EnrichmentSource, str], metadata: CookieCrumbs):
+    def enrich_cookie(self, path: str, enrichment: Enrichment):
         pass
 
     def mark_as_failed(self, path: str, requeue_delay: timedelta):

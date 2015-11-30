@@ -55,12 +55,11 @@ Copyright (c) 2015 Genome Research Limited
 
 from abc import ABCMeta, abstractmethod
 from datetime import timedelta
-from typing import Union, Optional
+from typing import Optional
 
 from hgicommon.listenable import Listenable
 
-from cookiemonster.common.enums import EnrichmentSource
-from cookiemonster.common.models import CookieCrumbs
+from cookiemonster.common.models import Enrichment
 
 
 class CookieJar(Listenable, metaclass=ABCMeta):
@@ -69,13 +68,14 @@ class CookieJar(Listenable, metaclass=ABCMeta):
     intrinsic processing queue, where new metadata implies reprocessing
     '''
     @abstractmethod
-    def enrich_metadata(self, path: str, source: Union[EnrichmentSource, str], metadata: CookieCrumbs):
+    def enrich_cookie(self, path: str, enrichment: Enrichment):
         '''
         Append/update metadata for a given file, thus changing its state
-        and putting it back on the queue (or adding it, if its new)
+        and putting it back on the queue (or adding it, if its new),
+        with the supplied enrichment
 
-        @param  path      File path
-        @param  metadata  Metadata
+        @param  path        File path
+        @param  enrichment  Enrichment
         '''
         pass
 
