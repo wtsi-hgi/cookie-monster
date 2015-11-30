@@ -4,10 +4,15 @@ Database Interface
 Abstraction layer over a revisionable document-based database (i.e.,
 CouchDB)
 
-Exportable classes: `QueueDB`, `MetadataDB`
+Exportable classes: `Bert`, `Ernie`
 
-DBI
----
+`Bert` and `Ernie` and the queue management and metadata repository
+database interfaces, respectively. They are two halves of the same
+whole, share data together and love each other...which is cool, man.
+Which is cool.
+
+_DBI
+----
 `DBI` is the base CouchDB class used to provide a common interface with
 the database instance. It should be the parent of instantiable classes,
 which should initialise it with the database host URL and database name.
@@ -20,19 +25,19 @@ Methods:
 
 * `upsert` Insert/update a document into the database by its ID
 
-QueueDB
--------
+Bert (Queue Management DBI)
+---------------------------
 TODO
 
 Schema:
 
     _id             file path
-    state           new | changed | potentially changed | complete
+    state           new | changed | maybe changed | processing | complete
     queue_from      queue timestamp (Unix time)
     last_processed  null | metadata revision ID
 
-MetadataDB
-----------
+Ernie (Metadata Repository DBI)
+-------------------------------
 TODO
 
 Schema:
@@ -63,7 +68,7 @@ from couchdb.client import Document
 from hgicommon.collections import Metadata
 
 
-class DBI(object):
+class _DBI(object):
     '''
     Connect (and create, if necessary) to the database on the specified
     host, plus provide an interface to interact with the data
@@ -143,7 +148,7 @@ class DBI(object):
         # return _rev
 
 
-class QueueDB(DBI):
+class Bert(_DBI):
     '''
     Interface for creating and interacting with the queue database
     '''
@@ -181,7 +186,7 @@ class QueueDB(DBI):
         })
 
 
-class MetadataDB(DBI):
+class Ernie(_DBI):
     '''
     Interface for creating and interacting with the metadata database
     '''

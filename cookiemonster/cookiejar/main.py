@@ -33,7 +33,7 @@ from typing import Optional
 from cookiemonster.common.enums import MetadataNS
 from cookiemonster.common.models import FileUpdate, CookieCrumbs, CookieProcessState
 from cookiemonster.cookiejar._cookiejar import CookieJar
-from cookiemonster.cookiejar._dbi import QueueDB, MetadataDB
+from cookiemonster.cookiejar._dbi import Bert, Ernie
 
 class BiscuitTin(CookieJar):
     def __init__(self, db_host: str, db_prefix: str):
@@ -43,8 +43,8 @@ class BiscuitTin(CookieJar):
         @param  db_host    Database host URL
         @param  db_prefix  Database name prefix
         '''
-        self._queue = QueueDB(db_host, '{}-queue'.format(db_prefix))
-        self._metadata = MetadataDB(db_host, '{}-metadata'.format(db_prefix))
+        self._queue = Bert(db_host, '{}-queue'.format(db_prefix))
+        self._metadata = Ernie(db_host, '{}-metadata'.format(db_prefix))
 
         # Initialise listeners 
         super().__init__()
