@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, call
 
 from multiprocessing import Semaphore
 
+from hgicommon.collections import Metadata
+
 from cookiemonster.common.models import Cookie, Notification, Enrichment
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._models import Rule, EnrichmentLoader
@@ -81,7 +83,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.notifier.do.assert_called_with(Notification("unknown", self.cookie.path))
 
     def test_on_cookie_processed_when_no_rules_matched_and_more_data_can_be_loaded(self):
-        enrichment = Enrichment("source", datetime.min)
+        enrichment = Enrichment("source", datetime.min, Metadata())
         data_loader = EnrichmentLoader(lambda *args: False, lambda *args: enrichment)
         self.data_loader_manager.data_loaders.append(data_loader)
 

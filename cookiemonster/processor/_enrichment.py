@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from cookiemonster.common.models import CookieCrumbs, Cookie, Enrichment
+from cookiemonster.common.models import Cookie, Enrichment
 from cookiemonster.processor._models import EnrichmentLoader
 
 

@@ -2,7 +2,7 @@ from typing import Callable, Set
 
 from hgicommon.models import Model
 
-from cookiemonster.common.models import Notification, Cookie, CookieCrumbs, Enrichment
+from cookiemonster.common.models import Notification, Cookie, Enrichment
 
 
 class RuleAction(Model):

@@ -14,12 +14,12 @@ Copyright (c) 2015 Genome Research Limited
 '''
 from datetime import datetime
 from functools import total_ordering
-from typing import Any, Union, Set
+from typing import Any, Union, Set, Optional
 
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
 
-from cookiemonster.common.collections import EnrichmentCollection
+import cookiemonster
 from cookiemonster.common.enums import EnrichmentSource
 
 
@@ -73,7 +73,7 @@ class Cookie(Model):
         @param  path  File path
         '''
         self.path = path
-        self.enrichments = EnrichmentCollection()
+        self.enrichments = cookiemonster.common.collections.EnrichmentCollection()
 
     def enrich(self, enrichment: Enrichment):
         '''
@@ -111,7 +111,7 @@ class Notification(Model):
     """
     A model of a notification that should be sent to an external process.
     """
-    def __init__(self, external_process_name: str, data: Any=None):
+    def __init__(self, external_process_name: str, data: Optional[Any]=None):
         """
         Default constructor.
         :param external_process_name: the name of the external process that should be informed

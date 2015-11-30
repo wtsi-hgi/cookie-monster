@@ -3,8 +3,8 @@ from datetime import datetime
 
 from hgicommon.collections import Metadata
 
-from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.collections import FileUpdateCollection
 
 
 class TestFileUpdateCollection(unittest.TestCase):

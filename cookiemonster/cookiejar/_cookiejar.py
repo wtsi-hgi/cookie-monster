@@ -59,7 +59,7 @@ from typing import Optional
 
 from hgicommon.listenable import Listenable
 
-from cookiemonster.common.models import Enrichment
+from cookiemonster.common.models import Enrichment, Cookie
 
 
 class CookieJar(Listenable, metaclass=ABCMeta):

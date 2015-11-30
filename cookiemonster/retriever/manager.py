@@ -1,6 +1,6 @@
 import logging
 from abc import abstractmethod, ABCMeta
-from datetime import date, datetime, timedelta, time
+from datetime import datetime, timedelta
 from threading import Timer, Thread
 
 from hgicommon.listenable import Listenable

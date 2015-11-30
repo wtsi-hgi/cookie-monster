@@ -4,7 +4,7 @@ from abc import abstractmethod
 from threading import Lock
 from typing import List, Optional, Set, Callable
 
-from cookiemonster.common.models import Notification, CookieProcessState, Cookie
+from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.processor._models import Rule
 
 

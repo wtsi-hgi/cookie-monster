@@ -3,7 +3,7 @@ from typing import List
 
 from hgicommon.collections import Metadata
 
-from cookiemonster.common.models import FileUpdate, Enrichment
+from cookiemonster.common.models import FileUpdate
 
 
 class FileUpdateCollection(list):
@@ -33,7 +33,7 @@ class FileUpdateCollection(list):
 
 
 class EnrichmentCollection(list):
-    '''
-    Collection of `Enrichment` instances; extends `list`
-    '''
+    """
+    Collection of `Enrichment` instances; extends `list`.
+    """
     pass
