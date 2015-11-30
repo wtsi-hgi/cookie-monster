@@ -32,7 +32,7 @@ class FileUpdateCollection(list):
         return most_recent
 
 
-class EnrichmentSource(list):
+class EnrichmentCollection(list):
     '''
     Collection of `Enrichment` instances; extends `list`
     '''

@@ -6,7 +6,7 @@ CouchDB)
 
 Exportable classes: `Bert`, `Ernie`
 
-`Bert` and `Ernie` and the queue management and metadata repository
+`Bert` and `Ernie` are the queue management and metadata repository
 database interfaces, respectively. They are two halves of the same
 whole, share data together and love each other...which is cool, man.
 Which is cool.
