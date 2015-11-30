@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, call
 from multiprocessing import Semaphore
 
 from cookiemonster.common.models import Cookie, Notification, Enrichment
-from cookiemonster.processor._data_management import DataLoaderManager
-from cookiemonster.processor._models import Rule, DataLoader
+from cookiemonster.processor._enrichment import EnrichmentManager
+from cookiemonster.processor._models import Rule, EnrichmentLoader
 from cookiemonster.processor._models import RuleAction
-from cookiemonster.processor._rules_management import RulesManager
+from cookiemonster.processor._rules import RulesManager
 from cookiemonster.processor.basic_processing import BasicProcessorManager
 from cookiemonster.tests.processor._stubs import StubCookieJar
 from cookiemonster.tests.processor._stubs import StubNotifier
@@ -24,7 +24,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.cookie_jar = StubCookieJar()
         self.notifier = StubNotifier()
         self.rules_manager = RulesManager()
-        self.data_loader_manager = DataLoaderManager()
+        self.data_loader_manager = EnrichmentManager()
         self.process_manager = BasicProcessorManager(
             TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, self.rules_manager,
             self.data_loader_manager, self.notifier)
@@ -82,7 +82,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
     def test_on_cookie_processed_when_no_rules_matched_and_more_data_can_be_loaded(self):
         enrichment = Enrichment("source", datetime.min)
-        data_loader = DataLoader(lambda *args: False, lambda *args: enrichment)
+        data_loader = EnrichmentLoader(lambda *args: False, lambda *args: enrichment)
         self.data_loader_manager.data_loaders.append(data_loader)
 
         self.cookie_jar.mark_as_reprocess = MagicMock()

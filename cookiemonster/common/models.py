@@ -23,22 +23,6 @@ from cookiemonster.common.collections import EnrichmentCollection
 from cookiemonster.common.enums import EnrichmentSource
 
 
-class IRODSMetadata(Metadata):
-    '''
-    IRODS metadata is in the form of "AVUs" (attribute-value-unit
-    tuples). We disregard the unit because we aren't using them.
-    Otherwise, attributes may have many values. For comparisons sake,
-    we therefore canonicalise all attributes for a value into an ordered
-    list of distinct elements.
-    '''
-    def set(self, key, value):
-        '''
-        Canonicalise the value before insertion
-        '''
-        canonical_value = sorted(set(value)) if type(value) is list else [value]
-        super().set(key, canonical_value)
-
-
 class FileUpdate(Model):
     """
     Model of a file update.

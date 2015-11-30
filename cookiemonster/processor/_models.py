@@ -54,15 +54,15 @@ class Rule(Model):
         return self._action_generator(cookie)
 
 
-class DataLoader(Model):
+class EnrichmentLoader(Model):
     """
     TODO
     """
     def __init__(self, is_already_known: Callable[[Cookie], bool], load: Callable[[Cookie], Enrichment]):
         """
         Default constructor.
-        :param is_already_known: see `DataLoader.is_already_known`
-        :param load: see `DataLoader.load`
+        :param is_already_known: see `EnrichmentLoader.is_already_known`
+        :param load: see `EnrichmentLoader.load`
         """
         self._is_already_known = is_already_known
         self._load = load

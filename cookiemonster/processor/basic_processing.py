@@ -5,9 +5,9 @@ from typing import List, Callable, Set, Optional
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.notifier.notifier import Notifier
-from cookiemonster.processor._data_management import DataLoaderManager
+from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._models import Rule
-from cookiemonster.processor._rules_management import RulesManager
+from cookiemonster.processor._rules import RulesManager
 from cookiemonster.processor.processing import ProcessorManager, Processor, RuleProcessingQueue
 
 
@@ -39,7 +39,7 @@ class BasicProcessorManager(ProcessorManager):
     Simple implementation of managing the continuous processing of new data.
     """
     def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules_manager: RulesManager,
-                 data_loader_manager: DataLoaderManager, notifier: Notifier):
+                 data_loader_manager: EnrichmentManager, notifier: Notifier):
         """
         Default constructor.
         :param number_of_processors:
@@ -87,7 +87,7 @@ class BasicProcessorManager(ProcessorManager):
                 self._notifier.do(notification)
             self._cookie_jar.mark_as_complete(cookie.path)
         else:
-            enrichment = self._data_loader_manager.load_next(cookie)
+            enrichment = self._data_loader_manager.next_enrichment(cookie)
 
             if enrichment is None:
                 # FIXME: No guarantee that such a notification can be given
