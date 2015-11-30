@@ -8,7 +8,8 @@ from mock import MagicMock
 from sqlalchemy import create_engine
 
 from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.models import FileUpdate, Notification
+from cookiemonster.common.enums import EnrichmentSource
+from cookiemonster.common.models import FileUpdate, Notification, Enrichment
 from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
@@ -64,9 +65,8 @@ def main():
     # Connect the cookie jar to the retrieval manager
     def put_file_update_in_cookie_jar(file_updates: FileUpdateCollection):
         for file_update in file_updates:
-            # FIXME: Metadata is actually a superclass of CookieCrumbs...
-            metadata = file_update.metadata
-            cookie_jar.enrich_metadata(file_update.file_id, metadata)
+            enrichment = Enrichment(EnrichmentSource.IRODS_UPDATE, datetime.now(), file_update.metadata)
+            cookie_jar.enrich_cookie(file_update.file_id, enrichment)
     retrieval_manager.add_listener(put_file_update_in_cookie_jar)
 
     # Connect the data processor manager to the cookie jar
@@ -88,12 +88,12 @@ def main():
         side_effect=[query_result_1, query_result_2] + blank_query_results)
 
     rule_1 = Rule(
-        lambda known_data: known_data.path == "file_id_1",
-        lambda known_data: RuleAction(set([Notification("External process interested in file_id_1")]), known_data))
+        lambda cookie: cookie.path == "file_id_1",
+        lambda cookie: RuleAction([Notification("External process interested in file_id_1")], cookie))
     rules_manager.add_rule(rule_1)
     rule_2 = Rule(
-        lambda known_data: known_data.path == "file_id_2",
-        lambda known_data: RuleAction(set([Notification("External process interested in file_id_2")]), known_data))
+        lambda cookie: cookie.path == "file_id_2",
+        lambda cookie: RuleAction([Notification("External process interested in file_id_2")], cookie))
     rules_manager.add_rule(rule_2)
 
     # Start the data retrieval manger

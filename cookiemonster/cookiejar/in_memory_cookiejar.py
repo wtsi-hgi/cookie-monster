@@ -1,6 +1,6 @@
 from datetime import timedelta
 from multiprocessing import Lock
-from typing import Optional
+from typing import Optional, List, Dict
 
 from cookiemonster.common.models import Cookie, Enrichment
 from cookiemonster.cookiejar import CookieJar
@@ -24,13 +24,15 @@ class InMemoryCookieJar(CookieJar):
             cookie = Cookie(path)
             self._known_data[path] = cookie
 
-        self._known_data[path].enrichments += enrichment
+        self._known_data[path].enrichments.append(enrichment)
 
         self.lists_lock.acquire()
         if path not in self._waiting:
             self._waiting.append(path)
+            self.lists_lock.release()
             self.notify_listeners(None)     # FIXME: Should not be forced to give `None`
-        self.lists_lock.release()
+        else:
+            self.lists_lock.release()
 
     def mark_as_failed(self, path: str, requeue_delay: timedelta):
         if path not in self._known_data:
@@ -66,7 +68,7 @@ class InMemoryCookieJar(CookieJar):
         self.lists_lock.acquire()
         path = self._waiting.pop()
         self._processing.append(path)
-        self._assert_was_being_processed()
+        self._assert_was_being_processed(path)
         self.lists_lock.release()
         return self._known_data[path]
 

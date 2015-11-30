@@ -1,4 +1,4 @@
-'''
+"""
 Common Enumerations
 ===================
 
@@ -22,15 +22,18 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
-'''
+"""
+
 from enum import Enum
 
+
 class EnrichmentSource(Enum):
-    iRODS         = 'irods'
-    SequenceScape = 'sequencescape'
-    FileHeader    = 'fileheader'
+    IRODS_UPDATE = "irods_update"
+    IRODS = "irods"
+    SEQUENCE_SCAPE = "sequencescape"
+    FILE_HEADER = "fileheader"
     # TODO? Expand this list appropriately
 
 
 class ProcessingQueueState(Enum):
-    TODO = 'TODO'
+    TODO = "TODO"

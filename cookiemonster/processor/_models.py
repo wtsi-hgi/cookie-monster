@@ -1,4 +1,4 @@
-from typing import Callable, Set
+from typing import Callable, Iterable
 
 from hgicommon.models import Model
 
@@ -9,10 +9,10 @@ class RuleAction(Model):
     """
     A model of the action that has outcome from matching a rule.
     """
-    def __init__(self, notifications: Set[Notification], terminate_processing: bool):
+    def __init__(self, notifications: Iterable[Notification], terminate_processing: bool):
         """
         Default constructor.
-        :param notifications: set of notifications for external processes
+        :param notifications: notifications for external processes
         :param terminate_processing: whether the data processor should stop processing the update
         """
         self.notifications = notifications
@@ -61,17 +61,17 @@ class EnrichmentLoader(Model):
     def __init__(self, is_already_known: Callable[[Cookie], bool], load: Callable[[Cookie], Enrichment]):
         """
         Default constructor.
-        :param is_already_known: see `EnrichmentLoader.is_already_known`
+        :param is_already_known: see `EnrichmentLoader.is_loaded`
         :param load: see `EnrichmentLoader.load`
         """
         self._is_already_known = is_already_known
         self._load = load
 
-    def is_already_known(self, cookie: Cookie) -> bool:
+    def is_loaded(self, cookie: Cookie) -> bool:
         """
-        Returns whether or not the data that this loader can load is already in the set of given, known data.
-        :param cookie: the data already known
-        :return: whether the data is already in the set of known data
+        Returns whether or not the data that this enrichment loader can load is already in the given cookie.
+        :param cookie: cookie containing the data that is already known
+        :return: whether the data is already in the cookie
         """
         return self._is_already_known(cookie)
 

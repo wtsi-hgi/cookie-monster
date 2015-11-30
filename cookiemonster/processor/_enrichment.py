@@ -26,7 +26,7 @@ class EnrichmentManager:
         :return: the loaded enrichment
         """
         for enrichment_loader in self.data_loaders:
-            if not enrichment_loader.is_already_known(cookie):
+            if not enrichment_loader.is_loaded(cookie):
                 return enrichment_loader.load(cookie)
 
         return None
