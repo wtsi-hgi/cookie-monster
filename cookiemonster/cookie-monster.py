@@ -14,9 +14,9 @@ from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
 from cookiemonster.notifier.notifier import Notifier
 from cookiemonster.notifier.printing_notifier import PrintingNotifier
-from cookiemonster.processor._data_management import DataLoaderManager
-from cookiemonster.processor._models import Rule, RuleAction, DataLoader
-from cookiemonster.processor._rules_management import RulesManager
+from cookiemonster.processor._enrichment import EnrichmentManager
+from cookiemonster.processor._models import Rule, RuleAction, EnrichmentLoader
+from cookiemonster.processor._rules import RulesManager
 from cookiemonster.processor.processing import ProcessorManager
 from cookiemonster.processor.basic_processing import BasicProcessorManager
 from cookiemonster.retriever._models import QueryResult
@@ -45,7 +45,7 @@ def main():
     retrieval_manager = create_retrieval_manager(retrieval_period, retrieval_log_database_location)
 
     # Setup data manager (loads more data about a file)
-    data_loader_manager = DataLoaderManager()
+    data_loader_manager = EnrichmentManager()
 
     # Setup cookie jar
     # cookie_jar = BiscuitTin(manager_db_host, manager_db_prefix)
