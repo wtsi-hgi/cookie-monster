@@ -81,7 +81,7 @@ class Cookie(Model):
 
         @param  enrichment  The enrichment
         '''
-        self.enrichments.append(enrichments)
+        self.enrichments.append(enrichment)
 
     def get_metadata_by_source(self, source: Union[EnrichmentSource, str], key: str, default=None):
         '''
