@@ -5,7 +5,7 @@ from cookiemonster.processor._models import DataLoader
 
 
 # TODO: Requires a better name...
-class DataManager:
+class DataLoaderManager:
     """
     TODO
     """

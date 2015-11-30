@@ -4,13 +4,13 @@ from typing import List, Callable, Set, Optional
 from cookiemonster.common.models import Notification, CookieProcessState
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.notifier.notifier import Notifier
-from cookiemonster.processor._data_management import DataManager
+from cookiemonster.processor._data_management import DataLoaderManager
 from cookiemonster.processor._models import Rule
 from cookiemonster.processor._rules_management import RulesManager
-from cookiemonster.processor.processor import ProcessorManager, Processor, RuleProcessingQueue
+from cookiemonster.processor.processing import ProcessorManager, Processor, RuleProcessingQueue
 
 
-class SimpleProcessor(Processor):
+class BasicProcessor(Processor):
     """
     Simple processor for a single file update.
     """
@@ -33,32 +33,32 @@ class SimpleProcessor(Processor):
         on_complete(at_least_one_rule_matched, notifications)
 
 
-class SimpleProcessorManager(ProcessorManager):
+class BasicProcessorManager(ProcessorManager):
     """
     Simple implementation of managing the continuous processing of new data.
     """
     def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules_manager: RulesManager,
-                 data_manager: DataManager, notifier: Notifier):
+                 data_loader_manager: DataLoaderManager, notifier: Notifier):
         """
         Default constructor.
         :param number_of_processors:
         :param cookie_jar:
         :param rules_manager:
-        :param data_manager:
+        :param data_loader_manager:
         :param notifier:
         :return:
         """
         self._cookie_jar = cookie_jar
         self._rules_manager = rules_manager
         self._notifier = notifier
-        self._data_manager = data_manager
+        self._data_loader_manager = data_loader_manager
 
         self._idle_processors = set()
         self._busy_processors = set()
         self._lists_lock = Lock()
 
         for i in range(number_of_processors):
-            processor = SimpleProcessor()
+            processor = BasicProcessor()
             self._idle_processors.add(processor)
 
     def process_any_jobs(self):
@@ -87,7 +87,7 @@ class SimpleProcessorManager(ProcessorManager):
                 self._notifier.do(notification)
             self._cookie_jar.mark_as_complete(job.path)
         else:
-            more_data = self._data_manager.load_next(job.current_state)
+            more_data = self._data_loader_manager.load_next(job.current_state)
 
             if more_data is None:
                 # FIXME: No guarantee that such a notification can be given

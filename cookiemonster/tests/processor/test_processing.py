@@ -1,21 +1,21 @@
 import unittest
 from threading import Semaphore
 
-from mock import MagicMock, call
+from unittest.mock import MagicMock, call
 
 from cookiemonster.common.models import CookieProcessState, Cookie, Notification, CookieCrumbs
-from cookiemonster.processor._data_management import DataManager
+from cookiemonster.processor._data_management import DataLoaderManager
 from cookiemonster.processor._models import RuleAction, DataLoader, Rule
 from cookiemonster.processor._rules_management import RulesManager
-from cookiemonster.processor.simple_processor import SimpleProcessorManager
-from cookiemonster.processor.processor import RuleProcessingQueue
+from cookiemonster.processor.basic_processoring import BasicProcessorManager
+from cookiemonster.processor.processing import RuleProcessingQueue
 from cookiemonster.tests.processor._mocks import create_mock_rule
 from cookiemonster.tests.processor._stubs import StubCookieJar, StubNotifier
 
 
-class TestSimpleProcessorManager(unittest.TestCase):
+class TestBasicProcessorManager(unittest.TestCase):
     """
-    Tests for `SimpleProcessorManager`.
+    Tests for `BasicProcessorManager`.
     """
     _NUMBER_OF_PROCESSORS = 5
 
@@ -23,10 +23,10 @@ class TestSimpleProcessorManager(unittest.TestCase):
         self.cookie_jar = StubCookieJar()
         self.notifier = StubNotifier()
         self.rules_manager = RulesManager()
-        self.data_manager = DataManager()
-        self.process_manager = SimpleProcessorManager(
-            TestSimpleProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, self.rules_manager, self.data_manager,
-            self.notifier)
+        self.data_loader_manager = DataLoaderManager()
+        self.process_manager = BasicProcessorManager(
+            TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, self.rules_manager,
+            self.data_loader_manager, self.notifier)
 
         self.job = CookieProcessState(Cookie(""))
         self.rule = Rule(lambda information: True, lambda information: RuleAction(set(), True))
@@ -41,8 +41,8 @@ class TestSimpleProcessorManager(unittest.TestCase):
         self.process_manager.on_job_processed.assert_not_called()
 
     def test_process_any_jobs_when_jobs_but_no_free_processors(self):
-        zero_process_manager = SimpleProcessorManager(
-            0, self.cookie_jar, self.rules_manager, self.data_manager, self.notifier)
+        zero_process_manager = BasicProcessorManager(
+            0, self.cookie_jar, self.rules_manager, self.data_loader_manager, self.notifier)
         self.cookie_jar.get_next_for_processing = MagicMock(return_value=self.job)
         zero_process_manager.on_job_processed = MagicMock()
 
@@ -82,7 +82,7 @@ class TestSimpleProcessorManager(unittest.TestCase):
     def test_on_job_processed_when_no_rules_matched_and_more_data_can_be_loaded(self):
         more_data = CookieCrumbs()
         data_loader = DataLoader(lambda *args: False, lambda *args: more_data)
-        self.data_manager.data_loaders.append(data_loader)
+        self.data_loader_manager.data_loaders.append(data_loader)
 
         self.cookie_jar.mark_as_reprocess = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock()
