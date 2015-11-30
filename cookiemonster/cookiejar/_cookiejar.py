@@ -15,7 +15,7 @@ CookieJar
 `CookieJar` implements the abstract base class (interface) for Cookie
 Jars. Such implementations must define the following methods:
 
-* `enrich_metadata` should update/append provided metadata (and its
+* `enrich_cookie` should update/append provided metadata (and its
   source) to the repository for the specified file. If a change is
   detected, then said file should be queued for processing (if it isn't
   already)
@@ -31,14 +31,12 @@ Jars. Such implementations must define the following methods:
   which returns it to the queue immediately. Note that this method is
   intended to be invoked under exceptional circumstances (e.g.,
   manually, via some external service, or when downstream processes
-  change, etc.) rather than part of the usual workflow
-  (i.e., `enrich_metadata` will trigger queueing automatically)
+  change, etc.) rather than part of the usual workflow (i.e.,
+  `enrich_cookie` will trigger queueing automatically)
 
-* `get_next_for_processing` should return the next file from the queue
-  for processing. If said file has already been processed previously,
-  the state of the metadata then used is also provided, so downstream
-  processing can detect changes. When returning said next file, the
-  state of the processing queue should be updated appropriately
+* `get_next_for_processing` should return the next Cookie from the queue
+  for processing. When returning said next file, the state of the
+  processing queue should be updated appropriately
 
 * `queue_length` should return the number of files currently in the
   queue for processing
@@ -93,7 +91,8 @@ class CookieJar(Listenable, metaclass=ABCMeta):
     @abstractmethod
     def mark_as_complete(self, path: str):
         '''
-        Mark a file as having completed processing
+        Mark a file as having completed processing and thus removing it
+        from the queue
 
         @param  path  File path
         '''
