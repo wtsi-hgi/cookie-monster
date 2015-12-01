@@ -93,12 +93,14 @@ class Cookie(Model):
         '''
         # The enrichment collection will be built up chronologically, so
         # the following list comprehension is guaranteed to be in the
-        # same relative order...
-        sourced = [enrichment for enrichment in self.enrichments if enrichment.source == source]
-
-        # ...thus we can check from the last to the first for a match,
-        # to get the most recent
-        return next((enrichment.metadata[key] for enrichment in reversed(sourced) if key in enrichment.metadata), default)
+        # same relative order, thus we can check from the last to the
+        # first for a match, to get the most recent
+        return next((
+            enrichment.metadata[key]
+            for enrichment in reversed(self.enrichments)
+            if  enrichment.source == source
+            and key in enrichment.metadata
+        ), default)
 
     def get_metadata_sources(self) -> Set[Union[EnrichmentSource, str]]:
         '''
