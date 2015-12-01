@@ -84,6 +84,7 @@ class PeriodicRetrievalManager(RetrievalManager):
             """
             self.file_updates_since = file_updates_since
             self.scheduled_for = scheduled_for
+            self.computation_time = None
 
     def __init__(self, retrieval_period: timedelta, file_update_retriever: FileUpdateRetriever,
                  retrieval_log_mapper: RetrievalLogMapper):
@@ -143,11 +144,14 @@ class PeriodicRetrievalManager(RetrievalManager):
         Do a retrieve and then schedule next cycle.
         :param retrieve: the retrieve to do
         """
+        logging.debug("Doing retrieval scheduled for %s" % retrieve.scheduled_for)
+
+        started_computation_at = PeriodicRetrievalManager._get_current_time()
         query_result = self._do_retrieve(retrieve.file_updates_since)
+        computation_time = PeriodicRetrievalManager._get_current_time() - started_computation_at
 
         next_retrieve = PeriodicRetrievalManager._Retrieve()
-        next_retrieve.scheduled_for = self._calculate_next_scheduled_time(
-            retrieve.scheduled_for, query_result.time_taken_to_complete_query)
+        next_retrieve.scheduled_for = self._calculate_next_scheduled_time(retrieve.scheduled_for, computation_time)
 
         if query_result.time_taken_to_complete_query > self._retrieval_period:
             logging.warning("Query took longer than the period - currently not scheduable!")
@@ -186,20 +190,22 @@ class PeriodicRetrievalManager(RetrievalManager):
                     interval.total_seconds(), self._do_retrieve_periodically, args=(retrieve, ))
                 self._timer.run()
 
-    def _calculate_next_scheduled_time(self, previous_scheduled_time: datetime, previous_query_took: timedelta):
+    def _calculate_next_scheduled_time(self, previous_scheduled_time: datetime, previous_computation_time: timedelta):
         """
         Given the time at which a job was previous scheduled to start at and the computation time of that job,
         calculates when the next period should be scheduled for.
 
         Periodic drift is avoided by not scheduling based on current time. However, given that the computation time
-        (time to complete the query, assuming actual "computation time involved by running the retriever is 0) is
-        unbounded, measures have to be taken to guarantee a cycle is never completed early (R_{x+1} >= R_{x} + T)
-        particularly in the case where c >= 2T (i.e. retrieval should be "skipped" as it is time for the next
-        retrieval).
+        is unbounded (the query could take a very long time!), measures have to be taken to guarantee a cycle is never
+        completed early (R_{x+1} >= R_{x} + T) particularly in the case where c >= 2T (i.e. retrieval should be
+        "skipped" as it is time for the next retrieval).
         :param previous_scheduled_time: the time at which the previous job was scheduled for
-        :param previous_query_took: the computation time of the previous job
+        :param previous_computation_time: the computation time of the previous job
         """
-        c = previous_query_took
+        # If this assertion fails, either the prevoius query ran early or it did not take as long as it was said
+        assert previous_scheduled_time + previous_computation_time <= PeriodicRetrievalManager._get_current_time()
+
+        c = previous_computation_time
         T = self._retrieval_period
         delta = timedelta.resolution
         R_0 = previous_scheduled_time

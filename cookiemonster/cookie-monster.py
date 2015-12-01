@@ -77,12 +77,12 @@ def main():
 
     # Let's see if the setup works!
     file_update_1 = FileUpdate("file_id_1", hash("hash"), datetime(year=2000, month=9, day=10), Metadata())
-    query_result_1 = QueryResult(FileUpdateCollection([file_update_1]), timedelta(seconds=42))
+    query_result_1 = QueryResult(FileUpdateCollection([file_update_1]), timedelta(0))
 
     file_update_2 = FileUpdate("file_id_2", hash("hash"), datetime(year=2001, month=8, day=7), Metadata())
-    query_result_2 = QueryResult(FileUpdateCollection([file_update_2]), timedelta(seconds=24))
+    query_result_2 = QueryResult(FileUpdateCollection([file_update_2]), timedelta(0))
 
-    blank_query_results = [QueryResult(FileUpdateCollection(), timedelta(seconds=11)) for _ in range(1000)]
+    blank_query_results = [QueryResult(FileUpdateCollection(), timedelta(0)) for _ in range(1000)]
 
     retrieval_manager._file_update_retriever.query_for_all_file_updates_since = MagicMock(
         side_effect=[query_result_1, query_result_2] + blank_query_results)

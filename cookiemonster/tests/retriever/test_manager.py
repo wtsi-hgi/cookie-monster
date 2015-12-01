@@ -28,7 +28,7 @@ class _BaseRetrievalManagerTest(unittest.TestCase):
     Base class for unit tests on `RetrievalManager` instances.
     """
     SINCE = datetime.min
-    TIME_TAKEN_TO_DO_RETRIEVE = timedelta(milliseconds=1)
+    TIME_TAKEN_TO_DO_RETRIEVE = timedelta(0)
 
     def setUp(self):
         # Create dependencies
@@ -106,6 +106,15 @@ class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
 
         # Override current time to make deterministic
         PeriodicRetrievalManager._get_current_time = MagicMock(return_value=TestPeriodicRetrievalManager.CURRENT_TIME)
+
+        def do_query(*args):
+            PeriodicRetrievalManager._get_current_time = MagicMock(
+                return_value=PeriodicRetrievalManager._get_current_time()
+                             + TestPeriodicRetrievalManager.RETRIEVAL_PERIOD
+                             + self._query_result.time_taken_to_complete_query)
+            return self._query_result
+
+        self._file_update_retriever.query_for_all_file_updates_since = MagicMock(side_effect=do_query)
 
     def test_run(self):
         max_cycles = 10
