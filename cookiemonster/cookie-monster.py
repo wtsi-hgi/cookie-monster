@@ -71,7 +71,7 @@ def main():
 
     # Connect the data processor manager to the cookie jar
     def prompt_processor_manager_to_process_new_jobs(*args):
-        processor_manager.process_any_cookie_jobs()
+        processor_manager.process_any_cookies()
     cookie_jar.add_listener(prompt_processor_manager_to_process_new_jobs)
 
 
@@ -108,7 +108,7 @@ def setup_retrieval_log_database(database_location : str):
     :param database_location: the location of teh retrieval log database
     """
     engine = create_engine(database_location)
-    # TODO: Need to process_any_cookie_jobs if the database is already there and what create_all does in this situation
+    # TODO: Need to process_any_cookies if the database is already there and what create_all does in this situation
     SQLAlchemyModel.metadata.create_all(bind=engine)
 
 

@@ -1,7 +1,6 @@
 import unittest
 from threading import Lock, Thread
-from typing import List, Callable, Set, Optional
-
+from typing import List, Callable, Set, Optional, Iterable
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.notifier.notifier import Notifier
@@ -15,23 +14,22 @@ class BasicProcessor(Processor):
     """
     Simple processor for a single file update.
     """
-    def process(self, cookie: Cookie, rules: Set[Rule],
-                on_complete: Callable[[bool, Optional[Set[Notification]]], None]):
+    def process(self, cookie: Cookie, rules: Iterable[Rule],
+                on_complete: Callable[[bool, Optional[List[Notification]]], None]):
         rule_processing_queue = RuleProcessingQueue(rules)
 
-        notifications = set()
+        notifications = []
         terminate = False
 
         while not terminate and rule_processing_queue.has_unprocessed_rules():
-            rule = rule_processing_queue.get_next_unprocessed()
+            rule = rule_processing_queue.get_next_to_process()
             if rule.matching_criteria(cookie):
                 rule_action = rule.action_generator(cookie)
-                notifications = notifications.union(rule_action.notifications)
+                notifications += rule_action.notifications
                 terminate = rule_action.terminate_processing
             rule_processing_queue.mark_as_processed(rule)
 
-        at_least_one_rule_matched = terminate or len(notifications) > 0
-        on_complete(at_least_one_rule_matched, notifications)
+        on_complete(terminate, notifications)
 
 
 class BasicProcessorManager(ProcessorManager):
@@ -62,7 +60,7 @@ class BasicProcessorManager(ProcessorManager):
             processor = BasicProcessor()
             self._idle_processors.add(processor)
 
-    def process_any_cookie_jobs(self):
+    def process_any_cookies(self):
         processor = self._claim_processor()
 
         if processor is not None:
@@ -72,19 +70,20 @@ class BasicProcessorManager(ProcessorManager):
                 def on_complete(rules_matched: bool, notifications: List[Notification]):
                     self.on_cookie_processed(cookie, rules_matched, notifications)
                     self._release_processor(processor)
-                    self.process_any_cookie_jobs()
+                    self.process_any_cookies()
 
                 Thread(target=processor.process, args=(cookie, self._rules_manager.get_rules(), on_complete)).start()
 
                 # Process more jobs if possible
-                self.process_any_cookie_jobs()
+                self.process_any_cookies()
             else:
                 self._release_processor(processor)
 
-    def on_cookie_processed(self, cookie: Cookie, rules_matched: bool, notifications: List[Notification]=()):
-        if rules_matched:
-            for notification in notifications:
-                self._notifier.do(notification)
+    def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: List[Notification]=()):
+        for notification in notifications:
+            self._notifier.do(notification)
+
+        if stop_processing:
             self._cookie_jar.mark_as_complete(cookie.path)
         else:
             enrichment = self._data_loader_manager.next_enrichment(cookie)
@@ -94,7 +93,7 @@ class BasicProcessorManager(ProcessorManager):
                 self._notifier.do(Notification("unknown", cookie.path))
                 self._cookie_jar.mark_as_complete(cookie.path)
             else:
-                self._cookie_jar.enrich_metadata(cookie.path, enrichment)
+                self._cookie_jar.enrich_cookie(cookie.path, enrichment)
                 self._cookie_jar.mark_as_reprocess(cookie.path)
 
     def _claim_processor(self) -> Optional[Processor]:

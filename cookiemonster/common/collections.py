@@ -34,6 +34,6 @@ class FileUpdateCollection(list):
 
 class EnrichmentCollection(list):
     """
-    Collection of `Enrichment` instances; extends `list`.
+    Collection of `Enrichment` instances; extends `list`
     """
     pass

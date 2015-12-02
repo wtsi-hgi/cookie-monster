@@ -1,6 +1,7 @@
 from typing import Callable, Iterable
 
 from hgicommon.models import Model
+from multiprocessing import Lock
 
 from cookiemonster.common.models import Notification, Cookie, Enrichment
 
@@ -32,6 +33,15 @@ class Rule(Model):
         """
         self._matching_criteria = matching_criteria
         self._action_generator = action_generator
+
+    def __eq__(self, other):
+        return id(self) == id(other)
+
+    def __hash__(self):
+        return id(self)
+
+    def __str__(self):
+        return str(id(self))
 
     def matching_criteria(self, cookie: Cookie) -> bool:
         """
