@@ -355,16 +355,19 @@ class Bert(_Couch):
     ''' Interface to the queue database documents '''
     def __init__(self, host: str, database: str):
         '''
-        Constructor: Connect to the database and crudate the processing
-        queue view, if necessary. The view shows all documents that
-        require processing, keyed by their `queue_from` time.
+        Constructor: Connect to the database and create, wherever
+        necessary, the views and update handlers to provide the queue
+        management interface
 
         @param  host      CouchDB host URL
         @param  database  Database name
         '''
         super().__init__()
         
-        # Define views
+        # View: queue/to_process
+        # Queue documents marked as dirty and not currently processing
+        # Keyed by `queue_from`, set the endkey in queries appropriately
+        # Reduce to the number of items in the queue
         self.define_view('queue', 'to_process',
             map_fn = '''
                 function(doc) {
@@ -376,6 +379,8 @@ class Bert(_Couch):
             reduce_fn = '_count'
         )
 
+        # View: queue/get_id
+        # Queue documents, keyed by their file path
         self.define_view('queue', 'get_id',
             map_fn = '''
                 function (doc) {
@@ -386,7 +391,10 @@ class Bert(_Couch):
             '''
         )
 
-        # Define update handlers
+        # Update handler: queue/set_state
+        # Create a new queue document (expects `location` in the query
+        # string), or update a queue document's dirty status (expects
+        # `dirty` in the query string and an optional `queue_from`)
         self.define_update('queue', 'set_state',
             handler_fn = '''
                 function(doc, req) {
@@ -422,6 +430,8 @@ class Bert(_Couch):
             '''
         )
 
+        # Update handler: queue/set_processing
+        # Update a queue document's processing status
         self.define_update('queue', 'set_processing',
             handler_fn = '''
                 function(doc, req) {
@@ -511,6 +521,7 @@ class Bert(_Couch):
 
         if doc_id:
             self.upsert('queue', 'set_processing', doc_id, processing = False)
+
 
 class Ernie(_Couch):
     ''' Interface to the metadata database documents '''
