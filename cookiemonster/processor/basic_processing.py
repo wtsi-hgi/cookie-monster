@@ -38,20 +38,20 @@ class BasicProcessorManager(ProcessorManager):
     Simple implementation of managing the continuous processing of new data.
     """
     def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules: Container[Rule],
-                 data_loader_manager: EnrichmentManager, notifier: Notifier):
+                 enrichment_manager: EnrichmentManager, notifier: Notifier):
         """
         Default constructor.
         :param number_of_processors:
         :param cookie_jar:
         :param rules_manager:
-        :param data_loader_manager:
+        :param enrichment_manager:
         :param notifier:
         :return:
         """
         self._cookie_jar = cookie_jar
         self._rules = rules
         self._notifier = notifier
-        self._data_loader_manager = data_loader_manager
+        self.enrichment_manager = enrichment_manager
 
         self._idle_processors = set()
         self._busy_processors = set()
@@ -87,7 +87,7 @@ class BasicProcessorManager(ProcessorManager):
         if stop_processing:
             self._cookie_jar.mark_as_complete(cookie.path)
         else:
-            enrichment = self._data_loader_manager.next_enrichment(cookie)
+            enrichment = self.enrichment_manager.next_enrichment(cookie)
 
             if enrichment is None:
                 # FIXME: No guarantee that such a notification can be given
@@ -125,7 +125,3 @@ class BasicProcessorManager(ProcessorManager):
         self._busy_processors.remove(processor)
         self._idle_processors.add(processor)
         self._lists_lock.release()
-
-
-if __name__ == "__main__":
-    unittest.main()

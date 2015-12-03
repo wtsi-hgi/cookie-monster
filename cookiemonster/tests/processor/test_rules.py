@@ -2,7 +2,7 @@ import unittest
 
 from typing import List
 
-from hgicommon.models import Priority
+from hgicommon.mixable import Priority
 
 from cookiemonster.processor._models import Rule
 from cookiemonster.processor._rules import RuleProcessingQueue
@@ -15,10 +15,10 @@ class TestRuleProcessingQueue(unittest.TestCase):
     Unit tests for `RuleProcessingQueue`.
     """
     def setUp(self):
-        self.rules = set()
+        self.rules = []
         priority = Priority.MAX_PRIORITY
         for _ in range(10):
-            self.rules.add(create_mock_rule(priority))
+            self.rules.append(create_mock_rule(priority))
             priority = Priority.get_lower_priority_value(priority)
 
     def test_constructor(self):
@@ -69,10 +69,15 @@ class TestRuleProcessingQueue(unittest.TestCase):
             rule_processing_queue.mark_as_processed(rule)
             processed_rules.append(rule)
 
-    def test_mark_as_processed_processed_rule(self):
+    def test_mark_as_processed_processed(self):
         rule_processing_queue = RuleProcessingQueue(self.rules)
         rule = rule_processing_queue.get_next_to_process()
         rule_processing_queue.mark_as_processed(rule)
+        self.assertRaises(ValueError, rule_processing_queue.mark_as_processed, rule)
+
+    def test_mark_as_processed_processed_when_not_being_processed(self):
+        rule_processing_queue = RuleProcessingQueue(self.rules)
+        rule = self.rules[0]
         self.assertRaises(ValueError, rule_processing_queue.mark_as_processed, rule)
 
     def test_reset(self):

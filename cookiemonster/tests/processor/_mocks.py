@@ -1,4 +1,4 @@
-from hgicommon.models import Priority
+from hgicommon.mixable import Priority
 
 from cookiemonster.common.models import Notification
 from cookiemonster.processor._models import Rule
@@ -8,7 +8,7 @@ from cookiemonster.processor._models import RuleAction
 def create_mock_rule(priority: int=Priority.MIN_PRIORITY) -> Rule:
     """
     Creates a mock `Rule` object.
-    :param distinguisher: a value that can be used to distinguiush this rule from another
+    :param priority: (optional) the priority of the rule
     :return: the created rule
     """
     return Rule(

@@ -28,4 +28,7 @@ class SQLAlchemyRetrievalLogMapper(RetrievalLogMapper):
         result = session.query(SQLAlchemyRetrievalLog).\
             order_by(SQLAlchemyRetrievalLog.id.desc()).first()  # type: SQLAlchemyRetrievalLog
         session.close()
+
+        if result is None:
+            return None
         return convert_to_retrieval_log(result)

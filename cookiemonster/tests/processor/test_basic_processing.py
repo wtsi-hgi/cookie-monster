@@ -151,7 +151,7 @@ class TestBasicProcessorManager(unittest.TestCase):
     def test_on_cookie_processed_when_no_rules_matched_and_but_data_can_be_loaded(self):
         enrichment = Enrichment("source", datetime.min, Metadata())
         data_loader = EnrichmentLoader(lambda *args: False, lambda *args: enrichment)
-        self.enrichment_manager.data_loaders.append(data_loader)
+        self.enrichment_manager.enrichment_loaders.put(data_loader)
 
         self.cookie_jar.mark_as_reprocess = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock()
@@ -183,7 +183,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         notifications = [Notification("a", "b"), Notification("c", "d")]
         enrichment = Enrichment("source", datetime.min, Metadata())
         enrichement_loader = EnrichmentLoader(lambda *args: False, lambda *args: enrichment)
-        self.enrichment_manager.data_loaders.append(enrichement_loader)
+        self.enrichment_manager.enrichment_loaders.put(enrichement_loader)
 
         self.rules.remove(self.rule)
         assert len(self.rules) == 0

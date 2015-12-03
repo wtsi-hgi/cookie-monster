@@ -1,9 +1,7 @@
-from abc import ABC, ABCMeta
 from typing import Callable, Iterable
 
-import sys
-from hgicommon.models import Model, Priority
-from multiprocessing import Lock
+from hgicommon.mixable import Priority
+from hgicommon.models import Model
 
 from cookiemonster.common.models import Notification, Cookie, Enrichment
 
@@ -22,7 +20,7 @@ class RuleAction(Model):
         self.terminate_processing = terminate_processing
 
 
-class Rule(Priority):
+class Rule(Model, Priority):
     """
     A model of a rule that defines an action that should be executed if a criteria is matched.
     """
@@ -68,28 +66,31 @@ class Rule(Priority):
         return str(id(self))
 
 
-class EnrichmentLoader(Model):
+class EnrichmentLoader(Model, Priority):
     """
     TODO
     """
-    def __init__(self, is_already_known: Callable[[Cookie], bool], load: Callable[[Cookie], Enrichment]):
+    def __init__(self, can_enrich: Callable[[Cookie], bool], load: Callable[[Cookie], Enrichment],
+                 priority: int=Priority.MIN_PRIORITY):
         """
         Default constructor.
-        :param is_already_known: see `EnrichmentLoader.is_loaded`
-        :param load: see `EnrichmentLoader.load`
+        :param can_enrich: see `EnrichmentLoader.can_enrich`
+        :param load: see `EnrichmentLoader.load_enrichment`
+        :param priority: the priority used to decide when the enrichment loader should be used
         """
-        self._is_already_known = is_already_known
+        super().__init__(priority)
+        self.can_enrich = can_enrich
         self._load = load
 
-    def is_loaded(self, cookie: Cookie) -> bool:
+    def can_enrich(self, cookie: Cookie) -> bool:
         """
-        Returns whether or not the data that this enrichment loader can load is already in the given cookie.
+        Returns whether or not the data that this enrichment loader can enrich the given cookie
         :param cookie: cookie containing the data that is already known
-        :return: whether the data is already in the cookie
+        :return: whether it is possible to enrich the given cookie
         """
-        return self._is_already_known(cookie)
+        return self.can_enrich(cookie)
 
-    def load(self, cookie: Cookie) -> Enrichment:
+    def load_enrichment(self, cookie: Cookie) -> Enrichment:
         """
         Load data that can be added to a set of known data.
         :param cookie: the pre-existing set of known data
