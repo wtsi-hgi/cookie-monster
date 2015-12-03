@@ -13,7 +13,6 @@ from cookiemonster.common.models import Cookie, Notification, Enrichment
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._models import Rule, EnrichmentLoader
 from cookiemonster.processor._models import RuleAction
-from cookiemonster.processor._rules import RulesManager
 from cookiemonster.processor.basic_processing import BasicProcessorManager, BasicProcessor
 from cookiemonster.tests.processor._stubs import StubCookieJar
 from cookiemonster.tests.processor._stubs import StubNotifier
@@ -93,15 +92,14 @@ class TestBasicProcessorManager(unittest.TestCase):
     def setUp(self):
         self.cookie_jar = StubCookieJar()
         self.notifier = StubNotifier()
-        self.rules_manager = RulesManager()
+        self.rules = []
         self.enrichment_manager = EnrichmentManager()
-        self.process_manager = BasicProcessorManager(
-            TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, self.rules_manager,
-            self.enrichment_manager, self.notifier)
+        self.process_manager = BasicProcessorManager(TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar,
+                                                     self.rules, self.enrichment_manager, self.notifier)
 
         self.cookie = Cookie("")
         self.rule = Rule(lambda information: True, lambda information: RuleAction(set(), True))
-        self.rules_manager.add_rule(self.rule)
+        self.rules.append(self.rule)
 
     def test_process_any_cookies_when_no_jobs(self):
         self.cookie_jar.get_next_for_processing = MagicMock(return_value=None)
@@ -113,7 +111,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
     def test_process_any_cookies_when_jobs_but_no_free_processors(self):
         zero_process_manager = BasicProcessorManager(
-            0, self.cookie_jar, self.rules_manager, self.enrichment_manager, self.notifier)
+            0, self.cookie_jar, self.rules, self.enrichment_manager, self.notifier)
         self.cookie_jar.get_next_for_processing = MagicMock(return_value=self.cookie)
         zero_process_manager.on_cookie_processed = MagicMock()
 
@@ -169,8 +167,8 @@ class TestBasicProcessorManager(unittest.TestCase):
     def test_on_cookie_processed_when_rules_matched_and_terminate(self):
         notifications = [Notification("a", "b"), Notification("c", "d")]
 
-        self.rules_manager.remove_rule(self.rule)
-        assert len(self.rules_manager.get_rules()) == 0
+        self.rules.remove(self.rule)
+        assert len(self.rules) == 0
 
         self.cookie_jar.mark_as_reprocess = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock()
@@ -187,8 +185,8 @@ class TestBasicProcessorManager(unittest.TestCase):
         enrichement_loader = EnrichmentLoader(lambda *args: False, lambda *args: enrichment)
         self.enrichment_manager.data_loaders.append(enrichement_loader)
 
-        self.rules_manager.remove_rule(self.rule)
-        assert len(self.rules_manager.get_rules()) == 0
+        self.rules.remove(self.rule)
+        assert len(self.rules) == 0
 
         self.cookie_jar.mark_as_reprocess = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock()
@@ -200,3 +198,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.cookie_jar.mark_as_reprocess.assert_called_once_with(self.cookie.path)
         self.cookie_jar.mark_as_complete.assert_not_called()
         self.notifier.do.assert_has_calls([call(notification) for notification in notifications], True)
+
+
+if __name__ == "__main__":
+    unittest.main()

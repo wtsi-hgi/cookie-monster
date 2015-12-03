@@ -1,8 +1,8 @@
 from abc import ABCMeta
 from abc import abstractmethod
+from queue import PriorityQueue, Queue
 from threading import Lock
-from typing import List, Optional, Callable, Iterable
-
+from typing import List, Optional, Callable, Iterable, Sequence
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.processor._models import Rule
 
@@ -45,88 +45,3 @@ class ProcessorManager(metaclass=ABCMeta):
         were matched
         """
         pass
-
-
-class RuleProcessingQueue:
-    """
-    A queue of processor that are to be processed.
-
-    Thread-safe.
-    """
-    def __init__(self, rules: Iterable[Rule]):
-        """
-        Default constructor.
-        :param rules: the rules to be processed
-        """
-        self._not_processed = []
-        self._processed = []
-        self._being_processed = []
-        self._lists_lock = Lock()
-
-        for rule in rules:
-            if rule in self._not_processed:
-                raise ValueError("Cannot add duplicate rule %s" % rule)
-            self._not_processed.append(rule)
-
-    def has_unprocessed_rules(self) -> bool:
-        """
-        Returns whether or not there exists rule that have not been processed.
-        :return: whether there are rules that have not been processed
-        """
-        return len(self._not_processed) > 0
-
-    def get_all(self) -> Iterable[Rule]:
-        """
-        Gets all of the rules.
-        :return: all of the rules
-        """
-        return self._not_processed + self._processed + self._being_processed
-
-    def get_next_to_process(self) -> Optional[Rule]:
-        """
-        Gets the next rule that should be processed. Marks as currently being processed.
-        :return: the next rule to be processed, else `None` if no more to process
-        """
-        if not self.has_unprocessed_rules():
-            return None
-        self._lists_lock.acquire()
-        rule = self._not_processed.pop()
-        assert rule not in self._processed
-        assert rule not in self._being_processed
-        self._being_processed.append(rule)
-        self._lists_lock.release()
-        return rule
-
-    def mark_as_processed(self, rule: Rule):
-        """
-        Marks the given rule as processed. Will raise a `ValueError` if the rule has already been marked as processed or
-        if the rule is not marked as being processed (i.e. acquired via `get_next_to_process`).
-        :param rule: the rule to mark as processed
-        """
-        if rule in self._processed:
-            raise ValueError("Rule has already been marked as processed: %s" % rule)
-        if rule not in self._being_processed:
-            raise ValueError("Rule not marked as being processed: %s" % rule)
-        self._lists_lock.acquire()
-        self._being_processed.remove(rule)
-        self._processed.append(rule)
-        self._lists_lock.release()
-
-    def reset_all_marked_as_processed(self):
-        """
-        Resets all rules previously marked as processed and those marked as being processed.
-        """
-        def reset(to_reset: List[Rule]):
-            while len(to_reset) != 0:
-                rule = to_reset.pop()
-                assert rule not in self._not_processed
-                self._not_processed.append(rule)
-
-        number_of_rules = len(self.get_all())
-        self._lists_lock.acquire()
-        reset(self._being_processed)
-        reset(self._processed)
-        assert len(self._being_processed) == 0
-        assert len(self._processed) == 0
-        assert len(self._not_processed) == number_of_rules
-        self._lists_lock.release()

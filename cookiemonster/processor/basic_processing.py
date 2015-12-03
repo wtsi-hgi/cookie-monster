@@ -1,13 +1,14 @@
 import unittest
 from threading import Lock, Thread
-from typing import List, Callable, Set, Optional, Iterable
+from typing import List, Callable, Optional, Iterable, Container
+
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.notifier.notifier import Notifier
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._models import Rule
-from cookiemonster.processor._rules import RulesManager
-from cookiemonster.processor.processing import ProcessorManager, Processor, RuleProcessingQueue
+from cookiemonster.processor._rules import RuleProcessingQueue
+from cookiemonster.processor.processing import ProcessorManager, Processor
 
 
 class BasicProcessor(Processor):
@@ -36,7 +37,7 @@ class BasicProcessorManager(ProcessorManager):
     """
     Simple implementation of managing the continuous processing of new data.
     """
-    def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules_manager: RulesManager,
+    def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules: Container[Rule],
                  data_loader_manager: EnrichmentManager, notifier: Notifier):
         """
         Default constructor.
@@ -48,7 +49,7 @@ class BasicProcessorManager(ProcessorManager):
         :return:
         """
         self._cookie_jar = cookie_jar
-        self._rules_manager = rules_manager
+        self._rules = rules
         self._notifier = notifier
         self._data_loader_manager = data_loader_manager
 
@@ -72,7 +73,7 @@ class BasicProcessorManager(ProcessorManager):
                     self._release_processor(processor)
                     self.process_any_cookies()
 
-                Thread(target=processor.process, args=(cookie, self._rules_manager.get_rules(), on_complete)).start()
+                Thread(target=processor.process, args=(cookie, self._rules, on_complete)).start()
 
                 # Process more jobs if possible
                 self.process_any_cookies()

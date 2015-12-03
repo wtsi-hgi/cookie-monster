@@ -25,6 +25,7 @@ class EnrichmentManager:
         :param cookie: the data already known
         :return: the loaded enrichment
         """
+        # XXX: Enrichments need to be applied in order
         for enrichment_loader in self.data_loaders:
             if not enrichment_loader.is_loaded(cookie):
                 return enrichment_loader.load(cookie)
