@@ -52,5 +52,5 @@ class TestFileUpdateCollection(unittest.TestCase):
         self.assertCountEqual(file_updates.get_most_recent(), [file_updates[0], file_updates[2]])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

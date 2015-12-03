@@ -9,20 +9,20 @@ class RetrievalLog(Model):
     """
     Model of a log of a file update retrieval.
     """
-    def __init__(self, latest_retrieved_timestamp: datetime, number_of_file_updates: int,
+    def __init__(self, retrieved_file_updates_since: datetime, number_of_file_updates: int,
                  time_taken_to_complete_query: timedelta):
         """
         Constructor.
-        :param latest_retrieved_timestamp: the timestamp of the most recent file update that was retrieved
+        :param retrieved_file_updates_since: the timestamp of since when files were retrieved from
         :param number_of_file_updates: the number of file updates retrieved
         :param time_taken_to_complete_query: the time taken to complete the retrieval query
         """
-        self.latest_retrieved_timestamp = latest_retrieved_timestamp
+        self.retrieved_file_updates_since = retrieved_file_updates_since
         self.number_of_file_updates = number_of_file_updates
         self.time_taken_to_complete_query = time_taken_to_complete_query
 
     def __hash__(self) -> hash:
-        return hash(self.latest_retrieved_timestamp)
+        return hash(self.retrieved_file_updates_since)
 
 
 class QueryResult(Model):

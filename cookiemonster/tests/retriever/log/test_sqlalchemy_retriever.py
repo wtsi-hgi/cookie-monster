@@ -40,5 +40,5 @@ class TestSQLAlchemyRetrievalLogMapper(unittest.TestCase):
         self.assertEqual(self._mapper.get_most_recent(), None)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

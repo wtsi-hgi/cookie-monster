@@ -1,5 +1,6 @@
 from typing import Callable, Iterable
 
+from hgicommon.mixable import Priority
 from hgicommon.models import Model
 
 from cookiemonster.common.models import Notification, Cookie, Enrichment
@@ -19,17 +20,19 @@ class RuleAction(Model):
         self.terminate_processing = terminate_processing
 
 
-class Rule(Model):
+class Rule(Model, Priority):
     """
     A model of a rule that defines an action that should be executed if a criteria is matched.
     """
-    def __init__(self, matching_criteria: Callable[[Cookie], bool],
-                 action_generator: Callable[[Cookie], RuleAction]):
+    def __init__(self, matching_criteria: Callable[[Cookie], bool], action_generator: Callable[[Cookie], RuleAction],
+                 priority: int = Priority.MIN_PRIORITY):
         """
         Default constructor.
         :param matching_criteria: see `Rule.matching_criteria`
         :param action_generator: see `Rule.action_generator`
+        :param priority: the priority of the rule (default to the minimum possible)
         """
+        super().__init__(priority)
         self._matching_criteria = matching_criteria
         self._action_generator = action_generator
 
@@ -53,29 +56,41 @@ class Rule(Model):
             return ValueError("Rules does not match cookie: %s" % cookie)
         return self._action_generator(cookie)
 
+    def __eq__(self, other):
+        return id(self) == id(other)
 
-class EnrichmentLoader(Model):
+    def __hash__(self):
+        return id(self)
+
+    def __str__(self):
+        return str(id(self))
+
+
+class EnrichmentLoader(Model, Priority):
     """
     TODO
     """
-    def __init__(self, is_already_known: Callable[[Cookie], bool], load: Callable[[Cookie], Enrichment]):
+    def __init__(self, can_enrich: Callable[[Cookie], bool], load: Callable[[Cookie], Enrichment],
+                 priority: int=Priority.MIN_PRIORITY):
         """
         Default constructor.
-        :param is_already_known: see `EnrichmentLoader.is_loaded`
-        :param load: see `EnrichmentLoader.load`
+        :param can_enrich: see `EnrichmentLoader.can_enrich`
+        :param load: see `EnrichmentLoader.load_enrichment`
+        :param priority: the priority used to decide when the enrichment loader should be used
         """
-        self._is_already_known = is_already_known
+        super().__init__(priority)
+        self.can_enrich = can_enrich
         self._load = load
 
-    def is_loaded(self, cookie: Cookie) -> bool:
+    def can_enrich(self, cookie: Cookie) -> bool:
         """
-        Returns whether or not the data that this enrichment loader can load is already in the given cookie.
+        Returns whether or not the data that this enrichment loader can enrich the given cookie
         :param cookie: cookie containing the data that is already known
-        :return: whether the data is already in the cookie
+        :return: whether it is possible to enrich the given cookie
         """
-        return self._is_already_known(cookie)
+        return self.can_enrich(cookie)
 
-    def load(self, cookie: Cookie) -> Enrichment:
+    def load_enrichment(self, cookie: Cookie) -> Enrichment:
         """
         Load data that can be added to a set of known data.
         :param cookie: the pre-existing set of known data

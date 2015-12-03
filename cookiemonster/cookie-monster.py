@@ -71,18 +71,18 @@ def main():
 
     # Connect the data processor manager to the cookie jar
     def prompt_processor_manager_to_process_new_jobs(*args):
-        processor_manager.process_any_cookie_jobs()
+        processor_manager.process_any_cookies()
     cookie_jar.add_listener(prompt_processor_manager_to_process_new_jobs)
 
 
     # Let's see if the setup works!
-    file_update_1 = FileUpdate("file_id_1", hash("hash"), datetime.min, Metadata())
-    query_result_1 = QueryResult(FileUpdateCollection([file_update_1]), timedelta(seconds=42))
+    file_update_1 = FileUpdate("file_id_1", hash("hash"), datetime(year=2000, month=9, day=10), Metadata())
+    query_result_1 = QueryResult(FileUpdateCollection([file_update_1]), timedelta(0))
 
-    file_update_2 = FileUpdate("file_id_2", hash("hash"), datetime.min, Metadata())
-    query_result_2 = QueryResult(FileUpdateCollection([file_update_2]), timedelta(seconds=24))
+    file_update_2 = FileUpdate("file_id_2", hash("hash"), datetime(year=2001, month=8, day=7), Metadata())
+    query_result_2 = QueryResult(FileUpdateCollection([file_update_2]), timedelta(0))
 
-    blank_query_results = [QueryResult(FileUpdateCollection(), timedelta(seconds=11)) for _ in range(1000)]
+    blank_query_results = [QueryResult(FileUpdateCollection(), timedelta(0)) for _ in range(1000)]
 
     retrieval_manager._file_update_retriever.query_for_all_file_updates_since = MagicMock(
         side_effect=[query_result_1, query_result_2] + blank_query_results)
@@ -108,7 +108,7 @@ def setup_retrieval_log_database(database_location : str):
     :param database_location: the location of teh retrieval log database
     """
     engine = create_engine(database_location)
-    # TODO: Need to process_any_cookie_jobs if the database is already there and what create_all does in this situation
+    # TODO: Need to process_any_cookies if the database is already there and what create_all does in this situation
     SQLAlchemyModel.metadata.create_all(bind=engine)
 
 

@@ -1,5 +1,8 @@
 import unittest
 from datetime import timedelta, date, datetime
+from threading import Thread
+from time import sleep
+from typing import Any
 from unittest.mock import MagicMock, call
 
 from hgicommon.collections import Metadata
@@ -12,36 +15,41 @@ from cookiemonster.tests.retriever.stubs import StubFileUpdateRetriever
 from cookiemonster.tests.retriever.stubs import StubRetrievalLogMapper
 
 
-_SINCE = datetime.min
-_TIME_TAKEN_TO_DO_RETRIEVE = timedelta(seconds=10)
-
-
-class MockRetrievalManager(RetrievalManager):
+class _MockRetrievalManager(RetrievalManager):
     """
     RetrievalManager that does a single retrieve when ran.
     """
     def run(self, file_updates_since: datetime = date.min):
         self._do_retrieve(file_updates_since)
 
-class TestRetrievalManager(unittest.TestCase):
+
+class _BaseRetrievalManagerTest(unittest.TestCase):
     """
-    Test cases for `RetrievalManager`.
+    Base class for unit tests on `RetrievalManager` instances.
     """
+    SINCE = datetime.min
+    TIME_TAKEN_TO_DO_RETRIEVE = timedelta(0)
+
     def setUp(self):
         # Create dependencies
         self._file_update_retriever = StubFileUpdateRetriever()
         self._retrieval_log_mapper = StubRetrievalLogMapper()
 
         # Create retrieval manager
-        self._retrieval_manager = MockRetrievalManager(self._file_update_retriever, self._retrieval_log_mapper)
+        self._retrieval_manager = _MockRetrievalManager(self._file_update_retriever, self._retrieval_log_mapper)
 
         # Setup mock FileUpdateRetriever
         self._file_updates = FileUpdateCollection([
             FileUpdate("a", hash("b"), datetime(year=1999, month=1, day=2), Metadata()),
             FileUpdate("b", hash("c"), datetime(year=1998, month=12, day=20), Metadata())])
-        self._query_result = QueryResult(self._file_updates, _TIME_TAKEN_TO_DO_RETRIEVE)
+        self._query_result = QueryResult(self._file_updates, _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE)
         self._file_update_retriever.query_for_all_file_updates_since = MagicMock(return_value=self._query_result)
 
+
+class TestRetrievalManager(_BaseRetrievalManagerTest):
+    """
+    Test cases for `RetrievalManager`.
+    """
     def test__do_retrieve_with_file_updates(self):
         # Setup
         listener = MagicMock()
@@ -49,18 +57,17 @@ class TestRetrievalManager(unittest.TestCase):
         self._retrieval_log_mapper.add = MagicMock()
 
         # Call SUT method
-        self._retrieval_manager._do_retrieve(_SINCE)
+        self._retrieval_manager._do_retrieve(_BaseRetrievalManagerTest.SINCE)
 
         # Assert that retrieves updates from source
-        self._file_update_retriever.query_for_all_file_updates_since.assert_called_once_with(_SINCE)
+        self._file_update_retriever.query_for_all_file_updates_since.assert_called_once_with(
+            _BaseRetrievalManagerTest.SINCE)
         # Assert that updates listener
         listener.assert_called_once_with(self._file_updates)
         # Assert that retrieval is logged
         self._retrieval_log_mapper.add.assert_called_once_with(
-            RetrievalLog(
-                self._file_updates.get_most_recent()[0].timestamp, len(self._file_updates),
-                _TIME_TAKEN_TO_DO_RETRIEVE)
-        )
+            RetrievalLog(_BaseRetrievalManagerTest.SINCE, len(self._file_updates),
+                         _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE))
 
     def test__do_retrieve_without_file_updates(self):
         # Setup
@@ -68,83 +75,93 @@ class TestRetrievalManager(unittest.TestCase):
         self._retrieval_manager.add_listener(listener)
         self._retrieval_log_mapper.add = MagicMock()
         self._file_updates.clear()
-        self._retrieval_manager._latest_retrieved_timestamp = \
-            TestPeriodicRetrievalManager._CURRENT_TIME - timedelta(days=1)
+        self._retrieval_manager._retrieved_file_updates_since = \
+            TestPeriodicRetrievalManager.CURRENT_TIME - timedelta(days=1)
 
         # Call SUT method
-        self._retrieval_manager._do_retrieve(_SINCE)
+        self._retrieval_manager._do_retrieve(_BaseRetrievalManagerTest.SINCE)
 
         # Assert that retrieves updates from source
-        self._file_update_retriever.query_for_all_file_updates_since.assert_called_once_with(_SINCE)
+        self._file_update_retriever.query_for_all_file_updates_since.assert_called_once_with(_BaseRetrievalManagerTest.SINCE)
         # Assert that updates listener has not been called given that there are no file updates
         listener.assert_not_called()
         # Assert that retrieval is logged but that latest retrieved timestamp has not changed
         self._retrieval_log_mapper.add.assert_called_once_with(
-            RetrievalLog(
-                self._retrieval_manager._latest_retrieved_timestamp, len(self._file_updates),
-                _TIME_TAKEN_TO_DO_RETRIEVE)
-        )
+            RetrievalLog(_BaseRetrievalManagerTest.SINCE, len(self._file_updates), _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE))
 
 
-class TestPeriodicRetrievalManager(unittest.TestCase):
+class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
     """
     Test cases for `PeriodicRetrievalManager`.
     """
-    _RETRIEVAL_PERIOD = timedelta(seconds=5)
-    _CURRENT_TIME = datetime(year=2000, month=2, day=1)
+    RETRIEVAL_PERIOD = timedelta(milliseconds=1)
+    CURRENT_TIME = datetime(year=2000, month=2, day=1)
 
     def setUp(self):
-        # Create dependencies
-        self._file_update_retriever = StubFileUpdateRetriever()
-        self._retrieval_log_mapper = StubRetrievalLogMapper()
+        super(TestPeriodicRetrievalManager, self).setUp()
 
         # Create retrieval manager
         self._retrieval_manager = PeriodicRetrievalManager(
-            TestPeriodicRetrievalManager._RETRIEVAL_PERIOD, self._file_update_retriever, self._retrieval_log_mapper)
-
-        # Setup mock FileUpdateRetriever
-        self._file_updates = FileUpdateCollection([
-            FileUpdate("a", hash("b"), datetime(year=1999, month=1, day=2), Metadata()),
-            FileUpdate("b", hash("c"), datetime(year=1998, month=12, day=20), Metadata())])
-        self._query_result = QueryResult(self._file_updates, _TIME_TAKEN_TO_DO_RETRIEVE)
-        self._file_update_retriever.query_for_all_file_updates_since = MagicMock(return_value=self._query_result)
-
-        # Force retrieval manager to only do one cycle
-        def do_one_cycle(*args):
-            self._retrieval_manager._schedule_next_periodic_retrieve.side_effect = MagicMock()
-            self._retrieval_manager._do_retrieve_periodically(*args)
-        self._retrieval_manager._schedule_next_periodic_retrieve = MagicMock(side_effect=do_one_cycle)
+            TestPeriodicRetrievalManager.RETRIEVAL_PERIOD, self._file_update_retriever, self._retrieval_log_mapper)
 
         # Override current time to make deterministic
-        PeriodicRetrievalManager._get_current_time = MagicMock(return_value=TestPeriodicRetrievalManager._CURRENT_TIME)
+        PeriodicRetrievalManager._get_current_time = MagicMock(return_value=TestPeriodicRetrievalManager.CURRENT_TIME)
+
+        def do_query(*args):
+            PeriodicRetrievalManager._get_current_time = MagicMock(
+                return_value=PeriodicRetrievalManager._get_current_time()
+                             + TestPeriodicRetrievalManager.RETRIEVAL_PERIOD
+                             + self._query_result.time_taken_to_complete_query)
+            return self._query_result
+
+        self._file_update_retriever.query_for_all_file_updates_since = MagicMock(side_effect=do_query)
 
     def test_run(self):
-        # Call SUT method
-        self._retrieval_manager.run()
+        max_cycles = 10
+        self._setup_to_do_only_n_cycles(max_cycles)
 
-        # Assert started periodic retrieval for file updates since the correct time
-        self._retrieval_manager._schedule_next_periodic_retrieve.assert_has_calls([
-            call(TestPeriodicRetrievalManager._CURRENT_TIME),
-            call(TestPeriodicRetrievalManager._CURRENT_TIME + TestPeriodicRetrievalManager._RETRIEVAL_PERIOD)
-        ], any_order=False)
+        self._retrieval_log_mapper.add = MagicMock()
 
-    def test_cannot_start_if_started(self):
+        listener = MagicMock()
+        self._retrieval_manager.add_listener(listener)
+
+        self._retrieval_manager.run(_BaseRetrievalManagerTest.SINCE)
+
+        self.assertEquals(self._retrieval_log_mapper.add.call_count, max_cycles)
+        listener.assert_has_calls([call(self._file_updates) for _ in range(max_cycles)])
+
+    def test_run_if_running(self):
+        Thread(target=self._retrieval_manager.run).start()
+        self.assertRaises(RuntimeError, self._retrieval_manager.run)
+        self._retrieval_manager.stop()
+
+    def test_start_if_started(self):
         self._retrieval_manager.start()
         self.assertRaises(RuntimeError, self._retrieval_manager.start)
+        self._retrieval_manager.stop()
 
-    def test__do_retrieve_periodically(self):
-        # Setup
-        self._retrieval_manager._do_retrieve = MagicMock()
-        self._retrieval_manager._schedule_next_periodic_retrieve = MagicMock()
+    def _setup_to_do_only_n_cycles(self, number_of_cycles: int):
+        """
+        Sets up the test so that the retriever will only do n cycles.
+        :param number_of_cycles: the number of cycles to do
+        """
+        counter = 0
+        original_schedule_next_periodic_retrieve = self._retrieval_manager._schedule_next_retrieve
 
-        # Call SUT method
-        self._retrieval_manager._do_retrieve_periodically(_SINCE)
+        def limit_cycles(*args, **kargs):
+            nonlocal counter, original_schedule_next_periodic_retrieve
+            counter += 1
+            if counter >= number_of_cycles:
+                self._retrieval_manager._schedule_next_retrieve = MagicMock()
+                original_schedule_next_periodic_retrieve = MagicMock()
+                self._retrieval_manager.stop()
 
-        # Assert that _do_retrieve was called
-        self._retrieval_manager._do_retrieve.assert_called_once_with(_SINCE)
-        # Assert that next cycle was scheduled
-        self._retrieval_manager._schedule_next_periodic_retrieve.assert_called_once_with(
-            _SINCE + TestPeriodicRetrievalManager._RETRIEVAL_PERIOD)
+        def extended_schedule_next_periodic_retrieve(*args, **kargs) -> Any:
+            nonlocal original_schedule_next_periodic_retrieve
+            limit_cycles(*args, **kargs)
+            original_schedule_next_periodic_retrieve(*args, **kargs)
+
+        self._retrieval_manager._schedule_next_retrieve = extended_schedule_next_periodic_retrieve
 
 
 if __name__ == '__main__':
