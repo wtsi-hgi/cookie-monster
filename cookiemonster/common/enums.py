@@ -9,11 +9,6 @@ EnrichmentSource
 ----------------
 The metadata enrichment sources (e.g., iRODS, SequenceScape, etc.)
 
-ProcessingQueueState
---------------------
-The potential states in which `Cookie`s can find themselves in on the
-processing queue [cookie jar]
-
 Authors
 -------
 * Christopher Harrison <ch12@sanger.ac.uk>
@@ -33,7 +28,3 @@ class EnrichmentSource(Enum):
     SEQUENCE_SCAPE = "sequencescape"
     FILE_HEADER = "fileheader"
     # TODO? Expand this list appropriately
-
-
-class ProcessingQueueState(Enum):
-    TODO = "TODO"
