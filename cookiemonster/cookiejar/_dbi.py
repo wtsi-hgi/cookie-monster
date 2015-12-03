@@ -440,6 +440,11 @@ class Bert(_Couch):
                     // Update
                     if (doc && doc.queue && 'processing' in q) {
                         doc.processing = (q.processing == 'true');
+                        if (doc.processing) {
+                            doc.dirty      = false;
+                            doc.queue_from = null;
+                        }
+
                         return [doc, 'updated'];
                     }
 
@@ -506,7 +511,6 @@ class Bert(_Couch):
             latest    = results.rows[0]
             key, path = latest.id, latest.value
 
-            self.upsert('queue', 'set_state',      key, dirty = False)
             self.upsert('queue', 'set_processing', key, processing = True)
             return path
     
