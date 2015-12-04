@@ -29,7 +29,7 @@ Copyright (c) 2015 Genome Research Limited
 from datetime import timedelta
 from typing import Optional
 
-from cookiemonster.common.models import FileUpdate, Enrichment, Cookie
+from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.cookiejar._cookiejar import CookieJar
 from cookiemonster.cookiejar._dbi import Bert, Ernie
 
