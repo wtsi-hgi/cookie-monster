@@ -363,7 +363,82 @@ class Bert(_Couch):
         @param  database  Database name
         '''
         super().__init__()
+
+        self._define_schema()
+        self.connect(host, database)
+
+    def _get_id(self, path: str) -> Optional[str]:
+        '''
+        Get queue document ID by file path
         
+        @param  path  File path
+        '''
+        results = self.query('queue', 'get_id', key = path, reduce = False)
+        return results.rows[0].value if len(results) else None
+
+    def queue_length(self) -> int:
+        '''
+        @return The current (for-processing) queue length
+        '''
+        results = self.query('queue', 'to_process', endkey = _now(),
+                                                    reduce = True,
+                                                    group  = False)
+
+        return results.rows[0].value if len(results) else 0
+
+    def mark_dirty(self, path: str, lead_time: timedelta = None):
+        '''
+        Mark a file as requiring, potentially delayed, (re)processing
+
+        @param  path       File path
+        @param  lead_time  Requeue lead time
+        '''
+        # Get document ID
+        doc_id = self._get_id(path)
+
+        if doc_id:
+            # Determine queue time
+            queue_from = _now()
+            if lead_time:
+                queue_from += lead_time.total_seconds()
+
+            self.upsert('queue', 'set_state', doc_id, dirty      = True,
+                                                      queue_from = queue_from)
+
+        else:
+            self.upsert('queue', 'set_state', location = path)
+
+    def dequeue(self) -> Optional[str]:
+        '''
+        Get the next document on the queue and mark it as processing
+
+        @return File path (None, if empty queue)
+        '''
+        results = self.query('queue', 'to_process', endkey = _now(),
+                                                    reduce = False,
+                                                    limit  = 1)
+        if len(results):
+            latest    = results.rows[0]
+            key, path = latest.id, latest.value
+
+            self.upsert('queue', 'set_state',      key, dirty = False)
+            self.upsert('queue', 'set_processing', key, processing = True)
+            return path
+    
+    def mark_finished(self, path: str):
+        '''
+        Mark a file as finished processing
+
+        @param  path  File path
+        '''
+        # Get document ID
+        doc_id = self._get_id(path)
+
+        if doc_id:
+            self.upsert('queue', 'set_processing', doc_id, processing = False)
+
+    def _define_schema(self):
+        ''' Define views and update handlers '''
         # View: queue/to_process
         # Queue documents marked as dirty and not currently processing
         # Keyed by `queue_from`, set the endkey in queries appropriately
@@ -448,79 +523,6 @@ class Bert(_Couch):
                 }
             '''
         )
-
-        # Connect and push design documents
-        self.connect(host, database)
-
-    def _get_id(self, path: str) -> Optional[str]:
-        '''
-        Get queue document ID by file path
-        
-        @param  path  File path
-        '''
-        results = self.query('queue', 'get_id', key = path, reduce = False)
-        return results.rows[0].value if len(results) else None
-
-    def queue_length(self) -> int:
-        '''
-        @return The current (for-processing) queue length
-        '''
-        results = self.query('queue', 'to_process', endkey = _now(),
-                                                    reduce = True,
-                                                    group  = False)
-
-        return results.rows[0].value if len(results) else 0
-
-    def mark_dirty(self, path: str, lead_time: timedelta = None):
-        '''
-        Mark a file as requiring, potentially delayed, (re)processing
-
-        @param  path       File path
-        @param  lead_time  Requeue lead time
-        '''
-        # Get document ID
-        doc_id = self._get_id(path)
-
-        if doc_id:
-            # Determine queue time
-            queue_from = _now()
-            if lead_time:
-                queue_from += lead_time.total_seconds()
-
-            self.upsert('queue', 'set_state', doc_id, dirty      = True,
-                                                      queue_from = queue_from)
-
-        else:
-            self.upsert('queue', 'set_state', location = path)
-
-    def dequeue(self) -> Optional[str]:
-        '''
-        Get the next document on the queue and mark it as processing
-
-        @return File path (None, if empty queue)
-        '''
-        results = self.query('queue', 'to_process', endkey = _now(),
-                                                    reduce = False,
-                                                    limit  = 1)
-        if len(results):
-            latest    = results.rows[0]
-            key, path = latest.id, latest.value
-
-            self.upsert('queue', 'set_state',      key, dirty = False)
-            self.upsert('queue', 'set_processing', key, processing = True)
-            return path
-    
-    def mark_finished(self, path: str):
-        '''
-        Mark a file as finished processing
-
-        @param  path  File path
-        '''
-        # Get document ID
-        doc_id = self._get_id(path)
-
-        if doc_id:
-            self.upsert('queue', 'set_processing', doc_id, processing = False)
 
 
 class Ernie(_Couch):
