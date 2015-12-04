@@ -353,6 +353,19 @@ class _Couch(object):
 
 class Bert(_Couch):
     ''' Interface to the queue database documents '''
+    @staticmethod
+    def _reset_processing(query_row: Row) -> Document:
+        '''
+        Wrapper function to query that converts returned result rows
+        into documents with their processing state reset
+        '''
+        doc = Document(query_row['value'])
+        doc['dirty']      = True
+        doc['processing'] = False
+        doc['queue_from'] = _now()
+        
+        return doc
+
     def __init__(self, host: str, database: str):
         '''
         Constructor: Connect to the database and create, wherever
@@ -366,6 +379,13 @@ class Bert(_Couch):
 
         self._define_schema()
         self.connect(host, database)
+
+        # If there are any files marked as currently processing, this
+        # must be due to a previous failure. Reset all of these for
+        # immediate reprocessing
+        in_progress = self.query('queue', 'in_progress', Bert._reset_processing, reduce = False)
+        if len(in_progress):
+            self._db.update(in_progress.rows)
 
     def _get_id(self, path: str) -> Optional[str]:
         '''
@@ -452,6 +472,18 @@ class Bert(_Couch):
                 }
             ''',
             reduce_fn = '_count'
+        )
+
+        # View: queue/in_progress
+        # Queue documents marked as currently processing
+        self.define_view('queue', 'in_progress',
+            map_fn = '''
+                function(doc) {
+                    if (doc.queue && doc.processing) {
+                        emit(doc._id, doc)
+                    }
+                }
+            '''
         )
 
         # View: queue/get_id
