@@ -383,8 +383,10 @@ class Bert(_Couch):
         # If there are any files marked as currently processing, this
         # must be due to a previous failure. Reset all of these for
         # immediate reprocessing
-        in_progress = self.query('queue', 'in_progress', Bert._reset_processing, reduce = False)
+        in_progress = self.query('queue', 'in_progress', Bert._reset_processing, reduce=False)
         if len(in_progress):
+            # Use bulk update (i.e., single HTTP request) rather than
+            # invoking update handlers for each
             self._db.update(in_progress.rows)
 
     def _get_id(self, path: str) -> Optional[str]:
@@ -393,7 +395,7 @@ class Bert(_Couch):
         
         @param  path  File path
         '''
-        results = self.query('queue', 'get_id', key = path, reduce = False)
+        results = self.query('queue', 'get_id', key=path, reduce=False)
         return results.rows[0].value if len(results) else None
 
     def queue_length(self) -> int:
@@ -426,7 +428,7 @@ class Bert(_Couch):
                                                       queue_from = queue_from)
 
         else:
-            self.upsert('queue', 'set_state', location = path)
+            self.upsert('queue', 'set_state', location=path)
 
     def dequeue(self) -> Optional[str]:
         '''
@@ -441,7 +443,6 @@ class Bert(_Couch):
             latest    = results.rows[0]
             key, path = latest.id, latest.value
 
-            self.upsert('queue', 'set_state',      key, dirty = False)
             self.upsert('queue', 'set_processing', key, processing = True)
             return path
     
@@ -547,6 +548,11 @@ class Bert(_Couch):
                     // Update
                     if (doc && doc.queue && 'processing' in q) {
                         doc.processing = (q.processing == 'true');
+                        if (doc.processing) {
+                            doc.dirty      = false;
+                            doc.queue_from = null;
+                        }
+
                         return [doc, 'updated'];
                     }
 
