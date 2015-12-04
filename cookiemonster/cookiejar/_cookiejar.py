@@ -55,7 +55,7 @@ from abc import ABCMeta, abstractmethod
 from datetime import timedelta
 from typing import Optional
 
-from hgicommon.listenable import Listenable
+from hgicommon.mixable import Listenable
 
 from cookiemonster.common.models import Enrichment, Cookie
 
