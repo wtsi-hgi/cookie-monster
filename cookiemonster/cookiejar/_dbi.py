@@ -73,24 +73,31 @@ Methods:
 
 Document schema:
 
+    $queue      boolean  true (i.e., used as a schema classifier)
     location    string   File path
-    queue       boolean  true (i.e., used as a schema classifier)
     dirty       boolean  Whether the file needs reprocessing
     processing  boolean  Whether the file is currently being processed
     queue_from  int      Timestamp from when to queue (Unix epoch)
 
 Ernie (Metadata Repository DBI)
 -------------------------------
-TODO
+`Ernie` provides an interface with metadata documents on a CouchDB
+database and should be instantiated with the database host and name.
+
+Methods:
+
+* `add_metadata` Add a metadata document for a file to the repository
+
+* `get_metadata` Fetch all the metadata documents for a file, in
+  chronological order
 
 Document schema:
 
-    _id        [UUID]     
-    _rev       [Metadata revision, by path and source]
-    path       File path
-    source     Source tag
-    timestamp  Timestamp (Unix time)
-    metadata   { [metadata key-values] }
+    $metadata  boolean  true (i.e., used as a schema classifier)
+    location   string   File path
+    source     string   Metadata source
+    timestamp  int      Timestamp (Unix epoch)
+    metadata   object   Key-value store
 
 Dependencies
 ------------
@@ -107,16 +114,19 @@ GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
 
-from typing import Any, Optional, Callable
+from typing import Any, Union, Optional, Callable
 from copy import deepcopy
-from datetime import timedelta
-from time import time
+from datetime import datetime, timedelta
+from time import time, mktime
 from uuid import uuid4
+from json import JSONEncoder
 
-import couchdb
 from couchdb.client import Server, Document, ViewResults, Row
 
 from hgicommon.collections import Metadata
+from cookiemonster.common.models import Enrichment
+from cookiemonster.common.collections import EnrichmentCollection
+from cookiemonster.common.enums import EnrichmentSource
 
 
 def _document_to_dictionary(document: Optional[Document]) -> dict:
@@ -143,6 +153,30 @@ def _now() -> int:
     @return The current Unix time
     '''
     return int(time())
+
+
+def _to_enrichment_source(source: str) -> Union[EnrichmentSource, str]:
+    '''
+    Attempt to convert a string into an EnrichmentSource; falling back
+    to the string when not found
+
+    @param  source  Source
+    @return EnrichmentSource or original input string
+    '''
+    try:
+        return EnrichmentSource(source)
+    except:
+        return source
+
+
+class _EnrichmentEncoder(JSONEncoder):
+    ''' JSON encoder for Enrichment models '''
+    def default(self, enrichment: Enrichment) -> dict:
+        return {
+            'source':    enrichment.source.value if type(enrichment.source) is EnrichmentSource else enrichment.source,
+            'timestamp': int(mktime(enrichment.timestamp.timetuple())),
+            'metadata':  enrichment.metadata._data
+        }
 
 
 class _Couch(object):
@@ -426,7 +460,6 @@ class Bert(_Couch):
 
             self.upsert('queue', 'set_state', doc_id, dirty      = True,
                                                       queue_from = queue_from)
-
         else:
             self.upsert('queue', 'set_state', location=path)
 
@@ -467,7 +500,7 @@ class Bert(_Couch):
         self.define_view('queue', 'to_process',
             map_fn = '''
                 function(doc) {
-                    if (doc.queue && doc.dirty && !doc.processing) {
+                    if (doc.$queue && doc.dirty && !doc.processing) {
                         emit(doc.queue_from, doc.location);
                     }
                 }
@@ -480,7 +513,7 @@ class Bert(_Couch):
         self.define_view('queue', 'in_progress',
             map_fn = '''
                 function(doc) {
-                    if (doc.queue && doc.processing) {
+                    if (doc.$queue && doc.processing) {
                         emit(doc._id, doc)
                     }
                 }
@@ -492,7 +525,7 @@ class Bert(_Couch):
         self.define_view('queue', 'get_id',
             map_fn = '''
                 function (doc) {
-                    if (doc.queue) {
+                    if (doc.$queue) {
                         emit(doc.location, doc._id);
                     }
                 }
@@ -510,21 +543,19 @@ class Bert(_Couch):
                         now = Math.floor(Date.now() / 1000);
 
                     // Create new item in queue
-                    if (!doc && req.id) {
-                        if ('location' in q) {
-                            return [{
-                                _id:        req.id,
-                                location:   q.location,
-                                queue:      true,
-                                dirty:      true,
-                                processing: false,
-                                queue_from: now
-                            }, 'created'];
-                        }
+                    if (!doc && req.id && 'location' in q) {
+                        return [{
+                            _id:        req.id,
+                            $queue:     true,
+                            location:   q.location,
+                            dirty:      true,
+                            processing: false,
+                            queue_from: now
+                        }, 'created'];
                     }
 
                     // Update
-                    if (doc.queue && 'dirty' in q) {
+                    if (doc.$queue && 'dirty' in q) {
                         doc.dirty      = (q.dirty == 'true');
                         doc.queue_from = doc.dirty ? parseInt(q.queue_from || now, 10)
                                                    : null;
@@ -546,7 +577,7 @@ class Bert(_Couch):
                     var q = req.query || {};
 
                     // Update
-                    if (doc && doc.queue && 'processing' in q) {
+                    if (doc && doc.$queue && 'processing' in q) {
                         doc.processing = (q.processing == 'true');
                         if (doc.processing) {
                             doc.dirty      = false;
@@ -567,45 +598,119 @@ class Ernie(_Couch):
     ''' Interface to the metadata database documents '''
     def __init__(self, host: str, database: str):
         '''
-        Constructor: Connect to the database and create the metadata
-        view, if necessary.
+        Constructor: Connect to the database and create, wherever
+        necessary, the views and update handlers to provide the metadata
+        repository interface
 
         @param  host      CouchDB host URL
         @param  database  Database name
         '''
         super().__init__()
 
-        # Create views
-        # self.define_view('metadata', 'resolve',
-        #     map_fn = 'function(doc) { emit([doc.path, doc.source], doc._id); }'
-        # )
-
-        # self.define_view('metadata', 'aggregate',
-        # 
-
-
-        # self.upsert('_design/metadata', {
-        #     'lanugage': 'javascript',
-        #     'views': {
-        #         # Get document IDs keyed by path and source
-        #         'resolve': {
-        #             'map': 'function(doc) { emit([doc.path, doc.source], doc._id]); }'
-        #         },
-
-        #         # Get the list of (latest) enrichments by path
-        #         'aggregate': {
-        #             'map': '''function(doc) {
-        #                 emit(doc.path, {
-        #                     source:    doc.source,
-        #                     timestamp: doc.timestamp,
-        #                     metadata:  doc.metadata
-        #                 });
-        #             }''',
-
-        #             # n.b., Exact grouping
-        #             'reduce': 'function(keys, values) { return values; }'
-        #         }
-        #     }
-        # })
-
+        self._define_schema()
         self.connect(host, database)
+
+    def add_metadata(self, path: str, metadata: Enrichment):
+        '''
+        Add a metadata document to the repository for a file
+
+        @param  path      File path
+        @param  metadata  Metadata model
+        '''
+        req_body = _EnrichmentEncoder().encode(metadata)
+        self.upsert('metadata', 'append', location=path, body=req_body)
+
+    def get_metadata(self, path: str) -> EnrichmentCollection:
+        '''
+        Get all the collected metadata for a file
+
+        @param  path  File path
+        @return EnrichmentCollection
+        '''
+        output = EnrichmentCollection()
+        results = self.query('metadata', 'collate', key    = path,
+                                                    reduce = True,
+                                                    group  = True)
+        if len(results):
+            for enrichment in results.rows[0].value:
+                output.append(Enrichment(
+                    source    = _to_enrichment_source(enrichment['source']),
+                    timestamp = datetime.fromtimestamp(enrichment['timestamp']),
+                    metadata  = Metadata(enrichment['metadata'])
+                ))
+
+        return sorted(output)
+
+    def _define_schema(self):
+        ''' Define views and update handlers '''
+        # View: metadata/collate
+        # Metadata (Enrichment) documents keyed by `location`
+        # Reduce to collate into an array
+        self.define_view('metadata', 'collate',
+            map_fn = '''
+                function(doc) {
+                    if (doc.$metadata) {
+                        emit(doc.location, {
+                            source:    doc.source,
+                            timestamp: doc.timestamp,
+                            metadata:  doc.metadata
+                        });
+                    }
+                }
+            ''',
+            reduce_fn = '''
+                function(keys, values) {
+                    return values;
+                }
+            '''
+        )
+
+        # Update handler: metadata/append
+        # Create a new metadata document from POST body, which is
+        # expected to be a JSON object containing `source`, `timestamp`
+        # and `metadata` members, assigned to the `location` from the
+        # query string
+        self.define_update('metadata', 'append',
+            handler_fn = '''
+                function(doc, req) {
+                    var q = req.query || {};
+
+                    // Create a new item in the repository
+                    if (!doc && req.id && 'location' in q) {
+                        var req_data,
+                            failure = false;
+
+                        // Parse request body
+                        try      { req_data = JSON.parse(req.body); }
+                        catch(e) { failure = true; }
+
+                        // Check keys exist
+                        if (req_data) {
+                            try {
+                                failure = !('source'    in req_data) ||
+                                          !('timestamp' in req_data) ||
+                                          !('metadata'  in req_data) ||
+                                          !(req_data.metadata instanceof Object);
+                            }
+                            catch(e) {
+                                failure = true;
+                            }
+                        }
+
+                        if (!failure) {
+                            return [{
+                                _id:       req.id,
+                                $metadata: true,
+                                location:  q.location,
+                                source:    req_data.source,
+                                timestamp: req_data.timestamp,
+                                metadata:  req_data.metadata
+                            }, 'created'];
+                        }
+                    }
+
+                    // Failure
+                    return [null, 'failed'];
+                }
+            '''
+        )
