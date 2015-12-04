@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from multiprocessing import Lock
 from threading import Timer, Thread
 
-import math
-from hgicommon.listenable import Listenable
+from hgicommon.mixable import Listenable
+from math import ceil
 
 from cookiemonster.retriever._models import QueryResult, RetrievalLog
 from cookiemonster.retriever._retriever import FileUpdateRetriever
@@ -210,7 +210,7 @@ class PeriodicRetrievalManager(RetrievalManager):
         delta = timedelta.resolution
         R_0 = previous_scheduled_time
 
-        R_1 = R_0 + max(1, math.ceil(c / (T - delta)) - 1) * T
+        R_1 = R_0 + max(1, ceil(c / (T - delta)) - 1) * T
         assert R_1 >= R_0 + self._retrieval_period
         return R_1
 

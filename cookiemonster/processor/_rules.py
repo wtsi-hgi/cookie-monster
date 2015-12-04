@@ -1,8 +1,7 @@
 import copy
-from queue import PriorityQueue
-from typing import Set, Container, Iterable, Optional
-
 from multiprocessing import Lock
+from queue import PriorityQueue
+from typing import Container, Iterable, Optional
 
 from cookiemonster.processor._models import Rule
 
