@@ -1,33 +1,94 @@
-# GPLv3 or later
-# Copyright (c) 2015 Genome Research Limited
+'''
+Cookie Jar Implementation Test
+==============================
+High-level integration and logic tests of the CookieJar-CouchDB
+implementation (`BiscuitTin`). We assume that if the higher-level tests
+pass and are suitably comprehensive, then the underlying levels of
+abstraction are probably fine.
+
+The following sequences are tested:
+
+* Get Next
+
+* Enrich -> Get Next -> Mark Complete
+
+* Enrich 1 -> Enrich 2 -> Get Next (X) -> Get Next (Y) -> Mark X
+  Complete -> Mark Y Complete
+
+* Enrich 1 -> Enrich 2 -> Get Next (X) -> Mark X Complete -> Get Next
+  (Y) -> Mark Y Complete
+
+* Enrich -> Get Next -> Mark Failed Immediate -> Get Next
+
+* Enrich -> Get Next -> Mark Failed 3s Delay -> Queue empty until delay
+
+* Enrich -> Get Next -> Enrich same -> Mark Complete -> Get Next
+
+* Enrich -> Get Next -> Mark Complete -> Mark Reprocess -> Get Next
+
+* Enrich -> Get Next -> Mark Reprocess -> Mark Complete -> Get Next
+
+* Enrich -> Reconnect (i.e., simulate failure) -> Get Next
+
+* Enrich -> Get Next -> Reconnect -> Get Next
+
+Authors
+-------
+* Christopher Harrison <ch12@sanger.ac.uk>
+
+License
+-------
+GPLv3 or later
+Copyright (c) 2015 Genome Research Limited
+'''
 import unittest
-from unittest import mock
+from cookiemonster.tests.cookiejar._docker import CouchDBContainer
 
+from datetime import datetime
 
+from hgicommon.collections import Metadata
+from cookiemonster.common.enums import EnrichmentSource
+from cookiemonster.common.models import Enrichment, Cookie
 
-class TestDBI(unittest.TestCase):
-    _HOST = 'bar'
-    _DB   = 'foo'
+from cookiemonster.cookiejar import BiscuitTin
 
-    # @mock.patch('cookiemonster.cookiejar._dbi.couchdb')
-    # def test_metadata_init(self, mock_couch):
-    #     # Connect and create
-    #     mock_couch.Server().__contains__.return_value = False
-    #     _ = DBI(TestDBI._HOST, TestDBI._DB)
-    #
-    #     mock_couch.Server.assert_called_with(TestDBI._HOST)
-    #     mock_couch.Server().__contains__.assert_called_with(TestDBI._DB)
-    #     mock_couch.Server().create.assert_called_with(TestDBI._DB)
-    #     mock_couch.Server().__getitem__.assert_called_with(TestDBI._DB)
-    #
-    #     # Connect to existing
-    #     mock_couch.reset_mock()
-    #     mock_couch.Server().__contains__.return_value = True
-    #     _ = DBI(TestDBI._HOST, TestDBI._DB)
-    #
-    #     mock_couch.Server().create.assert_not_called()
+class TestCookieJar(unittest.TestCase):
+    def setUp(self):
+        '''
+        Build, if necessary, and start a Dockerised CouchDB instance and
+        connect. Plus, provide sample inputs with which to test.
+        '''
+        self.couchdb_container = CouchDBContainer()
 
-    # TODO Test other methods...
+        self.HOST = self.couchdb_container.get_couchdb_host()
+        self.DB   = 'cookiejar-test'
+
+        self.jar = BiscuitTin(self.HOST, self.DB)
+
+        self.eg_paths       = ['/foo',
+                               '/bar/baz']
+        self.eg_metadata    = [Metadata({'xyzzy': 123}),
+                               Metadata({'quux': 'snuffleupagus'})]
+        self.eg_enrichments = [Enrichment('random', datetime.now(), self.eg_metadata[0]),
+                               Enrichment(EnrichmentSource.IRODS, datetime.now(), self.eg_metadata[1])]
+
+    def tearDown(self):
+        ''' Tear down CouchDB container '''
+        self.couchdb_container.tear_down()
+
+    def empty_queue(self):
+        '''
+        Get Next
+        '''
+        self.assertEqual(self.jar.queue_length(), 0)
+        self.assertIsNone(self.jar.get_next_for_processing())
+
+    def simple_sequence(self):
+        '''
+        Enrich -> Get Next -> Mark Complete
+        '''
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()
