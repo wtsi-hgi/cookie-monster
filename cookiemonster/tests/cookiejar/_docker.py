@@ -19,6 +19,7 @@ Copyright (c) 2015 Genome Research Limited
 
 import logging
 import socket
+import atexit
 from time import sleep
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
@@ -68,6 +69,7 @@ class CouchDBContainer(object):
         ])
 
         # Create container
+        atexit.register(self.tear_down)
         self.container = client.create_container(
             image       = _COUCHDB_IMAGE,
             ports       = [self._port],
