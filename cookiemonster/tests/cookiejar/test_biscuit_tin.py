@@ -80,14 +80,14 @@ class TestCookieJar(unittest.TestCase):
 
     def test_empty_queue(self):
         '''
-        Get Next
+        CookieJar Sequence: Get Next
         '''
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertIsNone(self.jar.get_next_for_processing())
 
     def test_simple_sequence(self):
         '''
-        Enrich -> Get Next -> Mark Complete
+        CookieJar Sequence: Enrich -> Get Next -> Mark Complete
         '''
         pass
 

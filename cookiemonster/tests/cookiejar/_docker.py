@@ -1,9 +1,9 @@
 '''
 Dockerised CouchDB Instance
 ===========================
-
-Build and start and containerised CouchDB instance on instantiation,
-with methods to get the CouchDB host URL and to tear down the instance.
+Build and start a containerised CouchDB instance on an available port
+upon instantiation. Exposes the CouchDB host URL, once it has spun up,
+and provides a means to tear it down.
 
 Exportable Classes: `CouchDBContainer`
 
@@ -23,11 +23,13 @@ from time import sleep
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from http.client import HTTPConnection, HTTPResponse
+from os.path import dirname, realpath, join, normpath
 
 from docker.client import Client
 from docker.utils import kwargs_from_env
 
-_DOCKERFILE_PATH = 'docker/couchdb'
+_DOCKERFILE_PATH = normpath(join(dirname(realpath(__file__)),
+                                 '../../../docker/couchdb'))
 _COUCHDB_IMAGE   = 'hgi/couchdb'
 
 def _get_port():
