@@ -57,7 +57,7 @@ class TestBasicProcessor(unittest.TestCase):
 
         self.processor.process(self.cookie, self.rules, TestBasicProcessor._create_assert_on_complete(assertions))
 
-    @unittest.skip("Running order of rules not yet established")
+    @unittest.skip("Running order of data not yet established")
     def test_process_when_matched_rules_and_termination(self):
         pass
 

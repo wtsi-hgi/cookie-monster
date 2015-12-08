@@ -8,12 +8,12 @@ from cookiemonster.processor._models import EnrichmentLoader
 
 class EnrichmentManager:
     """
-    TODO
+    Manages the enrichment of cookies.
     """
     def __init__(self, enrichment_loaders: Iterable[EnrichmentLoader]=()):
         """
         Default constructor.
-        :param enrichment_loaders: TODO
+        :param enrichment_loaders: see `next_enrichment`
         """
         self.enrichment_loaders = PriorityQueue()
         for enrichment_loader in enrichment_loaders:

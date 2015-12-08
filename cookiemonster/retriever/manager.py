@@ -197,14 +197,11 @@ class PeriodicRetrievalManager(RetrievalManager):
 
         Periodic drift is avoided by not scheduling based on current time. However, given that the computation time
         is unbounded (the query could take a very long time!), measures have to be taken to guarantee a cycle is never
-        completed early (R_{x+1} >= R_{x} + T) particularly in the case where c >= 2T (i.e. retrieval should be
+        completed early (R_{x+1} >= R_{x} + SourceDataType) particularly in the case where c >= 2T (i.e. retrieval should be
         "skipped" as it is time for the next retrieval).
         :param previous_scheduled_time: the time at which the previous job was scheduled for
         :param previous_computation_time: the computation time of the previous job
         """
-        # If this assertion fails, either the prevoius query ran early or it did not take as long as it was said
-        assert previous_scheduled_time + previous_computation_time <= PeriodicRetrievalManager._get_current_time()
-
         c = previous_computation_time
         T = self._retrieval_period
         delta = timedelta.resolution

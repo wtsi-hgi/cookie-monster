@@ -9,7 +9,7 @@ from sqlalchemy import create_engine
 
 from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.enums import EnrichmentSource
-from cookiemonster.common.models import FileUpdate, Notification, Enrichment
+from cookiemonster.common.models import Update, Notification, Enrichment
 from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
@@ -25,7 +25,7 @@ from cookiemonster.retriever.irods.irods_config import IrodsConfig
 from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel
 from cookiemonster.retriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.manager import PeriodicRetrievalManager
-from cookiemonster.tests.retriever.stubs import StubFileUpdateRetriever
+from cookiemonster.tests.retriever._stubs import StubFileUpdateRetriever
 
 
 def main():
@@ -52,7 +52,7 @@ def main():
     # cookie_jar = BiscuitTin(manager_db_host, manager_db_prefix)
     cookie_jar = InMemoryCookieJar()    # type: CookieJar
 
-    # Setup rules manager
+    # Setup data manager
     rules_manager = RulesManager()
 
     # Setup notifier
@@ -76,10 +76,10 @@ def main():
 
 
     # Let's see if the setup works!
-    file_update_1 = FileUpdate("file_id_1", hash("hash"), datetime(year=2000, month=9, day=10), Metadata())
+    file_update_1 = Update("file_id_1", hash("hash"), datetime(year=2000, month=9, day=10), Metadata())
     query_result_1 = QueryResult(FileUpdateCollection([file_update_1]), timedelta(0))
 
-    file_update_2 = FileUpdate("file_id_2", hash("hash"), datetime(year=2001, month=8, day=7), Metadata())
+    file_update_2 = Update("file_id_2", hash("hash"), datetime(year=2001, month=8, day=7), Metadata())
     query_result_2 = QueryResult(FileUpdateCollection([file_update_2]), timedelta(0))
 
     blank_query_results = [QueryResult(FileUpdateCollection(), timedelta(0)) for _ in range(1000)]

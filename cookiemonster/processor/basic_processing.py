@@ -1,4 +1,3 @@
-import unittest
 from threading import Lock, Thread
 from typing import List, Callable, Optional, Iterable, Container
 
@@ -35,23 +34,22 @@ class BasicProcessor(Processor):
 
 class BasicProcessorManager(ProcessorManager):
     """
-    Simple implementation of managing the continuous processing of new data.
+    Simple manager for the continuous processing of new data.
     """
     def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules: Container[Rule],
                  enrichment_manager: EnrichmentManager, notifier: Notifier):
         """
         Default constructor.
-        :param number_of_processors:
-        :param cookie_jar:
-        :param rules_manager:
-        :param enrichment_manager:
-        :param notifier:
-        :return:
+        :param number_of_processors: the maximum number of processors to use
+        :param cookie_jar: the cookie jar to get updates from
+        :param rules: the set of data to use when processing updates
+        :param enrichment_manager: the manager to use when loading more information about a cookie
+        :param notifier: the notifier
         """
         self._cookie_jar = cookie_jar
         self._rules = rules
         self._notifier = notifier
-        self.enrichment_manager = enrichment_manager
+        self._enrichment_manager = enrichment_manager
 
         self._idle_processors = set()
         self._busy_processors = set()
@@ -71,6 +69,7 @@ class BasicProcessorManager(ProcessorManager):
                 def on_complete(rules_matched: bool, notifications: List[Notification]):
                     self.on_cookie_processed(cookie, rules_matched, notifications)
                     self._release_processor(processor)
+                    # One last task before the thread that ran the processor can end...
                     self.process_any_cookies()
 
                 Thread(target=processor.process, args=(cookie, self._rules, on_complete)).start()
@@ -87,7 +86,7 @@ class BasicProcessorManager(ProcessorManager):
         if stop_processing:
             self._cookie_jar.mark_as_complete(cookie.path)
         else:
-            enrichment = self.enrichment_manager.next_enrichment(cookie)
+            enrichment = self._enrichment_manager.next_enrichment(cookie)
 
             if enrichment is None:
                 # FIXME: No guarantee that such a notification can be given

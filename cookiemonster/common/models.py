@@ -1,4 +1,4 @@
-'''
+"""
 Common Models
 =============
 
@@ -11,7 +11,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
-'''
+"""
 from datetime import datetime
 from functools import total_ordering
 from typing import Any, Union, Set, Optional
@@ -23,74 +23,56 @@ import cookiemonster
 from cookiemonster.common.enums import EnrichmentSource
 
 
-class FileUpdate(Model):
+class Update(Model):
     """
     Model of a file update.
     """
-    def __init__(self, file_id: str, file_hash: hash, timestamp: datetime, metadata: Metadata):
-        """
-        Constructor.
-        :param file_id: a unique identifier of the file that has been updated
-        :param file_hash: hash of the file
-        :param timestamp: the timestamp of when the file was updated
-        :param metadata: the metadata of the file
-        """
-        self.file_id = file_id
-        self.file_hash = file_hash
+    def __init__(self, updated_id: str, hash: hash, timestamp: datetime, metadata: Metadata):
+        self.updated_id = updated_id
+        self.hash = hash
         self.timestamp = timestamp
         self.metadata = metadata
 
 
 @total_ordering
 class Enrichment(Model):
-    '''
+    """
     Metadata enrichment model
-    '''
+    """
     def __init__(self, source: Union[EnrichmentSource, str], timestamp: datetime, metadata: Metadata):
-        '''
-        Constructor
-
-        @param  source     Source of metadata enrichment
-        @param  timestamp  Timestamp of enrichment
-        '''
         self.source    = source
         self.timestamp = timestamp
         self.metadata  = metadata
 
     def __lt__(self, other):
-        ''' Order enrichments by their timestamp '''
+        """ Order enrichments by their timestamp """
         return (self.timestamp < other.timestamp)
 
 
 class Cookie(Model):
-    '''
-    A "Cookie" is a representation of a file's iteratively enriched
-    metadata
-    '''
+    """
+    A "Cookie" is a representation of a file's iteratively enriched metadata.
+    """
     def __init__(self, path: str):
-        '''
-        Constructor
-        @param  path  File path
-        '''
         self.path = path
         self.enrichments = cookiemonster.common.collections.EnrichmentCollection()
 
     def enrich(self, enrichment: Enrichment):
-        '''
+        """
         Append an enrichment
 
         @param  enrichment  The enrichment
-        '''
+        """
         self.enrichments.append(enrichment)
 
     def get_metadata_by_source(self, source: Union[EnrichmentSource, str], key: str, default=None):
-        '''
+        """
         Fetch the latest existing metadata by source and key
 
         @param  source   Enrichment source
         @param  key      Attribute name
         @param  default  Default value, if key doesn't exist
-        '''
+        """
         # The enrichment collection will be built up chronologically, so
         # the following list comprehension is guaranteed to be in the
         # same relative order, thus we can check from the last to the
@@ -103,9 +85,9 @@ class Cookie(Model):
         ), default)
 
     def get_metadata_sources(self) -> Set[Union[EnrichmentSource, str]]:
-        '''
+        """
         Fetch the distinct enrichment sources for which metadata exists
-        '''
+        """
         return {enrichment.source for enrichment in self.enrichments}
 
 

@@ -1,21 +1,22 @@
 import copy
+from abc import ABCMeta, abstractmethod
 from multiprocessing import Lock
 from queue import PriorityQueue
-from typing import Container, Iterable, Optional
-
+from typing import Container, Iterable, Optional, Sequence
 from cookiemonster.processor._models import Rule
 
 
 class RuleProcessingQueue:
     """
-    A queue of rules that are to be processed.
+    A queue of data that are to be processed.
 
     Thread-safe.
     """
     def __init__(self, rules: Iterable[Rule]):
         """
         Default constructor.
-        :param rules: the rules to be processed
+        :param rules: the data to be processed (these will be copied so changes to the set outside of this object will
+        have no effect)
         """
         self._rules = copy.copy(rules)
         self._not_processed = PriorityQueue()
@@ -29,7 +30,7 @@ class RuleProcessingQueue:
     def has_unprocessed_rules(self) -> bool:
         """
         Returns whether or not there exists rule that have not been processed.
-        :return: whether there are rules that have not been processed
+        :return: whether there are data that have not been processed
         """
         return not self._not_processed.empty()
 
@@ -65,7 +66,7 @@ class RuleProcessingQueue:
 
     def reset_processed(self):
         """
-        Resets all rules previously marked as processed and those marked as being processed.
+        Resets all data previously marked as processed and those marked as being processed.
         """
         self._lists_lock.acquire()
         del self._being_processed[:]
@@ -77,34 +78,3 @@ class RuleProcessingQueue:
             self._not_processed.put(rule)
         self._lists_lock.release()
 
-
-class InFileRulesMonitor:
-    """
-    Whether changes to the processor, defined by changes in the files in the directory.
-    """
-    def __init__(self, directory_location: str, rules: Container[Rule]):
-        """
-        Default constructor.
-        :param directory_location: the location of the processor
-        :param rules: the processor manager to update about changes in the processor
-        """
-        raise NotImplementedError()
-
-    def is_monitoring(self) -> bool:
-        """
-        Whether this monitor is monitoring.
-        :return: state of the monitor
-        """
-        raise NotImplementedError()
-
-    def start(self):
-        """
-        Starts monitoring processor in the directory.
-        """
-        raise NotImplementedError()
-
-    def stop(self):
-        """
-        Stops monitoring processor in the directory.
-        """
-        raise NotImplementedError()
