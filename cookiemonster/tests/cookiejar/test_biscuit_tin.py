@@ -4,7 +4,7 @@ Cookie Jar Implementation Test
 High-level integration and logic tests of the CookieJar-CouchDB
 implementation (`BiscuitTin`). We assume that if the higher-level tests
 pass and are suitably comprehensive, then the underlying levels of
-abstraction are probably fine.
+abstraction are probably fine™.
 
 The following sequences are tested:
 
@@ -31,6 +31,8 @@ The following sequences are tested:
 * Enrich -> Reconnect (i.e., simulate failure) -> Get Next
 
 * Enrich -> Get Next -> Reconnect -> Get Next
+
+TODO Others?
 
 Authors
 -------
@@ -60,7 +62,7 @@ class TestCookieJar(unittest.TestCase):
         '''
         self.couchdb_container = CouchDBContainer()
 
-        self.HOST = self.couchdb_container.get_couchdb_host()
+        self.HOST = self.couchdb_container.couchdb_fqdn
         self.DB   = 'cookiejar-test'
 
         self.jar = BiscuitTin(self.HOST, self.DB)
@@ -76,14 +78,14 @@ class TestCookieJar(unittest.TestCase):
         ''' Tear down CouchDB container '''
         self.couchdb_container.tear_down()
 
-    def empty_queue(self):
+    def test_empty_queue(self):
         '''
         Get Next
         '''
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertIsNone(self.jar.get_next_for_processing())
 
-    def simple_sequence(self):
+    def test_simple_sequence(self):
         '''
         Enrich -> Get Next -> Mark Complete
         '''
