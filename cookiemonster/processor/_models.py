@@ -36,6 +36,15 @@ class Rule(Model, Priority):
         self._matching_criteria = matching_criteria
         self._action_generator = action_generator
 
+    def __eq__(self, other):
+        return id(self) == id(other)
+
+    def __hash__(self):
+        return id(self)
+
+    def __str__(self):
+        return str(id(self))
+
     def matching_criteria(self, cookie: Cookie) -> bool:
         """
         Returns whether this rule applies to the given cookie that is being processed.
@@ -56,31 +65,22 @@ class Rule(Model, Priority):
             return ValueError("Rules does not match cookie: %s" % cookie)
         return self._action_generator(cookie)
 
-    def __eq__(self, other):
-        return id(self) == id(other)
-
-    def __hash__(self):
-        return id(self)
-
-    def __str__(self):
-        return str(id(self))
-
 
 class EnrichmentLoader(Model, Priority):
     """
-    TODO
+    Data loader that can load specific data that can be used to "enrich" a cookie with more information.
     """
-    def __init__(self, can_enrich: Callable[[Cookie], bool], load: Callable[[Cookie], Enrichment],
+    def __init__(self, can_enrich: Callable[[Cookie], bool], load_enrichment: Callable[[Cookie], Enrichment],
                  priority: int=Priority.MIN_PRIORITY):
         """
         Default constructor.
         :param can_enrich: see `EnrichmentLoader.can_enrich`
-        :param load: see `EnrichmentLoader.load_enrichment`
+        :param load_enrichment: see `EnrichmentLoader.load_enrichment`
         :param priority: the priority used to decide when the enrichment loader should be used
         """
         super().__init__(priority)
-        self.can_enrich = can_enrich
-        self._load = load
+        self._can_enrich = can_enrich
+        self._load_enrichment = load_enrichment
 
     def can_enrich(self, cookie: Cookie) -> bool:
         """
@@ -88,7 +88,7 @@ class EnrichmentLoader(Model, Priority):
         :param cookie: cookie containing the data that is already known
         :return: whether it is possible to enrich the given cookie
         """
-        return self.can_enrich(cookie)
+        return self._can_enrich(cookie)
 
     def load_enrichment(self, cookie: Cookie) -> Enrichment:
         """
@@ -96,4 +96,4 @@ class EnrichmentLoader(Model, Priority):
         :param cookie: the pre-existing set of known data
         :return: the loaded data
         """
-        return self._load(cookie)
+        return self._load_enrichment(cookie)

@@ -1,18 +1,17 @@
 import unittest
 from datetime import timedelta, date, datetime
 from threading import Thread
-from time import sleep
 from typing import Any
 from unittest.mock import MagicMock, call
 
 from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import FileUpdateCollection
-from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.models import Update
 from cookiemonster.retriever._models import QueryResult, RetrievalLog
 from cookiemonster.retriever.manager import PeriodicRetrievalManager, RetrievalManager
-from cookiemonster.tests.retriever.stubs import StubFileUpdateRetriever
-from cookiemonster.tests.retriever.stubs import StubRetrievalLogMapper
+from cookiemonster.tests.retriever._stubs import StubFileUpdateRetriever
+from cookiemonster.tests.retriever._stubs import StubRetrievalLogMapper
 
 
 class _MockRetrievalManager(RetrievalManager):
@@ -40,8 +39,8 @@ class _BaseRetrievalManagerTest(unittest.TestCase):
 
         # Setup mock FileUpdateRetriever
         self._file_updates = FileUpdateCollection([
-            FileUpdate("a", hash("b"), datetime(year=1999, month=1, day=2), Metadata()),
-            FileUpdate("b", hash("c"), datetime(year=1998, month=12, day=20), Metadata())])
+            Update("a", hash("b"), datetime(year=1999, month=1, day=2), Metadata()),
+            Update("b", hash("c"), datetime(year=1998, month=12, day=20), Metadata())])
         self._query_result = QueryResult(self._file_updates, _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE)
         self._file_update_retriever.query_for_all_file_updates_since = MagicMock(return_value=self._query_result)
 
@@ -164,5 +163,5 @@ class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
         self._retrieval_manager._schedule_next_retrieve = extended_schedule_next_periodic_retrieve
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

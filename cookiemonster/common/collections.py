@@ -3,14 +3,14 @@ from typing import List
 
 from hgicommon.collections import Metadata
 
-from cookiemonster.common.models import FileUpdate
+from cookiemonster.common.models import Update
 
 
 class FileUpdateCollection(list):
     """
-    Collection of `FileUpdate` instances. Extends built-in `list`.
+    Collection of `Update` instances. Extends built-in `list`.
     """
-    def get_most_recent(self) -> List[FileUpdate]:
+    def get_most_recent(self) -> List[Update]:
         """
         Gets the file updates in the collection with the most recent timestamp.
 
@@ -20,7 +20,7 @@ class FileUpdateCollection(list):
         if len(self) == 0:
             raise ValueError("No file updates in collection")
 
-        most_recent = [FileUpdate("", "", datetime.min, Metadata())]
+        most_recent = [Update("", "", datetime.min, Metadata())]
         for file_update in self:
             assert len(most_recent) > 0
             most_recent_so_far = most_recent[0].timestamp
@@ -32,6 +32,7 @@ class FileUpdateCollection(list):
         return most_recent
 
 
+# TODO: Is this still required?
 class EnrichmentCollection(list):
     """
     Collection of `Enrichment` instances; extends `list`

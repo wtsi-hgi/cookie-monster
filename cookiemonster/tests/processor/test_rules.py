@@ -1,15 +1,13 @@
 import unittest
 
-from typing import List
-
 from hgicommon.mixable import Priority
+from typing import List
 
 from cookiemonster.processor._models import Rule
 from cookiemonster.processor._rules import RuleProcessingQueue
 from cookiemonster.tests.processor._mocks import create_mock_rule
 
 
-# TODO: Check priority related methods!
 class TestRuleProcessingQueue(unittest.TestCase):
     """
     Unit tests for `RuleProcessingQueue`.

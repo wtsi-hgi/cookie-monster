@@ -1,8 +1,7 @@
 from abc import ABCMeta
 from abc import abstractmethod
-from queue import PriorityQueue, Queue
-from threading import Lock
-from typing import List, Optional, Callable, Iterable, Sequence
+from typing import List, Optional, Callable, Iterable
+
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.processor._models import Rule
 
@@ -31,14 +30,15 @@ class ProcessorManager(metaclass=ABCMeta):
     @abstractmethod
     def process_any_cookies(self):
         """
-        Check for new cookie jobs that are to be processed and process them if they are available.
+        Check for new cookie jobs that are to be processed and process them (in a different thread) if they are
+        available.
         """
         pass
 
     @abstractmethod
     def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: List[Notification]=()):
         """
-        Called when processing of a cookie has been completed
+        Called when processing of a cookie has been completed.
         :param cookie: the cookie that has been processed
         :param stop_processing: whether rule indicates that we should stop processing the given cookie
         :param notifications: list of external processes that are to be notified. List should only be givne if processor
