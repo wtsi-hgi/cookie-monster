@@ -461,7 +461,8 @@ class Bert(_Couch):
             self.upsert('queue', 'set_state', doc_id, dirty      = True,
                                                       queue_from = queue_from)
         else:
-            self.upsert('queue', 'set_state', location=path)
+            self.upsert('queue', 'set_state', location   = path,
+                                              queue_from = _now())
 
     def dequeue(self) -> Optional[str]:
         '''
@@ -540,7 +541,7 @@ class Bert(_Couch):
             handler_fn = '''
                 function(doc, req) {
                     var q   = req.query || {},
-                        now = Math.floor(Date.now() / 1000);
+                        now = parseInt(q.queue_from || (Date.now() / 1000), 10);
 
                     // Create new item in queue
                     if (!doc && req.id && 'location' in q) {
@@ -557,8 +558,7 @@ class Bert(_Couch):
                     // Update
                     if (doc.$queue && 'dirty' in q) {
                         doc.dirty      = (q.dirty == 'true');
-                        doc.queue_from = doc.dirty ? parseInt(q.queue_from || now, 10)
-                                                   : null;
+                        doc.queue_from = doc.dirty ? now : null;
 
                         return [doc, 'updated'];
                     }
