@@ -48,8 +48,8 @@ class BiscuitTin(CookieJar):
         super().__init__()
 
     def enrich_cookie(self, path: str, enrichment: Enrichment):
-        self._queue.mark_dirty(path)
         self._metadata.add_metadata(path, enrichment)
+        self._queue.mark_dirty(path)
         self.notify_listeners(self.queue_length())
 
     def mark_as_failed(self, path: str, requeue_delay: timedelta):
