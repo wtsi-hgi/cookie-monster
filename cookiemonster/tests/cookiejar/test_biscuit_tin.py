@@ -46,6 +46,7 @@ GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
 import unittest
+from unittest.mock import MagicMock
 from cookiemonster.tests.cookiejar._docker import CouchDBContainer
 
 from datetime import datetime, timedelta
@@ -55,7 +56,12 @@ from hgicommon.collections import Metadata
 from cookiemonster.common.enums import EnrichmentSource
 from cookiemonster.common.models import Enrichment, Cookie
 
+import cookiemonster.cookiejar._dbi as dbi
 from cookiemonster.cookiejar import BiscuitTin
+
+def _change_time(time):
+    ''' Mock the timing so we can control it '''
+    dbi._now = MagicMock(return_value=time)
 
 class TestCookieJar(unittest.TestCase):
     def setUp(self):
@@ -76,6 +82,9 @@ class TestCookieJar(unittest.TestCase):
                                Metadata({'quux': 'snuffleupagus'})]
         self.eg_enrichments = [Enrichment('random', datetime(1981, 9, 25, 5, 55), self.eg_metadata[0]),
                                Enrichment(EnrichmentSource.IRODS, datetime(2015, 12, 9, 9), self.eg_metadata[1])]
+
+        # Change time zone to Testing Standard Time ;)
+        _change_time(123456)
 
     def tearDown(self):
         ''' Tear down CouchDB container '''
@@ -131,12 +140,15 @@ class TestCookieJar(unittest.TestCase):
         self.jar.mark_as_complete(to_process.path)
         self.assertEqual(self.jar.queue_length(), 0)
 
-    @unittest.skip('Order non-deterministic when queued with same timestamp')
     def test05_process_multiple(self):
         '''
         CookieJar Sequence: Enrich 1 -> Enrich 2 -> Get Next (X) -> Get Next (Y) -> Mark X Complete -> Mark Y Complete
         '''
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+
+        # Fast forward one second
+        _change_time(123457)
+
         self.jar.enrich_cookie(self.eg_paths[1], self.eg_enrichments[1])
         self.assertEqual(self.jar.queue_length(), 2)
 
@@ -197,19 +209,20 @@ class TestCookieJar(unittest.TestCase):
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
 
-        fail_time = datetime.now()
         self.jar.mark_as_failed(to_process.path, timedelta(seconds=3))
-        while self.jar.queue_length() == 0:
-            if datetime.now() - fail_time > timedelta(seconds=5):
-                break
-        requeue_time = datetime.now()
+        self.assertEqual(self.jar.queue_length(), 0)
 
-        requeue_delay = (requeue_time - fail_time).total_seconds()
-        delay_diff = abs(requeue_delay - 3)
+        # +1 second
+        _change_time(123457)
+        self.assertEqual(self.jar.queue_length(), 0)
 
-        # Within one second of expected delay
-        # NOTE Empirically about a 0.51s difference; nearly 20%...
-        self.assertLess(delay_diff, 1)
+        # +2 seconds
+        _change_time(123458)
+        self.assertEqual(self.jar.queue_length(), 0)
+
+        # +3 seconds
+        _change_time(123459)
+        self.assertEqual(self.jar.queue_length(), 1)
 
     def test09_out_of_order_enrichment(self):
         '''
@@ -219,10 +232,10 @@ class TestCookieJar(unittest.TestCase):
         to_process = self.jar.get_next_for_processing()
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[1])
         self.assertEqual(self.jar.queue_length(), 0)
-        
+
         self.jar.mark_as_complete(to_process.path)
         self.assertEqual(self.jar.queue_length(), 1)
-        
+
         to_process = self.jar.get_next_for_processing()
 
         self.assertEqual(self.jar.queue_length(), 0)
