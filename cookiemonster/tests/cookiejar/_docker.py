@@ -60,6 +60,7 @@ class CouchDBContainer(object):
         self.couchdb_fqdn = 'http://{host}:{port}'.format(host=self._host, port=self._port)
 
         # Build image
+        # n.b., This will take a while, the first time through
         logging.info('Building CouchDB image...')
         logging.debug([
             line for line in client.build(
@@ -69,7 +70,6 @@ class CouchDBContainer(object):
         ])
 
         # Create container
-        atexit.register(self.tear_down)
         self.container = client.create_container(
             image       = _COUCHDB_IMAGE,
             ports       = [self._port],
@@ -81,6 +81,7 @@ class CouchDBContainer(object):
         # Start container
         logging.info('Starting CouchDB container {Id}...'.format(**self.container))
         logging.debug('Warnings: {Warnings}'.format(**self.container))
+        atexit.register(self.tear_down)
         client.start(self.container['Id'])
 
         # Block 'til 200 OK response received (or timeout)
@@ -113,4 +114,6 @@ class CouchDBContainer(object):
 
     def tear_down(self):
         ''' Tear down the containerised instance '''
-        self._client.kill(self.container['Id'])
+        if self.container:
+            self._client.kill(self.container['Id'])
+            self.container = None
