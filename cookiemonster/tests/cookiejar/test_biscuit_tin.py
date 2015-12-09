@@ -10,6 +10,10 @@ The following sequences are tested:
 
 * Get Next
 
+* Enrich -> Get Next
+
+* Enrich -> Enrich Again -> Get Next
+
 * Enrich -> Get Next -> Mark Complete
 
 * Enrich 1 -> Enrich 2 -> Get Next (X) -> Get Next (Y) -> Mark X
@@ -20,13 +24,11 @@ The following sequences are tested:
 
 * Enrich -> Get Next -> Mark Failed Immediate -> Get Next
 
-* Enrich -> Get Next -> Mark Failed 3s Delay -> Queue empty until delay
+* Enrich -> Get Next -> Mark Failed 3s Delay -> Queue Empty Until Delay
 
 * Enrich -> Get Next -> Enrich same -> Mark Complete -> Get Next
 
 * Enrich -> Get Next -> Mark Complete -> Mark Reprocess -> Get Next
-
-* Enrich -> Get Next -> Mark Reprocess -> Mark Complete -> Get Next
 
 * Enrich -> Reconnect (i.e., simulate failure) -> Get Next
 
@@ -46,7 +48,8 @@ Copyright (c) 2015 Genome Research Limited
 import unittest
 from cookiemonster.tests.cookiejar._docker import CouchDBContainer
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from time import sleep
 
 from hgicommon.collections import Metadata
 from cookiemonster.common.enums import EnrichmentSource
@@ -71,26 +74,208 @@ class TestCookieJar(unittest.TestCase):
                                '/bar/baz']
         self.eg_metadata    = [Metadata({'xyzzy': 123}),
                                Metadata({'quux': 'snuffleupagus'})]
-        self.eg_enrichments = [Enrichment('random', datetime.now(), self.eg_metadata[0]),
-                               Enrichment(EnrichmentSource.IRODS, datetime.now(), self.eg_metadata[1])]
+        self.eg_enrichments = [Enrichment('random', datetime(1981, 9, 25, 5, 55), self.eg_metadata[0]),
+                               Enrichment(EnrichmentSource.IRODS, datetime(2015, 12, 9, 9), self.eg_metadata[1])]
 
     def tearDown(self):
         ''' Tear down CouchDB container '''
         self.couchdb_container.tear_down()
 
-    def test_empty_queue(self):
+    def test01_empty_queue(self):
         '''
         CookieJar Sequence: Get Next
         '''
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertIsNone(self.jar.get_next_for_processing())
 
-    def test_simple_sequence(self):
+    def test02_single_enrichment(self):
+        '''
+        CookieJar Sequence: Enrich -> Get Next
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.assertEqual(self.jar.queue_length(), 1)
+        
+        to_process = self.jar.get_next_for_processing()
+
+        self.assertEqual(self.jar.queue_length(), 0)
+        self.assertIsInstance(to_process, Cookie)
+        self.assertEqual(to_process.path, self.eg_paths[0])
+        self.assertEqual(len(to_process.enrichments), 1)
+        self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
+
+    def test03_multiple_enrichment(self):
+        '''
+        CookieJar Sequence: Enrich -> Enrich Again -> Get Next
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.assertEqual(self.jar.queue_length(), 1)
+
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[1])
+        self.assertEqual(self.jar.queue_length(), 1)
+
+        to_process = self.jar.get_next_for_processing()
+
+        self.assertEqual(self.jar.queue_length(), 0)
+        self.assertIsInstance(to_process, Cookie)
+        self.assertEqual(to_process.path, self.eg_paths[0])
+        self.assertEqual(len(to_process.enrichments), 2)
+        self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
+        self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
+
+    def test04_enrich_and_complete(self):
         '''
         CookieJar Sequence: Enrich -> Get Next -> Mark Complete
         '''
-        pass
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        to_process = self.jar.get_next_for_processing()
+        self.jar.mark_as_complete(to_process.path)
+        self.assertEqual(self.jar.queue_length(), 0)
 
+    @unittest.skip('Order non-deterministic when queued with same timestamp')
+    def test05_process_multiple(self):
+        '''
+        CookieJar Sequence: Enrich 1 -> Enrich 2 -> Get Next (X) -> Get Next (Y) -> Mark X Complete -> Mark Y Complete
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_paths[1], self.eg_enrichments[1])
+        self.assertEqual(self.jar.queue_length(), 2)
+
+        first = self.jar.get_next_for_processing()
+
+        self.assertEqual(self.jar.queue_length(), 1)
+        self.assertIsInstance(first, Cookie)
+        self.assertEqual(first.path, self.eg_paths[0])
+        self.assertEqual(len(first.enrichments), 1)
+        self.assertEqual(first.enrichments[0], self.eg_enrichments[0])
+
+        second = self.jar.get_next_for_processing()
+
+        self.assertEqual(self.jar.queue_length(), 0)
+        self.assertIsInstance(second, Cookie)
+        self.assertEqual(second.path, self.eg_paths[1])
+        self.assertEqual(len(second.enrichments), 1)
+        self.assertEqual(second.enrichments[0], self.eg_enrichments[1])
+
+        self.jar.mark_as_complete(first.path)
+        self.assertEqual(self.jar.queue_length(), 0)
+
+        self.jar.mark_as_complete(second.path)
+        self.assertEqual(self.jar.queue_length(), 0)
+
+    def test06_process_multiple_intertwined(self):
+        '''
+        CookieJar Sequence: Enrich 1 -> Enrich 2 -> Get Next (X) -> Mark X Complete -> Get Next (Y) -> Mark Y Complete
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_paths[1], self.eg_enrichments[1])
+        self.assertEqual(self.jar.queue_length(), 2)
+
+        first = self.jar.get_next_for_processing()
+        self.jar.mark_as_complete(first.path)
+        self.assertEqual(self.jar.queue_length(), 1)
+
+        second = self.jar.get_next_for_processing()
+        self.jar.mark_as_complete(second.path)
+        self.assertEqual(self.jar.queue_length(), 0)
+
+    def test07_fail_immediate(self):
+        '''
+        CookieJar Sequence: Enrich -> Get Next -> Mark Failed Immediate -> Get Next
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        before = self.jar.get_next_for_processing()
+        self.jar.mark_as_failed(before.path, timedelta(0))
+        self.assertEqual(self.jar.queue_length(), 1)
+        after = self.jar.get_next_for_processing()
+        self.assertEqual(self.jar.queue_length(), 0)
+        self.assertEqual(before, after)
+
+    def test08_fail_delayed(self):
+        '''
+        CookieJar Sequence: Enrich -> Get Next -> Mark Failed 3s Delay -> Queue Empty Until Delay
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        to_process = self.jar.get_next_for_processing()
+
+        fail_time = datetime.now()
+        self.jar.mark_as_failed(to_process.path, timedelta(seconds=3))
+        while self.jar.queue_length() == 0:
+            if datetime.now() - fail_time > timedelta(seconds=5):
+                break
+        requeue_time = datetime.now()
+
+        requeue_delay = (requeue_time - fail_time).total_seconds()
+        delay_diff = abs(requeue_delay - 3)
+
+        # Within one second of expected delay
+        # NOTE Empirically about a 0.51s difference; nearly 20%...
+        self.assertLess(delay_diff, 1)
+
+    def test09_out_of_order_enrichment(self):
+        '''
+        CookieJar Sequence: Enrich -> Get Next -> Enrich same -> Mark Complete -> Get Next
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        to_process = self.jar.get_next_for_processing()
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[1])
+        self.assertEqual(self.jar.queue_length(), 0)
+        
+        self.jar.mark_as_complete(to_process.path)
+        self.assertEqual(self.jar.queue_length(), 1)
+        
+        to_process = self.jar.get_next_for_processing()
+
+        self.assertEqual(self.jar.queue_length(), 0)
+        self.assertIsInstance(to_process, Cookie)
+        self.assertEqual(to_process.path, self.eg_paths[0])
+        self.assertEqual(len(to_process.enrichments), 2)
+        self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
+        self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
+
+    def test10_reprocess(self):
+        '''
+        CookieJar Sequence: Enrich -> Get Next -> Mark Complete -> Mark Reprocess -> Get Next
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        before = self.jar.get_next_for_processing()
+        self.jar.mark_as_complete(before.path)
+
+        self.jar.mark_as_reprocess(before.path)
+        self.assertEqual(self.jar.queue_length(), 1)
+
+        after = self.jar.get_next_for_processing()
+        self.assertEqual(self.jar.queue_length(), 0)
+        self.assertEqual(before, after)
+
+    def test11_connection_failure(self):
+        '''
+        CookieJar Sequence: Enrich -> Reconnect -> Get Next
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        new_jar = BiscuitTin(self.HOST, self.DB)
+
+        self.assertEqual(new_jar.queue_length(), 1)
+        
+        to_process = new_jar.get_next_for_processing()
+
+        self.assertEqual(new_jar.queue_length(), 0)
+        self.assertIsInstance(to_process, Cookie)
+        self.assertEqual(to_process.path, self.eg_paths[0])
+        self.assertEqual(len(to_process.enrichments), 1)
+        self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
+
+    def test12_connection_failure_while_processing(self):
+        '''
+        CookieJar Sequence: Enrich -> Get Next -> Reconnect -> Get Next
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        before = self.jar.get_next_for_processing()
+
+        new_jar = BiscuitTin(self.HOST, self.DB)
+        self.assertEqual(new_jar.queue_length(), 1)
+        
+        after = new_jar.get_next_for_processing()
+        self.assertEqual(before, after)
 
 if __name__ == '__main__':
     unittest.main()
