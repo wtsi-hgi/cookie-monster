@@ -10,7 +10,7 @@ running will continue to use the set of rules that they had when they were start
 The following code illustrates how a rule is registered. If appropriate, the code can be inserted into an existing rule 
 file. Alternatively, it can be added to a new file in the rules directory, with a name matching the format 
 ``*.rule.py``. Rule files can be put into subdirectories.
-```
+```python
 from cookiemonster import register, Notification, Rule, RuleAction
 from hgicommon.mixable import Priority 
 
@@ -41,7 +41,7 @@ install all requirements for running the tests (use `virtualenv` if necessary).
 
 #### Using Docker
 From the project's root directory:
-```
+```bash
 $ docker build -t wtsi-hgi/cookie-monster/test -f docker/tests/Dockerfile .
 $ docker run wtsi-hgi/cookie-monster/test
 ```
