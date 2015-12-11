@@ -3,7 +3,7 @@ from queue import PriorityQueue
 from typing import List, Optional, Iterable
 
 from cookiemonster.common.models import Cookie, Enrichment
-from cookiemonster.processor._models import EnrichmentLoader
+from cookiemonster.processor.models import EnrichmentLoader
 
 
 class EnrichmentManager:

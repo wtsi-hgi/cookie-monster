@@ -3,7 +3,7 @@ from typing import Any
 
 from hgicommon.mixable import Listenable
 
-from cookiemonster.processor._models import RegistrationEvent
+from cookiemonster.processor.models import RegistrationEvent
 
 # Map where the key is the type of object the listener is interested is and the value is the listenable that will get
 # updates of registration events

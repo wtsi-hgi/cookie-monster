@@ -14,7 +14,7 @@ class FileUpdateCollection(list):
         """
         Gets the file updates in the collection with the most recent timestamp.
 
-        O(n) operation.
+        O(n) event_type.
         :return: the file updates in the collection with the most recent timestamp
         """
         if len(self) == 0:

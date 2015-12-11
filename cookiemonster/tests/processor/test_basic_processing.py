@@ -1,3 +1,4 @@
+import copy
 import unittest
 from datetime import datetime
 from multiprocessing import Lock
@@ -8,11 +9,12 @@ from unittest.mock import MagicMock, call
 from multiprocessing import Semaphore
 
 from hgicommon.collections import Metadata
+from hgicommon.data_source import StaticDataSource
 
 from cookiemonster.common.models import Cookie, Notification, Enrichment
 from cookiemonster.processor._enrichment import EnrichmentManager
-from cookiemonster.processor._models import Rule, EnrichmentLoader
-from cookiemonster.processor._models import RuleAction
+from cookiemonster.processor.models import Rule, EnrichmentLoader
+from cookiemonster.processor.models import RuleAction
 from cookiemonster.processor.basic_processing import BasicProcessorManager, BasicProcessor
 from cookiemonster.tests.processor._stubs import StubCookieJar
 from cookiemonster.tests.processor._stubs import StubNotifier
@@ -94,12 +96,14 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.notifier = StubNotifier()
         self.rules = []
         self.enrichment_manager = EnrichmentManager()
-        self.process_manager = BasicProcessorManager(TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar,
-                                                     self.rules, self.enrichment_manager, self.notifier)
 
         self.cookie = Cookie("")
         self.rule = Rule(lambda information: True, lambda information: RuleAction(set(), True))
         self.rules.append(self.rule)
+
+        self.process_manager = BasicProcessorManager(
+            TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, StaticDataSource(self.rules),
+            self.enrichment_manager, self.notifier)
 
     def test_process_any_cookies_when_no_jobs(self):
         self.cookie_jar.get_next_for_processing = MagicMock(return_value=None)
@@ -111,7 +115,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
     def test_process_any_cookies_when_jobs_but_no_free_processors(self):
         zero_process_manager = BasicProcessorManager(
-            0, self.cookie_jar, self.rules, self.enrichment_manager, self.notifier)
+            0, self.cookie_jar, StaticDataSource(self.rules), self.enrichment_manager, self.notifier)
         self.cookie_jar.get_next_for_processing = MagicMock(return_value=self.cookie)
         zero_process_manager.on_cookie_processed = MagicMock()
 
@@ -121,7 +125,7 @@ class TestBasicProcessorManager(unittest.TestCase):
     def test_process_any_cookies_when_jobs_and_free_processors(self):
         number_of_jobs = 50
         self.cookie_jar.get_next_for_processing = MagicMock(
-            side_effect=[self.cookie for _ in range(number_of_jobs)] + [None for _ in range(100)])
+            side_effect=[copy.copy(self.cookie) for _ in range(number_of_jobs)] + [None for _ in range(100)])
 
         semaphore = Semaphore(0)
 

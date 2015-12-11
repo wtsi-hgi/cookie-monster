@@ -6,7 +6,7 @@ from hgicommon.mixable import Priority
 
 from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.processor._enrichment import EnrichmentManager
-from cookiemonster.processor._models import EnrichmentLoader
+from cookiemonster.processor.models import EnrichmentLoader
 
 
 class TestEnrichmentManager(unittest.TestCase):

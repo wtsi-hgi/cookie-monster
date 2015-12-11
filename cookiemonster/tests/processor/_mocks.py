@@ -1,8 +1,8 @@
 from hgicommon.mixable import Priority
 
 from cookiemonster.common.models import Notification
-from cookiemonster.processor._models import Rule
-from cookiemonster.processor._models import RuleAction
+from cookiemonster.processor.models import Rule
+from cookiemonster.processor.models import RuleAction
 
 
 def create_mock_rule(priority: int=Priority.MIN_PRIORITY) -> Rule:

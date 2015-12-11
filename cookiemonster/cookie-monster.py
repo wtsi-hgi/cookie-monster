@@ -1,7 +1,6 @@
 import logging
 import tempfile
-from datetime import timedelta, datetime, date
-from time import sleep
+from datetime import timedelta, datetime
 
 from hgicommon.collections import Metadata
 from mock import MagicMock
@@ -11,14 +10,10 @@ from cookiemonster.common.collections import FileUpdateCollection
 from cookiemonster.common.enums import EnrichmentSource
 from cookiemonster.common.models import Update, Notification, Enrichment
 from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
-from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
-from cookiemonster.notifier.notifier import Notifier
 from cookiemonster.notifier.printing_notifier import PrintingNotifier
 from cookiemonster.processor._enrichment import EnrichmentManager
-from cookiemonster.processor._models import Rule, RuleAction, EnrichmentLoader
-from cookiemonster.processor._rules import RulesManager
-from cookiemonster.processor.processing import ProcessorManager
+from cookiemonster.processor.models import Rule, RuleAction
 from cookiemonster.processor.basic_processing import BasicProcessorManager
 from cookiemonster.retriever._models import QueryResult
 from cookiemonster.retriever.irods.irods_config import IrodsConfig

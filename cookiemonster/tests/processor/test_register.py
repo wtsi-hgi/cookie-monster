@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, call
 
-from cookiemonster.processor._models import RegistrationEvent
+from cookiemonster.processor.models import RegistrationEvent
 from cookiemonster.processor.register import register, unregister, registration_event_listenable_map
 
 
@@ -44,7 +44,6 @@ class TestRegister(unittest.TestCase):
         register(123)
         update_1 = RegistrationEvent(123, RegistrationEvent.Type.REGISTERED)
         registration_event_listenable_map[int].remove_listener(listener_2)
-        self.assertEquals(len(registration_event_listenable_map[int].get_listeners()), 1)
 
         register(456)
         unregister(456)

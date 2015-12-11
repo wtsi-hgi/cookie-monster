@@ -1,12 +1,14 @@
 from threading import Lock, Thread
 from typing import List, Callable, Optional, Iterable, Container
 
+from hgicommon.data_source import DataSource
+
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.notifier.notifier import Notifier
 from cookiemonster.processor._enrichment import EnrichmentManager
-from cookiemonster.processor._models import Rule
-from cookiemonster.processor._rules import RuleProcessingQueue
+from cookiemonster.processor.models import Rule
+from cookiemonster.processor._rules import RuleProcessingQueue, RulesSource
 from cookiemonster.processor.processing import ProcessorManager, Processor
 
 
@@ -36,18 +38,18 @@ class BasicProcessorManager(ProcessorManager):
     """
     Simple manager for the continuous processing of new data.
     """
-    def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules: Container[Rule],
+    def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules_source: DataSource[Rule],
                  enrichment_manager: EnrichmentManager, notifier: Notifier):
         """
         Default constructor.
         :param number_of_processors: the maximum number of processors to use
         :param cookie_jar: the cookie jar to get updates from
-        :param rules: the set of data to use when processing updates
+        :param rules_source: the source of the rules
         :param enrichment_manager: the manager to use when loading more information about a cookie
         :param notifier: the notifier
         """
         self._cookie_jar = cookie_jar
-        self._rules = rules
+        self._rules_source = rules_source
         self._notifier = notifier
         self._enrichment_manager = enrichment_manager
 
@@ -72,7 +74,7 @@ class BasicProcessorManager(ProcessorManager):
                     # One last task before the thread that ran the processor can end...
                     self.process_any_cookies()
 
-                Thread(target=processor.process, args=(cookie, self._rules, on_complete)).start()
+                Thread(target=processor.process, args=(cookie, self._rules_source.get_all(), on_complete)).start()
 
                 # Process more jobs if possible
                 self.process_any_cookies()
