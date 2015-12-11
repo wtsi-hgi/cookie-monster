@@ -74,7 +74,7 @@ class PeriodicRetrievalManager(RetrievalManager):
     """
     class _Retrieve:
         """
-        TODO
+        Model of a retrieve.
         """
         def __init__(self, file_updates_since: datetime=None, scheduled_for: datetime=None):
             """
@@ -89,7 +89,7 @@ class PeriodicRetrievalManager(RetrievalManager):
     def __init__(self, retrieval_period: timedelta, file_update_retriever: FileUpdateRetriever,
                  retrieval_log_mapper: RetrievalLogMapper):
         """
-        Constructor.
+        Default constructor.
         :param retrieval_period: the period that dictates the frequency at which data is retrieved
         :param file_update_retriever: the object through which file updates can be retrieved from the source
         :param retrieval_log_mapper: mapper through which retrieval logs can be stored
@@ -107,6 +107,7 @@ class PeriodicRetrievalManager(RetrievalManager):
         Starts the periodic retriever in a new thread. Cannot start if already running.
         :param file_updates_since: the time from which to get file updates from (defaults to getting all updates).
         """
+        # TODO: Can we remove `started` and just fail at run?
         self._state_lock.acquire()
         if self._started or self._running:
             self._state_lock.release()

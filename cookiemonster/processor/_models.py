@@ -1,5 +1,5 @@
-from typing import Callable, Iterable
-
+from enum import Enum, unique
+from typing import Callable, Iterable, Any
 from hgicommon.mixable import Priority
 from hgicommon.models import Model
 
@@ -97,3 +97,25 @@ class EnrichmentLoader(Model, Priority):
         :return: the loaded data
         """
         return self._load_enrichment(cookie)
+
+
+class RegistrationEvent(Model):
+    """
+    A model of a registration update.
+    """
+    @unique
+    class Type(Enum):
+        """
+        The type of event.
+        """
+        REGISTERED = 0
+        UNREGISTERED = 1
+
+    def __init__(self, target: Any, event_type: Type):
+        """
+        Constructor.
+        :param target: the object the event refers to
+        :param event_type: the type of update event_type
+        """
+        self.target = target
+        self.event_type = event_type
