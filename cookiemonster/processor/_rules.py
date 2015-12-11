@@ -89,6 +89,11 @@ class RulesSource(RegisteringSource):
     FILE_PATH_MATCH_REGEX = ".*\.rule\.py"
 
     def __init__(self, directory_location: str):
+        """
+        TODO
+        :param directory_location:
+        :return:
+        """
         super().__init__(directory_location, Rule)
 
     # Compiled `FILE_PATH_MATCH_REGEX`

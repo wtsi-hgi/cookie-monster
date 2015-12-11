@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, call
 from multiprocessing import Semaphore
 
 from hgicommon.collections import Metadata
-from hgicommon.data_source import StaticDataSource
+from hgicommon.data_source import ListDataSource
 
 from cookiemonster.common.models import Cookie, Notification, Enrichment
 from cookiemonster.processor._enrichment import EnrichmentManager
@@ -95,14 +95,15 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.cookie_jar = StubCookieJar()
         self.notifier = StubNotifier()
         self.rules = []
-        self.enrichment_manager = EnrichmentManager()
+        self.enrichment_loaders = []
 
         self.cookie = Cookie("")
         self.rule = Rule(lambda information: True, lambda information: RuleAction(set(), True))
         self.rules.append(self.rule)
 
+        self.enrichment_manager = EnrichmentManager(ListDataSource(self.enrichment_loaders))
         self.process_manager = BasicProcessorManager(
-            TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, StaticDataSource(self.rules),
+            TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, ListDataSource(self.rules),
             self.enrichment_manager, self.notifier)
 
     def test_process_any_cookies_when_no_jobs(self):
@@ -115,7 +116,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
     def test_process_any_cookies_when_jobs_but_no_free_processors(self):
         zero_process_manager = BasicProcessorManager(
-            0, self.cookie_jar, StaticDataSource(self.rules), self.enrichment_manager, self.notifier)
+            0, self.cookie_jar, ListDataSource(self.rules), self.enrichment_manager, self.notifier)
         self.cookie_jar.get_next_for_processing = MagicMock(return_value=self.cookie)
         zero_process_manager.on_cookie_processed = MagicMock()
 
@@ -155,7 +156,7 @@ class TestBasicProcessorManager(unittest.TestCase):
     def test_on_cookie_processed_when_no_rules_matched_and_but_data_can_be_loaded(self):
         enrichment = Enrichment("source", datetime.min, Metadata())
         data_loader = EnrichmentLoader(lambda *args: False, lambda *args: enrichment)
-        self.enrichment_manager.enrichment_loaders.put(data_loader)
+        self.enrichment_loaders.append(data_loader)
 
         self.cookie_jar.mark_as_reprocess = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock()
@@ -187,7 +188,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         notifications = [Notification("a", "b"), Notification("c", "d")]
         enrichment = Enrichment("source", datetime.min, Metadata())
         enrichement_loader = EnrichmentLoader(lambda *args: False, lambda *args: enrichment)
-        self.enrichment_manager.enrichment_loaders.put(enrichement_loader)
+        self.enrichment_loaders.append(enrichement_loader)
 
         self.rules.remove(self.rule)
         assert len(self.rules) == 0
