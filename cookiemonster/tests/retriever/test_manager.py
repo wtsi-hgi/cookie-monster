@@ -84,7 +84,7 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         self._file_update_retriever.query_for_all_file_updates_since.assert_called_once_with(_BaseRetrievalManagerTest.SINCE)
         # Assert that updates listener has not been called given that there are no file updates
         listener.assert_not_called()
-        # Assert that retrieval is logged but that latest retrieved timestamp has not target
+        # Assert that retrieval is logged but that latest retrieved timestamp has not changed
         self._retrieval_log_mapper.add.assert_called_once_with(
             RetrievalLog(_BaseRetrievalManagerTest.SINCE, len(self._file_updates), _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE))
 

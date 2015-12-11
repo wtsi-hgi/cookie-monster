@@ -240,7 +240,7 @@ class _Couch(object):
         @param  data  Data dictionary
         @return The revision ID for the document
 
-        n.b., If the document hasn't target since the current revision,
+        n.b., If the document hasn't changed since the current revision,
         then no insert is performed and that revision's ID will be
         returned
 
@@ -302,7 +302,7 @@ class _Couch(object):
         if response == 'created':
             return self.fetch(key)
 
-        elif response == 'target':
+        elif response == 'changed':
             revision = res_headers.get('X-Couch-Update-NewRev')
             return self.fetch(key, revision)
 
@@ -560,7 +560,7 @@ class Bert(_Couch):
                         doc.dirty      = (q.dirty == 'true');
                         doc.queue_from = doc.dirty ? now : null;
 
-                        return [doc, 'target'];
+                        return [doc, 'changed'];
                     }
 
                     // Failure
@@ -584,7 +584,7 @@ class Bert(_Couch):
                             doc.queue_from = null;
                         }
 
-                        return [doc, 'target'];
+                        return [doc, 'changed'];
                     }
 
                     // Failure
