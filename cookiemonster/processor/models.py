@@ -98,29 +98,3 @@ class EnrichmentLoader(Model, Priority):
         :return: the loaded data
         """
         return self._load_enrichment(cookie)
-
-
-# The type of the object that is registered
-_RegistrationTarget = TypeVar('T')
-
-
-class RegistrationEvent(Generic[_RegistrationTarget], Model):
-    """
-    A model of a registration update.
-    """
-    @unique
-    class Type(Enum):
-        """
-        The type of event.
-        """
-        REGISTERED = 0
-        UNREGISTERED = 1
-
-    def __init__(self, target: _RegistrationTarget, event_type: Type):
-        """
-        Constructor.
-        :param target: the object the event refers to
-        :param event_type: the type of update event_type
-        """
-        self.target = target
-        self.event_type = event_type

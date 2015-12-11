@@ -2,8 +2,8 @@
 
 # Cookie Monster
 
-## Changing Rules Whilst Running
-If ``RuleSource`` is being used by your ``ProcessorManager`` to get the rules that are followed by ``Processor``
+## Dynamically Changing Rules
+If ``RuleSource`` is being used by your ``ProcessorManager`` to attain the rules that are followed by ``Processor``
 instances, it is possible to dynamically changes the rules used by the Cookie Monster for future jobs (jobs already 
 running will continue to use the set of rules that they had when they were started).
 

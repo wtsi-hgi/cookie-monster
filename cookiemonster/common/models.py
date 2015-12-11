@@ -13,9 +13,10 @@ GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 """
 from datetime import datetime
+from enum import Enum
+from enum import unique
 from functools import total_ordering
-from typing import Any, Union, Set, Optional
-
+from typing import Any, Union, Set, Optional, TypeVar, Generic
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
 
@@ -103,3 +104,29 @@ class Notification(Model):
         """
         self.external_process_name = external_process_name
         self.data = data
+
+
+# The type of the object that is registered
+_RegistrationTarget = TypeVar('T')
+
+
+class RegistrationEvent(Generic[_RegistrationTarget], Model):
+    """
+    A model of a registration update.
+    """
+    @unique
+    class Type(Enum):
+        """
+        The type of event.
+        """
+        REGISTERED = 0
+        UNREGISTERED = 1
+
+    def __init__(self, target: _RegistrationTarget, event_type: Type):
+        """
+        Constructor.
+        :param target: the object the event refers to
+        :param event_type: the type of update event_type
+        """
+        self.target = target
+        self.event_type = event_type

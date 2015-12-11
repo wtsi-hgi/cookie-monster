@@ -1,17 +1,11 @@
 import copy
-import logging
-import os
 import re
-from importlib._bootstrap import module_from_spec
-from importlib._bootstrap_external import spec_from_file_location
 from multiprocessing import Lock
 from queue import PriorityQueue
 from typing import Iterable, Optional
 
-from hgicommon.data_source import SynchronisedFilesDataSource
-
-from cookiemonster.processor.models import Rule, RegistrationEvent
-from cookiemonster.processor.register import registration_event_listenable_map
+from cookiemonster.common.register import RegisteringSource
+from cookiemonster.processor.models import Rule
 
 
 class RuleProcessingQueue:
@@ -87,56 +81,18 @@ class RuleProcessingQueue:
         self._lists_lock.release()
 
 
-# XXX: Should inherit from `SynchronisedFilesDataSource[Rule]` but generics seem to be messed up in this area
-class RulesSource(SynchronisedFilesDataSource):
+class RulesSource(RegisteringSource):
     """
     TODO
     """
     # Regex used to determine if a file contains a rule(s)
     FILE_PATH_MATCH_REGEX = ".*\.rule\.py"
 
+    def __init__(self, directory_location: str):
+        super().__init__(directory_location, Rule)
+
     # Compiled `FILE_PATH_MATCH_REGEX`
     _compiled_file_path_match_regex = re.compile(FILE_PATH_MATCH_REGEX)
 
-    # Global lock to allow multiple instanceds of rules source to work (it is assumed only rules source will load
-    # rules!)
-    _load_lock = Lock()
-
-    def extract_data_from_file(self, file_path: str) -> Iterable[Rule]:
-        assert self.is_data_file(file_path)
-        logging.info("Loading rule from: %s" % file_path)
-
-        rule = None
-
-        def registration_event_listener(event: RegistrationEvent):
-            assert event.event_type == RegistrationEvent.Type.REGISTERED
-            nonlocal rule
-            rule = event.target
-
-        RulesSource._load_lock.acquire()
-        registration_event_listenable_map[Rule].add_listener(registration_event_listener)
-
-        try:
-            RulesSource._load_module(file_path)
-        finally:
-            registration_event_listenable_map[Rule].remove_listener(registration_event_listener)
-            RulesSource._load_lock.release()
-
-        if rule is None:
-            raise RuntimeError("Loaded file did not register a rule: %s" % file_path)
-
-        assert isinstance(rule, Rule)
-        return [rule]
-
     def is_data_file(self, file_path: str) -> bool:
         return RulesSource._compiled_file_path_match_regex.search(file_path)
-
-    @staticmethod
-    def _load_module(path: str):
-        """
-        Dynamically loads the python module at the given path.
-        :param path: the path to load the module from
-        """
-        spec = spec_from_file_location(os.path.basename(path), path)
-        module = module_from_spec(spec)
-        spec.loader.exec_module(module)

@@ -2,6 +2,7 @@ from datetime import timedelta
 from typing import Optional
 
 from cookiemonster.common.models import Notification, Enrichment, Cookie
+from cookiemonster.common.register import RegisteringSource
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.notifier.notifier import Notifier
 
@@ -34,4 +35,12 @@ class StubNotifier(Notifier):
     Stub implementation of `Notifier`.
     """
     def do(self, notification: Notification):
+        pass
+
+
+class StubRegisteringSource(RegisteringSource):
+    """
+    Stub implementation of `RegisteringSource`.
+    """
+    def is_data_file(self, file_path: str) -> bool:
         pass
