@@ -25,7 +25,6 @@ License
 GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
-
 from datetime import timedelta
 from typing import Optional
 
@@ -33,7 +32,11 @@ from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.cookiejar._cookiejar import CookieJar
 from cookiemonster.cookiejar._dbi import Bert, Ernie
 
+
 class BiscuitTin(CookieJar):
+    """
+    Persistent implementation of `CookieJar`.
+    """
     def __init__(self, db_host: str, db_name: str):
         '''
         Constructor: Initialise the database connections
@@ -41,11 +44,9 @@ class BiscuitTin(CookieJar):
         @param  db_host  Database host URL
         @param  db_name  Database name
         '''
+        super().__init__()
         self._queue = Bert(db_host, db_name)
         self._metadata = Ernie(db_host, db_name)
-
-        # Initialise listeners 
-        super().__init__()
 
     def enrich_cookie(self, path: str, enrichment: Enrichment):
         self._metadata.add_metadata(path, enrichment)

@@ -1,5 +1,7 @@
 from abc import abstractmethod, ABCMeta
+from datetime import datetime
 
+from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.retriever._models import RetrievalLog
 
 
@@ -22,5 +24,19 @@ class RetrievalLogMapper(metaclass=ABCMeta):
         """
         Gets the most recent retrieval log that was added to the database.
         :return: the most recently added retrieval log
+        """
+        pass
+
+
+class UpdateMapper(metaclass=ABCMeta):
+    """
+    Retrieves information about updates from a data source.
+    """
+    @abstractmethod
+    def get_all_since(self, since: datetime) -> UpdateCollection:
+        """
+        Gets models of all of the updates that have happened since the given time.
+        :param since: the time at which to get updates from (`fileUpdate.timestamp > since`)
+        :return: the results of the query
         """
         pass

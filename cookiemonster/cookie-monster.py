@@ -3,31 +3,36 @@ import tempfile
 from datetime import timedelta, datetime
 
 from hgicommon.collections import Metadata
+from hgicommon.data_source import DataSource
+from hgicommon.data_source import ListDataSource
 from mock import MagicMock
 from sqlalchemy import create_engine
 
-from cookiemonster.common.collections import FileUpdateCollection
+from cookiemonster import Notification, Rule, RuleAction
+from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.enums import EnrichmentSource
-from cookiemonster.common.models import Update, Notification, Enrichment
+from cookiemonster.common.models import Enrichment
+from cookiemonster.common.models import Update
 from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
+from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
+from cookiemonster.notifier.notifier import Notifier
 from cookiemonster.notifier.printing_notifier import PrintingNotifier
 from cookiemonster.processor._enrichment import EnrichmentManager
-from cookiemonster.processor.models import Rule, RuleAction
 from cookiemonster.processor.basic_processing import BasicProcessorManager
-from cookiemonster.retriever._models import QueryResult
-from cookiemonster.retriever.irods.irods_config import IrodsConfig
+from cookiemonster.processor.processing import ProcessorManager
 from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel
-from cookiemonster.retriever.log.sqlalchemy_mappers import SQLAlchemyRetrievalLogMapper
+from cookiemonster.retriever.log.sqlalchemy_mapper import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.manager import PeriodicRetrievalManager
-from cookiemonster.tests.retriever._stubs import StubFileUpdateRetriever
+from cookiemonster.retriever.source.irods.irods_config import IrodsConfig
+from cookiemonster.tests.retriever._stubs import StubUpdateMapper
 
 
 def main():
     # TODO: These values need to be loaded from config file/passed in through CLI
     retrieval_log_database_location = "sqlite:///%s" % tempfile.mkstemp()[1]
     retrieval_period = timedelta(seconds=5)
-    file_updates_since = datetime.min
+    updates_since = datetime.min
 
     number_of_processors = 5
 
@@ -40,29 +45,30 @@ def main():
     # Setup data retrieval manager
     retrieval_manager = create_retrieval_manager(retrieval_period, retrieval_log_database_location)
 
-    # Setup data manager (loads more data about a file)
-    data_loader_manager = EnrichmentManager()
+    # Setup enrichment manager
+    enrichment_manager = EnrichmentManager()
 
     # Setup cookie jar
     # cookie_jar = BiscuitTin(manager_db_host, manager_db_prefix)
     cookie_jar = InMemoryCookieJar()    # type: CookieJar
 
-    # Setup data manager
-    rules_manager = RulesManager()
+    # Setup rules source
+    rules = []
+    rules_source = ListDataSource(rules) # type: DataSource[Rule]
 
     # Setup notifier
     notifier = PrintingNotifier()   # type: Notifier
 
     # Setup the data processor manager
     processor_manager = BasicProcessorManager(
-        number_of_processors, cookie_jar, rules_manager, data_loader_manager, notifier)    # type: ProcessorManager
+        number_of_processors, cookie_jar, rules_source, enrichment_manager, notifier)    # type: ProcessorManager
 
     # Connect the cookie jar to the retrieval manager
-    def put_file_update_in_cookie_jar(file_updates: FileUpdateCollection):
-        for file_update in file_updates:
-            enrichment = Enrichment(EnrichmentSource.IRODS_UPDATE, datetime.now(), file_update.metadata)
-            cookie_jar.enrich_cookie(file_update.file_id, enrichment)
-    retrieval_manager.add_listener(put_file_update_in_cookie_jar)
+    def put_update_in_cookie_jar(update_collection: UpdateCollection):
+        for update in update_collection:
+            enrichment = Enrichment(EnrichmentSource.IRODS_UPDATE, datetime.now(), update.metadata)
+            cookie_jar.enrich_cookie(update.target, enrichment)
+    retrieval_manager.add_listener(put_update_in_cookie_jar)
 
     # Connect the data processor manager to the cookie jar
     def prompt_processor_manager_to_process_new_jobs(*args):
@@ -71,28 +77,27 @@ def main():
 
 
     # Let's see if the setup works!
-    file_update_1 = Update("file_id_1", hash("hash"), datetime(year=2000, month=9, day=10), Metadata())
-    query_result_1 = QueryResult(FileUpdateCollection([file_update_1]), timedelta(0))
+    updates_1 = UpdateCollection([
+        Update("file_id_1", hash("hash"), datetime(year=2000, month=9, day=10), Metadata())
+    ])
+    updates_2 = UpdateCollection([
+        Update("file_id_2", hash("hash"), datetime(year=2001, month=8, day=7), Metadata())
+    ])
+    no_updates = [UpdateCollection() for _ in range(1000)]
 
-    file_update_2 = Update("file_id_2", hash("hash"), datetime(year=2001, month=8, day=7), Metadata())
-    query_result_2 = QueryResult(FileUpdateCollection([file_update_2]), timedelta(0))
-
-    blank_query_results = [QueryResult(FileUpdateCollection(), timedelta(0)) for _ in range(1000)]
-
-    retrieval_manager._file_update_retriever.query_for_all_file_updates_since = MagicMock(
-        side_effect=[query_result_1, query_result_2] + blank_query_results)
+    retrieval_manager.update_mapper.get_all_since = MagicMock(side_effect=[updates_1, updates_2] + no_updates)
 
     rule_1 = Rule(
         lambda cookie: cookie.path == "file_id_1",
-        lambda cookie: RuleAction([Notification("External process interested in file_id_1")], cookie))
-    rules_manager.add_rule(rule_1)
+        lambda cookie: RuleAction([Notification("External process interested in file_id_1", cookie.path)], True))
+    rules.append(rule_1)
     rule_2 = Rule(
         lambda cookie: cookie.path == "file_id_2",
-        lambda cookie: RuleAction([Notification("External process interested in file_id_2")], cookie))
-    rules_manager.add_rule(rule_2)
+        lambda cookie: RuleAction([Notification("External process interested in file_id_2", cookie.path)], True))
+    rules.append(rule_2)
 
     # Start the data retrieval manger
-    retrieval_manager.start(file_updates_since)
+    retrieval_manager.start(updates_since)
     logging.debug("Started retrieval manager")
 
 
@@ -107,7 +112,8 @@ def setup_retrieval_log_database(database_location : str):
     SQLAlchemyModel.metadata.create_all(bind=engine)
 
 
-def create_retrieval_manager(retrieval_period: timedelta, retrieval_log_database_location: str) -> PeriodicRetrievalManager:
+def create_retrieval_manager(retrieval_period: timedelta, retrieval_log_database_location: str) \
+        -> PeriodicRetrievalManager:
     """
     Factory function for creating a file update retrieval manager.
     :param retrieval_period: the period between file update retrieves
@@ -115,13 +121,12 @@ def create_retrieval_manager(retrieval_period: timedelta, retrieval_log_database
     :return: the retrieval manager
     """
     irods_config = IrodsConfig()
-    # file_update_retriever = BatonFileUpdateRetriever(irods_config)
-    file_update_retriever = StubFileUpdateRetriever()
+    update_mapper = StubUpdateMapper()
 
     database_connector = SQLAlchemyDatabaseConnector(retrieval_log_database_location)
     retrieval_log_mapper = SQLAlchemyRetrievalLogMapper(database_connector)
 
-    retrieval_manager = PeriodicRetrievalManager(retrieval_period, file_update_retriever, retrieval_log_mapper)
+    retrieval_manager = PeriodicRetrievalManager(retrieval_period, update_mapper, retrieval_log_mapper)
     return retrieval_manager
 
 

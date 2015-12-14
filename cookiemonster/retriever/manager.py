@@ -1,144 +1,134 @@
 import logging
-from abc import abstractmethod, ABCMeta
 from datetime import datetime, timedelta
+from math import ceil
 from multiprocessing import Lock
 from threading import Timer, Thread
 
 from hgicommon.mixable import Listenable
-from math import ceil
 
-from cookiemonster.retriever._models import QueryResult, RetrievalLog
-from cookiemonster.retriever._retriever import FileUpdateRetriever
-from cookiemonster.retriever.mappers import RetrievalLogMapper
+from cookiemonster.common.collections import UpdateCollection
+from cookiemonster.retriever._models import RetrievalLog
+from cookiemonster.retriever.mappers import RetrievalLogMapper, UpdateMapper
 
 
-class RetrievalManager(Listenable, metaclass=ABCMeta):
+class RetrievalManager(Listenable[UpdateCollection]):
     """
-    Manages the retrieval of file updates.
+    Manages the retrieval of updates.
     """
-    def __init__(self, file_update_retriever: FileUpdateRetriever, retrieval_log_mapper: RetrievalLogMapper):
+    def __init__(self, update_mapper: UpdateMapper, retrieval_log_mapper: RetrievalLogMapper):
         """
         Default constructor.
-        :param retrieval_period: the period that dictates the frequency at which data is retrieved
-        :param file_update_retriever: the object through which file updates can be retrieved from the source
+        :param update_mapper: the object through which updates can be retrieved from the source
         :param retrieval_log_mapper: mapper through which retrieval logs can be stored
         """
         super(RetrievalManager, self).__init__()
-        self._file_update_retriever = file_update_retriever
+        self.update_mapper = update_mapper
         self._retrieval_log_mapper = retrieval_log_mapper
 
-    @abstractmethod
-    def run(self, file_updates_since: datetime=datetime.min):
+    def run(self, updates_since: datetime=datetime.min):
         """
         Runs the retriever in the same thread.
-        :param file_updates_since: the time from which to get file updates from (defaults to getting all updates).
+        :param updates_since: the time from which to get updates from (defaults to getting all updates).
         """
-        pass
+        self._do_retrieve(updates_since)
 
-    def _do_retrieve(self, file_updates_since: datetime) -> QueryResult:
+    def _do_retrieve(self, updates_since: datetime) -> UpdateCollection:
         """
-        Handles the retrieval of file updates by getting the data using the retriever, notifying the listeners and then
+        Handles the retrieval of updates by getting the data using the retriever, notifying the listeners and then
         logging the retrieval.
-        :param file_updates_since: the time from which to retrieve updates since
+        :param updates_since: the time from which to retrieve updates since
         :return: the query result that was retrieved
         """
-        logging.debug("Starting file update retrieval...")
-        query_result = self._file_update_retriever.query_for_all_file_updates_since(file_updates_since)
-        assert query_result is not None
-        logging.debug("Retrieved %d file updates since %s (query took: %s)"
-                      % (len(query_result.file_updates), file_updates_since, query_result.time_taken_to_complete_query))
+        logging.debug("Starting update retrieval...")
 
-        if len(query_result.file_updates) > 0:
-            logging.debug("Notifying %d listeners of file update" % len(query_result.file_updates))
-            self.notify_listeners(query_result.file_updates)
+        # Do retrieve
+        started_at = RetrievalManager._get_current_time()
+        updates = self.update_mapper.get_all_since(updates_since)
+        time_taken_to_complete_query = RetrievalManager._get_current_time() - started_at
+        assert updates is not None
+        logging.debug("Retrieved %d updates since %s (query took: %s)"
+                      % (len(updates), updates_since, time_taken_to_complete_query))
 
-        self._log_retrieval(file_updates_since, query_result)
+        # Notify listeners of retrieval
+        if len(updates) > 0:
+            logging.debug("Notifying %d listeners of %d update(s)" % (len(self.get_listeners()), len(updates)))
+            self.notify_listeners(updates)
 
-        return query_result
-
-    def _log_retrieval(self, file_updates_since: datetime, query_result: QueryResult):
-        """
-        Logs the retrieval of the given query result.
-        :param file_updates_since: the time updates were retrieved since
-        :param query_result: the query result to log
-        """
-        retrieval_log = RetrievalLog(file_updates_since, len(query_result.file_updates),
-                                     query_result.time_taken_to_complete_query)
-        logging.debug("Logging file update query: %s" % retrieval_log)
+        # Log retrieval
+        retrieval_log = RetrievalLog(updates_since, len(updates), time_taken_to_complete_query)
+        logging.debug("Logging update query: %s" % retrieval_log)
         self._retrieval_log_mapper.add(retrieval_log)
+
+        return updates
+
+    @staticmethod
+    def _get_current_time() -> datetime:
+        """
+        Gets the current time. Can be overriden to control environment for testing.
+        :return: the current time
+        """
+        return datetime.now()
 
 
 class PeriodicRetrievalManager(RetrievalManager):
     """
-    Manages the periodic retrieval of file updates.
+    Manages the periodic retrieval of updates.
     """
     class _Retrieve:
         """
         Model of a retrieve.
         """
-        def __init__(self, file_updates_since: datetime=None, scheduled_for: datetime=None):
+        def __init__(self, updates_since: datetime=None, scheduled_for: datetime=None):
             """
-            Default constructor.
-            :param file_updates_since:
-            :param scheduled_for:
+            Constructor.
+            :param updates_since: when to retrieve updates since
+            :param scheduled_for: when the retrieval was scheduled for
             """
-            self.file_updates_since = file_updates_since
+            self.updates_since = updates_since
             self.scheduled_for = scheduled_for
             self.computation_time = None
 
-    def __init__(self, retrieval_period: timedelta, file_update_retriever: FileUpdateRetriever,
+    def __init__(self, retrieval_period: timedelta, update_mapper: UpdateMapper,
                  retrieval_log_mapper: RetrievalLogMapper):
         """
-        Default constructor.
+        Constructor.
         :param retrieval_period: the period that dictates the frequency at which data is retrieved
-        :param file_update_retriever: the object through which file updates can be retrieved from the source
+        :param update_mapper: the object through which updates can be retrieved from the source
         :param retrieval_log_mapper: mapper through which retrieval logs can be stored
         """
-        super(PeriodicRetrievalManager, self).__init__(file_update_retriever, retrieval_log_mapper)
+        super().__init__(update_mapper, retrieval_log_mapper)
         self._retrieval_period = retrieval_period
         self._timer = None
         self._running = False
-        self._started = False
         self._state_lock = Lock()
         self._thread = None
 
-    def start(self, file_updates_since: datetime=datetime.min):
+    def run(self, updates_since: datetime=datetime.min):
+        with self._state_lock:
+            if self._running:
+                raise RuntimeError("Already running")
+            self._running = True
+        retrieve = PeriodicRetrievalManager._Retrieve(updates_since, RetrievalManager._get_current_time())
+        self._do_retrieve_periodically(retrieve)
+
+    def start(self, updates_since: datetime=datetime.min):
         """
         Starts the periodic retriever in a new thread. Cannot start if already running.
-        :param file_updates_since: the time from which to get file updates from (defaults to getting all updates).
+        :param updates_since: the time from which to get updates from (defaults to getting all updates).
         """
-        # TODO: Can we remove `started` and just fail at run?
-        self._state_lock.acquire()
-        if self._started or self._running:
-            self._state_lock.release()
-            raise RuntimeError("Already started")
-        self._started = True
-        self._state_lock.release()
-        Thread(target=self.run, args=(file_updates_since, )).start()
-
-    def run(self, file_updates_since: datetime=datetime.min):
-        self._state_lock.acquire()
-        if self._running:
-            self._state_lock.release()
-            raise RuntimeError("Already running")
-        self._running = True
-        self._state_lock.release()
-        retrieve = PeriodicRetrievalManager._Retrieve(file_updates_since, PeriodicRetrievalManager._get_current_time())
-        self._do_retrieve_periodically(retrieve)
+        Thread(target=self.run, args=(updates_since,)).start()
 
     def stop(self):
         """
         Stops the periodic retriever.
         """
-        self._state_lock.acquire()
-        if self._running:
-            if self._timer is not None:
-                self._timer.cancel()
-            self._timer = None
-            self._running = False
-            self._started = False
-            logging.debug("Stopped periodic retrieval manger")
-        self._state_lock.release()
+        with self._state_lock:
+            if self._running:
+                if self._timer is not None:
+                    self._timer.cancel()
+                self._timer = None
+                self._running = False
+                logging.debug("Stopped periodic retrieval manger")
 
     def _do_retrieve_periodically(self, retrieve: _Retrieve):
         """
@@ -147,29 +137,28 @@ class PeriodicRetrievalManager(RetrievalManager):
         """
         logging.debug("Doing retrieval scheduled for %s" % retrieve.scheduled_for)
 
-        started_computation_at = PeriodicRetrievalManager._get_current_time()
-        query_result = self._do_retrieve(retrieve.file_updates_since)
-        computation_time = PeriodicRetrievalManager._get_current_time() - started_computation_at
+        started_computation_at = RetrievalManager._get_current_time()
+        updates = self._do_retrieve(retrieve.updates_since)
+        computation_time = RetrievalManager._get_current_time() - started_computation_at
 
         next_retrieve = PeriodicRetrievalManager._Retrieve()
         next_retrieve.scheduled_for = self._calculate_next_scheduled_time(retrieve.scheduled_for, computation_time)
 
-        if query_result.time_taken_to_complete_query > self._retrieval_period:
+        if computation_time > self._retrieval_period:
             logging.warning("Query took longer than the period - currently not scheduable!")
         if next_retrieve.scheduled_for >= retrieve.scheduled_for + (2 * self._retrieval_period):
             logging.warning("Query took so long a cycle has been skipped to ensure the period is enforced")
 
-        if len(query_result.file_updates) > 0:
+        if len(updates) > 0:
             # Next time, get all updates since the most recent that was received last time
             # XXX: Small delta added to exclude latest result received last time. This makes the assumption that the
             # granularity of the timestamps at the source is the same as here: no smaller than the delta (else records
             # will be missed) and no larger else the exclude will not work and other records could be missed.
-            next_retrieve.file_updates_since = query_result.file_updates.get_most_recent()[0].timestamp \
-                                          + timedelta.resolution
+            next_retrieve.updates_since = updates.get_most_recent()[0].timestamp + timedelta.resolution
 
-        if next_retrieve.file_updates_since is None \
-                or next_retrieve.file_updates_since < (retrieve.file_updates_since + self._retrieval_period):
-            next_retrieve.file_updates_since = retrieve.file_updates_since + self._retrieval_period
+        if next_retrieve.updates_since is None \
+                or next_retrieve.updates_since < (retrieve.updates_since + self._retrieval_period):
+            next_retrieve.updates_since = retrieve.updates_since + self._retrieval_period
 
         self._schedule_next_retrieve(next_retrieve)
 
@@ -181,11 +170,11 @@ class PeriodicRetrievalManager(RetrievalManager):
         if self._running:
             logging.debug("Scheduling next file update retrieval for: %s" % retrieve.scheduled_for)
 
-            if PeriodicRetrievalManager._get_current_time() >= retrieve.scheduled_for:
+            if RetrievalManager._get_current_time() >= retrieve.scheduled_for:
                 # Next cycle should begin straight away
                 self._do_retrieve_periodically(retrieve)
             else:
-                interval = retrieve.scheduled_for - PeriodicRetrievalManager._get_current_time()
+                interval = retrieve.scheduled_for - RetrievalManager._get_current_time()
                 # Run timer in same thread
                 self._timer = Timer(
                     interval.total_seconds(), self._do_retrieve_periodically, args=(retrieve, ))
@@ -198,8 +187,8 @@ class PeriodicRetrievalManager(RetrievalManager):
 
         Periodic drift is avoided by not scheduling based on current time. However, given that the computation time
         is unbounded (the query could take a very long time!), measures have to be taken to guarantee a cycle is never
-        completed early (R_{x+1} >= R_{x} + SourceDataType) particularly in the case where c >= 2T (i.e. retrieval should be
-        "skipped" as it is time for the next retrieval).
+        completed early (R_{x+1} >= R_{x} + SourceDataType) particularly in the case where c >= 2T (i.e. retrieval
+        should be "skipped" as it is time for the next retrieval).
         :param previous_scheduled_time: the time at which the previous job was scheduled for
         :param previous_computation_time: the computation time of the previous job
         """
@@ -211,11 +200,3 @@ class PeriodicRetrievalManager(RetrievalManager):
         R_1 = R_0 + max(1, ceil(c / (T - delta)) - 1) * T
         assert R_1 >= R_0 + self._retrieval_period
         return R_1
-
-    @staticmethod
-    def _get_current_time() -> datetime:
-        """
-        Gets the current time. Can be overriden to control environment for testing.
-        :return: the current time
-        """
-        return datetime.now()

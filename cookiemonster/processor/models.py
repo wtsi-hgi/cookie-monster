@@ -37,8 +37,8 @@ class Rule(Model, Priority):
         self._matching_criteria = matching_criteria
         self._action_generator = action_generator
 
-    def __eq__(self, other):
-        return id(self) == id(other)
+    # def __eq__(self, other):
+    #     return id(self) == id(other)
 
     def __hash__(self):
         return id(self)

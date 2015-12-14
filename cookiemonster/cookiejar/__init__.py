@@ -1,3 +1,3 @@
 # GPLv3 or later
 # Copyright (c) 2015 Genome Research Limited
-from cookiemonster.cookiejar.main import CookieJar, BiscuitTin
+from cookiemonster.cookiejar.biscuit_tin import CookieJar, BiscuitTin

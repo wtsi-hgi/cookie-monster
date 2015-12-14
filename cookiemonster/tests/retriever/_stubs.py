@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from cookiemonster.retriever._models import RetrievalLog, QueryResult
-from cookiemonster.retriever._retriever import FileUpdateRetriever
-from cookiemonster.retriever.mappers import RetrievalLogMapper
+from cookiemonster.common.collections import UpdateCollection
+from cookiemonster.retriever._models import RetrievalLog
+from cookiemonster.retriever.mappers import RetrievalLogMapper, UpdateMapper
 
 
 class StubRetrievalLogMapper(RetrievalLogMapper):
@@ -16,9 +16,9 @@ class StubRetrievalLogMapper(RetrievalLogMapper):
         pass
 
 
-class StubFileUpdateRetriever(FileUpdateRetriever):
+class StubUpdateMapper(UpdateMapper):
     """
-    Stub of `FileUpdateRetriever`.
+    Stub of `UpdateMapper`.
     """
-    def query_for_all_file_updates_since(self, since: datetime) -> QueryResult:
+    def get_all_since(self, since: datetime) -> UpdateCollection:
         pass

@@ -1,7 +1,9 @@
 import unittest
 
 from hgicommon.mixable import Priority
+from typing import List
 
+from cookiemonster import Rule
 from cookiemonster.processor._rules import RuleProcessingQueue, RulesSource
 from cookiemonster.tests.processor._mocks import create_mock_rule
 

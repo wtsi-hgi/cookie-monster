@@ -41,7 +41,7 @@ class BasicProcessorManager(ProcessorManager):
     def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules_source: DataSource[Rule],
                  enrichment_manager: EnrichmentManager, notifier: Notifier):
         """
-        Default constructor.
+        Constructor.
         :param number_of_processors: the maximum number of processors to use
         :param cookie_jar: the cookie jar to get updates from
         :param rules_source: the source of the rules
@@ -107,10 +107,9 @@ class BasicProcessorManager(ProcessorManager):
         """
         if len(self._idle_processors) == 0:
             return None
-        self._lists_lock.acquire()
-        processor = self._idle_processors.pop()
-        self._busy_processors.add(processor)
-        self._lists_lock.release()
+        with self._lists_lock:
+            processor = self._idle_processors.pop()
+            self._busy_processors.add(processor)
         return processor
 
     def _release_processor(self, processor: Processor):
@@ -122,7 +121,6 @@ class BasicProcessorManager(ProcessorManager):
         """
         assert processor in self._busy_processors
         assert processor not in self._idle_processors
-        self._lists_lock.acquire()
-        self._busy_processors.remove(processor)
-        self._idle_processors.add(processor)
-        self._lists_lock.release()
+        with self._lists_lock:
+            self._busy_processors.remove(processor)
+            self._idle_processors.add(processor)

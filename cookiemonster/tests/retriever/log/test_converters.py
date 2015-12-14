@@ -25,8 +25,8 @@ class TestConvertToRetrievalLog(unittest.TestCase):
 
     def test_with_valid(self):
         retrieve_log = convert_to_retrieval_log(self._sqlalchemy_retrieve_log)
-        self.assertEquals(retrieve_log.retrieved_file_updates_since, _LATEST_RETRIEVED_TIMESTAMP)
-        self.assertEquals(retrieve_log.number_of_file_updates, _NUMBER_OF_FILE_UPDATES)
+        self.assertEquals(retrieve_log.retrieved_updates_since, _LATEST_RETRIEVED_TIMESTAMP)
+        self.assertEquals(retrieve_log.number_of_updates, _NUMBER_OF_FILE_UPDATES)
         self.assertEquals(retrieve_log.time_taken_to_complete_query, _TIME_TAKEN_TO_COMPLETE_QUERY)
 
 
