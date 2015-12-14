@@ -30,52 +30,48 @@ class InMemoryCookieJar(CookieJar):
         if path not in self._waiting:
             self._waiting.append(path)
             self.lists_lock.release()
-            self.notify_listeners(None)     # FIXME: Should not be forced to give `None`
+            self.notify_listeners()
         else:
             self.lists_lock.release()
 
     def mark_as_failed(self, path: str, requeue_delay: timedelta):
         if path not in self._known_data:
             raise ValueError("File not known: " % path)
-        self.lists_lock.acquire()
-        self._assert_was_being_processed(path)
-        self._processing.remove(path)
-        self._failed.append(path)
-        self.lists_lock.release()
+        with self.lists_lock:
+            self._assert_is_being_processed(path)
+            self._processing.remove(path)
+            self._failed.append(path)
 
     def mark_as_complete(self, path: str):
         if path not in self._known_data:
             raise ValueError("File not known: " % path)
-        self.lists_lock.acquire()
-        self._assert_was_being_processed(path)
-        self._processing.remove(path)
-        self._completed.append(path)
-        self.lists_lock.release()
+        with self.lists_lock:
+            self._assert_is_being_processed(path)
+            self._processing.remove(path)
+            self._completed.append(path)
 
     def mark_as_reprocess(self, path: str):
         if path not in self._known_data:
             raise ValueError("File not known: " % path)
-        self.lists_lock.acquire()
-        self._assert_was_being_processed(path)
-        self._processing.remove(path)
-        self._waiting.append(path)
-        self.lists_lock.release()
-        self.notify_listeners(None)     # FIXME: Should not be forced to give `None`
+        with self.lists_lock:
+            self._assert_is_being_processed(path)
+            self._processing.remove(path)
+            self._waiting.append(path)
+        self.notify_listeners()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
-        if len(self._waiting) == 0:
-            return None
-        self.lists_lock.acquire()
-        path = self._waiting.pop()
-        self._processing.append(path)
-        self._assert_was_being_processed(path)
-        self.lists_lock.release()
+        with self.lists_lock:
+            if len(self._waiting) == 0:
+                return None
+            path = self._waiting.pop()
+            self._processing.append(path)
+            self._assert_is_being_processed(path)
         return self._known_data[path]
 
     def queue_length(self) -> int:
         return len(self._waiting)
 
-    def _assert_was_being_processed(self, path: str):
+    def _assert_is_being_processed(self, path: str):
         """
         Asserts that a file, identified by its path, was being processed.
         :param path: the file's identifier

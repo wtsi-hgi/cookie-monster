@@ -14,9 +14,8 @@ class EnrichmentManager:
     """
     def __init__(self, enrichment_loader_source: DataSource[EnrichmentLoader]=ListDataSource([])):
         """
-        TODO
-        :param enrichment_loader_source:
-        :return:
+        Constructor.
+        :param enrichment_loader_source: the source of enrichment loaders
         """
         self.enrichment_loader_source = enrichment_loader_source
 
@@ -36,7 +35,7 @@ class EnrichmentManager:
 
         while not enrichment_loaders_priority_queue.empty():
             enrichment_loader = enrichment_loaders_priority_queue.get()
-            if not enrichment_loader.can_enrich(cookie):
+            if enrichment_loader.can_enrich(cookie):
                 return enrichment_loader.load_enrichment(cookie)
 
         return None
@@ -44,16 +43,16 @@ class EnrichmentManager:
 
 class EnrichmentLoaderSource(RegisteringDataSource):
     """
-    TODO
+    Enrichment loader source where enrichment loaders are registered from within Python modules within a given
+    directory. These modules can be changed on-the-fly.
     """
     # Regex used to determine if a file contains an enrichment loader(s)
-    FILE_PATH_MATCH_REGEX = ".*\.loader\.py"
+    FILE_PATH_MATCH_REGEX = ".*loader\.py"
 
     def __init__(self, directory_location: str):
         """
-        TODO
-        :param directory_location:
-        :return:
+        Constructor.
+        :param directory_location: the directory in which enrichment loaders can be sourced from
         """
         super().__init__(directory_location, EnrichmentLoader)
 

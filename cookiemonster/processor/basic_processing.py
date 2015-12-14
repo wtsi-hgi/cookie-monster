@@ -1,5 +1,6 @@
+import logging
 from threading import Lock, Thread
-from typing import List, Callable, Optional, Iterable
+from typing import List, Callable, Optional, Sequence
 
 from hgicommon.data_source import DataSource
 
@@ -16,8 +17,10 @@ class BasicProcessor(Processor):
     """
     Simple processor for a single file update.
     """
-    def process(self, cookie: Cookie, rules: Iterable[Rule],
+    def process(self, cookie: Cookie, rules: Sequence[Rule],
                 on_complete: Callable[[bool, Optional[List[Notification]]], None]):
+        logging.info("Processing cookie with path \"%s\", which has %d enrichment(s). Using %d rule(s)"
+                     % (cookie.path, len(cookie.enrichments), len(rules)))
         rule_queue = RuleQueue(rules)
 
         notifications = []
@@ -31,6 +34,8 @@ class BasicProcessor(Processor):
                 terminate = rule_action.terminate_processing
             rule_queue.mark_as_applied(rule)
 
+        logging.info("Completed processing cookie with path \"%s\". Notifying %d external processes. "
+                     "Stopping processing of cookie: %s" % (cookie.path, len(notifications), terminate))
         on_complete(terminate, notifications)
 
 
@@ -74,27 +79,35 @@ class BasicProcessorManager(ProcessorManager):
                     # One last task before the thread that ran the processor can end...
                     self.process_any_cookies()
 
+                logging.debug("Starting processor for cookie with path \"%s\". %d free processors remaining"
+                              % (cookie.path, len(self._idle_processors)))
                 Thread(target=processor.process, args=(cookie, self._rules_source.get_all(), on_complete)).start()
-
-                # Process more jobs if possible
-                self.process_any_cookies()
             else:
                 self._release_processor(processor)
+                logging.debug("Triggered to process cookies - no cookies to process")
+        else:
+            logging.debug("Triggered to process cookies but no free processors")
 
     def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: List[Notification]=()):
         for notification in notifications:
+            logging.info("Notifying \"%s\" as a result of processing cookie with path \"%s\""
+                          % (notification.external_process_name, cookie.path))
             self._notifier.do(notification)
 
         if stop_processing:
+            logging.info("Stopping processing of cookie with path \"%s\"" % cookie.path)
             self._cookie_jar.mark_as_complete(cookie.path)
         else:
             enrichment = self._enrichment_manager.next_enrichment(cookie)
 
             if enrichment is None:
+                logging.info("Cannot enrich cookie with path \"%s\" any further" % cookie.path)
                 # FIXME: No guarantee that such a notification can be given
                 self._notifier.do(Notification("unknown", cookie.path))
                 self._cookie_jar.mark_as_complete(cookie.path)
             else:
+                logging.info("Appliyng enrichment from source \"%s\" to cookie with path \"%s\""
+                              % (cookie.path, enrichment.source))
                 self._cookie_jar.enrich_cookie(cookie.path, enrichment)
                 self._cookie_jar.mark_as_reprocess(cookie.path)
 

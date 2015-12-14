@@ -4,7 +4,7 @@ from hgicommon.mixable import Priority
 from typing import List
 
 from cookiemonster import Rule
-from cookiemonster.processor._rules import RuleQueue, RulesSource
+from cookiemonster.processor._rules import RuleQueue, RuleSource
 from cookiemonster.tests.processor._mocks import create_mock_rule
 
 
@@ -94,12 +94,12 @@ class TestRuleQueue(unittest.TestCase):
         self.assertEquals(unapplied_counter, len(self.rules))
 
 
-class TestRulesSource(unittest.TestCase):
+class TestRuleSource(unittest.TestCase):
     """
-    Tests for `RulesSource`.
+    Tests for `RuleSource`.
     """
     def setUp(self):
-        self.source = RulesSource("/")
+        self.source = RuleSource("/")
 
     def test_is_data_file_when_is(self):
         self.assertTrue(self.source.is_data_file("/my/file.rule.py"))

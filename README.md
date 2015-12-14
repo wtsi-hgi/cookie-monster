@@ -12,19 +12,20 @@ The following code illustrates how a rule is registered. If appropriate, the cod
 file. Alternatively, it can be added to a new file in the rules directory, with a name matching the format: ``*.rule.py``.
 Rule files can be put into subdirectories.
 ```python
-from cookiemonster import register, Notification, Rule, RuleAction
-from hgicommon.mixable import Priority 
+from cookiemonster import Cookie, Notification, Rule, RuleAction
+from hgicommon.mixable import Priority
+from hgicommon.data_source import register
 
 def _matching_criteria(cookie: Cookie) -> bool:
     return "my_study" in cookie.path
         
-def _action_generator(cookie: Cookie) -> RuleAction
+def _action_generator(cookie: Cookie) -> RuleAction:
     return RuleAction([Notification("everyone", cookie.path)], True)
 
 _priority = Priority.MAX_PRIORITY
 
 _rule = Rule(_matching_criteria, _action_generator, _priority)
-register(rule)
+register(_rule)
 ```
 
 To delete a pre-existing rule, delete the file containing it or remove the relevant call to ``register``. To modify a 
@@ -37,10 +38,11 @@ Similarly to rules, the enrichment loaders, used to increase the knowledge of a 
 Files containing enrichment loaders must have a name matching the format: ``*.loader.py``.
 ```python
 from cookiemonster import EnrichmentLoader, Cookie, Enrichment
-from hgicommon.mixable import Priority 
+from hgicommon.mixable import Priority
+from hgicommon.data_source import register
 
 def _can_enrich(cookie: Cookie) -> bool:
-    return EnrichmentSource.MY_DATA_SOURCE in [enrichment.source for enrichment in cookie.enrichments]
+    return "my_data_source" in [enrichment.source for enrichment in cookie.enrichments]
     
 def _load_enrichment(cookie: Cookie) -> Enrichment:
     return my_data_source.load_more_information_about(cookie.path)

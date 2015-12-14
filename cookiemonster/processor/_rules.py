@@ -85,13 +85,13 @@ class RuleQueue:
                 self._not_applied.put(rule)
 
 
-class RulesSource(RegisteringDataSource):
+class RuleSource(RegisteringDataSource):
     """
     Rule source where rules are registered from within Python modules within a given directory. These modules can be
     changed on-the-fly.
     """
     # Regex used to determine if a file contains a rule(s)
-    FILE_PATH_MATCH_REGEX = ".*\.rule\.py"
+    FILE_PATH_MATCH_REGEX = ".*rule\.py"
 
     def __init__(self, directory_location: str):
         """
@@ -104,4 +104,4 @@ class RulesSource(RegisteringDataSource):
     _compiled_file_path_match_regex = re.compile(FILE_PATH_MATCH_REGEX)
 
     def is_data_file(self, file_path: str) -> bool:
-        return RulesSource._compiled_file_path_match_regex.search(file_path)
+        return RuleSource._compiled_file_path_match_regex.search(file_path)
