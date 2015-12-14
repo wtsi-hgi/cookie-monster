@@ -4,13 +4,13 @@ from hgicommon.mixable import Priority
 from typing import List
 
 from cookiemonster import Rule
-from cookiemonster.processor._rules import RuleProcessingQueue, RulesSource
+from cookiemonster.processor._rules import RuleQueue, RulesSource
 from cookiemonster.tests.processor._mocks import create_mock_rule
 
 
-class TestRuleProcessingQueue(unittest.TestCase):
+class TestRuleQueue(unittest.TestCase):
     """
-    Unit tests for `RuleProcessingQueue`.
+    Unit tests for `RuleQueue`.
     """
     def setUp(self):
         self.rules = []
@@ -20,33 +20,33 @@ class TestRuleProcessingQueue(unittest.TestCase):
             priority = Priority.get_lower_priority_value(priority)
 
     def test_constructor(self):
-        rule_processing_queue = RuleProcessingQueue(self.rules)
-        self.assertTrue(rule_processing_queue.has_unprocessed_rules())
+        rule_queue = RuleQueue(self.rules)
+        self.assertTrue(rule_queue.has_unapplied_rules())
 
         rules = []
-        while rule_processing_queue.has_unprocessed_rules():
-            rules.append(rule_processing_queue.get_next_to_process())
+        while rule_queue.has_unapplied_rules():
+            rules.append(rule_queue.get_next())
 
         self.assertCountEqual(rules, self.rules)
 
-    def test_has_unprocessed_rules_with_unprocessed_rules(self):
-        rule_processing_queue = RuleProcessingQueue(self.rules)
-        self.assertTrue(rule_processing_queue.has_unprocessed_rules())
+    def test_has_unapplied_rules_with_unapplied_rules(self):
+        rule_queue = RuleQueue(self.rules)
+        self.assertTrue(rule_queue.has_unapplied_rules())
 
-    def test_has_unprocessed_rules_with_no_unprocessed_rules(self):
-        rule_processing_queue = RuleProcessingQueue([])
-        self.assertFalse(rule_processing_queue.has_unprocessed_rules())
+    def test_has_unapplied_rules_with_no_unapplied_rules(self):
+        rule_queue = RuleQueue([])
+        self.assertFalse(rule_queue.has_unapplied_rules())
 
     def test_get_next_when_no_next_exists(self):
-        rule_processing_queue = RuleProcessingQueue([])
-        self.assertIsNone(rule_processing_queue.get_next_to_process())
+        rule_queue = RuleQueue([])
+        self.assertIsNone(rule_queue.get_next())
 
     def test_get_next_can_get_all_in_correct_order(self):
-        rule_processing_queue = RuleProcessingQueue(self.rules)
+        rule_queue = RuleQueue(self.rules)
 
         rules = []  # type: List[Rule]
-        while rule_processing_queue.has_unprocessed_rules():
-            rule = rule_processing_queue.get_next_to_process()
+        while rule_queue.has_unapplied_rules():
+            rule = rule_queue.get_next()
 
             for previous_rule in rules:
                 self.assertGreaterEqual(
@@ -57,41 +57,41 @@ class TestRuleProcessingQueue(unittest.TestCase):
 
         self.assertCountEqual(rules, self.rules)
 
-    def test_mark_as_processed_unprocessed_rule(self):
-        rule_processing_queue = RuleProcessingQueue(self.rules)
+    def test_mark_as_applied_unapplied_rule(self):
+        rule_queue = RuleQueue(self.rules)
 
-        processed_rules = []
-        while rule_processing_queue.has_unprocessed_rules():
-            rule = rule_processing_queue.get_next_to_process()
-            self.assertNotIn(rule, processed_rules)
-            rule_processing_queue.mark_as_processed(rule)
-            processed_rules.append(rule)
+        applied_rules = []
+        while rule_queue.has_unapplied_rules():
+            rule = rule_queue.get_next()
+            self.assertNotIn(rule, applied_rules)
+            rule_queue.mark_as_applied(rule)
+            applied_rules.append(rule)
 
-    def test_mark_as_processed_processed(self):
-        rule_processing_queue = RuleProcessingQueue(self.rules)
-        rule = rule_processing_queue.get_next_to_process()
-        rule_processing_queue.mark_as_processed(rule)
-        self.assertRaises(ValueError, rule_processing_queue.mark_as_processed, rule)
+    def test_mark_as_applied_applied(self):
+        rule_queue = RuleQueue(self.rules)
+        rule = rule_queue.get_next()
+        rule_queue.mark_as_applied(rule)
+        self.assertRaises(ValueError, rule_queue.mark_as_applied, rule)
 
-    def test_mark_as_processed_processed_when_not_being_processed(self):
-        rule_processing_queue = RuleProcessingQueue(self.rules)
+    def test_mark_as_applied_applied_when_not_being_applied(self):
+        rule_queue = RuleQueue(self.rules)
         rule = self.rules[0]
-        self.assertRaises(ValueError, rule_processing_queue.mark_as_processed, rule)
+        self.assertRaises(ValueError, rule_queue.mark_as_applied, rule)
 
     def test_reset(self):
-        rule_processing_queue = RuleProcessingQueue(self.rules)
-        rule_1 = rule_processing_queue.get_next_to_process()
-        rule_processing_queue.mark_as_processed(rule_1)
-        rule_2 = rule_processing_queue.get_next_to_process()
-        rule_processing_queue.mark_as_processed(rule_2)
-        rule_processing_queue.reset_processed()
+        rule_queue = RuleQueue(self.rules)
+        rule_1 = rule_queue.get_next()
+        rule_queue.mark_as_applied(rule_1)
+        rule_2 = rule_queue.get_next()
+        rule_queue.mark_as_applied(rule_2)
+        rule_queue.reset()
 
-        unprocessed_counter = 0
-        while rule_processing_queue.has_unprocessed_rules():
-            rule = rule_processing_queue.get_next_to_process()
-            rule_processing_queue.mark_as_processed(rule)
-            unprocessed_counter += 1
-        self.assertEquals(unprocessed_counter, len(self.rules))
+        unapplied_counter = 0
+        while rule_queue.has_unapplied_rules():
+            rule = rule_queue.get_next()
+            rule_queue.mark_as_applied(rule)
+            unapplied_counter += 1
+        self.assertEquals(unapplied_counter, len(self.rules))
 
 
 class TestRulesSource(unittest.TestCase):

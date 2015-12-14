@@ -9,9 +9,9 @@ from hgicommon.data_source import RegisteringDataSource
 from cookiemonster.processor.models import Rule
 
 
-class RuleProcessingQueue:
+class RuleQueue:
     """
-    A queue of data that are to be processed.
+    A priority queue of rules that are used when processing a Cookie.
 
     Thread-safe.
     """
@@ -22,64 +22,67 @@ class RuleProcessingQueue:
         have no effect)
         """
         self._rules = copy.copy(rules)
-        self._not_processed = PriorityQueue()
-        self._processed = []
-        self._being_processed = []
+        self._not_applied = PriorityQueue()
+        self._applied = []
+        self._being_applied = []
         self._lists_lock = Lock()
 
         for rule in self._rules:
-            self._not_processed.put(rule)
+            self._not_applied.put(rule)
 
-    def has_unprocessed_rules(self) -> bool:
+    def has_unapplied_rules(self) -> bool:
         """
-        Returns whether or not there exists rule that have not been processed.
-        :return: whether there are data that have not been processed
+        Returns whether or not there exists rule that have not been applied.
+        :return: whether there are data that have not been applied
         """
-        return not self._not_processed.empty()
+        return not self._not_applied.empty()
 
-    def get_next_to_process(self) -> Optional[Rule]:
+    def get_next(self) -> Optional[Rule]:
         """
-        Gets the next rule that should be processed. Marks as currently being processed.
-        :return: the next rule to be processed, else `None` if no more to process
+        Gets the next rule that should be applied. Marks as currently being applied.
+
+        Thread-safe.
+        :return: the next rule to be processed, else `None` if no more to apply
         """
-        if not self.has_unprocessed_rules():
+        if not self.has_unapplied_rules():
             return None
-        self._lists_lock.acquire()
-        rule = self._not_processed.get()
-        assert rule not in self._processed
-        assert rule not in self._being_processed
-        self._being_processed.append(rule)
-        self._lists_lock.release()
+        with self._lists_lock:
+            rule = self._not_applied.get()
+            assert rule not in self._applied
+            assert rule not in self._being_applied
+            self._being_applied.append(rule)
         return rule
 
-    def mark_as_processed(self, rule: Rule):
+    def mark_as_applied(self, rule: Rule):
         """
-        Marks the given rule as processed. Will raise a `ValueError` if the rule has already been marked as processed or
-        if the rule is not marked as being processed (i.e. acquired via `get_next_to_process`).
-        :param rule: the rule to mark as processed
-        """
-        if rule in self._processed:
-            raise ValueError("Rule has already been marked as processed: %s" % rule)
-        if rule not in self._being_processed:
-            raise ValueError("Rule not marked as being processed: %s" % rule)
-        self._lists_lock.acquire()
-        self._being_processed.remove(rule)
-        self._processed.append(rule)
-        self._lists_lock.release()
+        Marks the given rule as applied. Will raise a `ValueError` if the rule has already been marked as applied or
+        if the rule is not marked as being applied (i.e. not acquired via `get_next`).
 
-    def reset_processed(self):
+        Thread-safe.
+        :param rule: the rule to mark as applied
         """
-        Resets all data previously marked as processed and those marked as being processed.
-        """
-        self._lists_lock.acquire()
-        del self._being_processed[:]
-        del self._processed[:]
+        if rule in self._applied:
+            raise ValueError("Rule has already been marked as applied: %s" % rule)
+        if rule not in self._being_applied:
+            raise ValueError("Rule not marked as being applied: %s" % rule)
+        with self._lists_lock:
+            self._being_applied.remove(rule)
+            self._applied.append(rule)
 
-        while not self._not_processed.empty():
-            self._not_processed.get()
-        for rule in self._rules:
-            self._not_processed.put(rule)
-        self._lists_lock.release()
+    def reset(self):
+        """
+        Resets all data previously marked as applied and those marked as currently being applied.
+
+        Thread-safe.
+        """
+        with self._lists_lock:
+            del self._being_applied[:]
+            del self._applied[:]
+
+            while not self._not_applied.empty():
+                self._not_applied.get()
+            for rule in self._rules:
+                self._not_applied.put(rule)
 
 
 class RulesSource(RegisteringDataSource):

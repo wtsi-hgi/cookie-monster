@@ -1,5 +1,5 @@
 from threading import Lock, Thread
-from typing import List, Callable, Optional, Iterable, Container
+from typing import List, Callable, Optional, Iterable
 
 from hgicommon.data_source import DataSource
 
@@ -7,8 +7,8 @@ from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.notifier.notifier import Notifier
 from cookiemonster.processor._enrichment import EnrichmentManager
+from cookiemonster.processor._rules import RuleQueue
 from cookiemonster.processor.models import Rule
-from cookiemonster.processor._rules import RuleProcessingQueue, RulesSource
 from cookiemonster.processor.processing import ProcessorManager, Processor
 
 
@@ -18,18 +18,18 @@ class BasicProcessor(Processor):
     """
     def process(self, cookie: Cookie, rules: Iterable[Rule],
                 on_complete: Callable[[bool, Optional[List[Notification]]], None]):
-        rule_processing_queue = RuleProcessingQueue(rules)
+        rule_queue = RuleQueue(rules)
 
         notifications = []
         terminate = False
 
-        while not terminate and rule_processing_queue.has_unprocessed_rules():
-            rule = rule_processing_queue.get_next_to_process()
+        while not terminate and rule_queue.has_unapplied_rules():
+            rule = rule_queue.get_next()
             if rule.matching_criteria(cookie):
                 rule_action = rule.action_generator(cookie)
                 notifications += rule_action.notifications
                 terminate = rule_action.terminate_processing
-            rule_processing_queue.mark_as_processed(rule)
+            rule_queue.mark_as_applied(rule)
 
         on_complete(terminate, notifications)
 
