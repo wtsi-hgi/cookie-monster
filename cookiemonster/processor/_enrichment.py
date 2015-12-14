@@ -1,12 +1,10 @@
-import copy
 import re
 from queue import PriorityQueue
-from typing import Optional, Iterable
+from typing import Optional
 
-from hgicommon.data_source import DataSource, ListDataSource
+from hgicommon.data_source import DataSource, ListDataSource, RegisteringDataSource
 
 from cookiemonster.common.models import Cookie, Enrichment
-from cookiemonster.common.register import RegisteringSource
 from cookiemonster.processor.models import EnrichmentLoader
 
 
@@ -44,7 +42,7 @@ class EnrichmentManager:
         return None
 
 
-class EnrichmentLoaderSource(RegisteringSource):
+class EnrichmentLoaderSource(RegisteringDataSource):
     """
     TODO
     """

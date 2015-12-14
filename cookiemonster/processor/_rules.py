@@ -4,7 +4,8 @@ from multiprocessing import Lock
 from queue import PriorityQueue
 from typing import Iterable, Optional
 
-from cookiemonster.common.register import RegisteringSource
+from hgicommon.data_source import RegisteringDataSource
+
 from cookiemonster.processor.models import Rule
 
 
@@ -16,7 +17,7 @@ class RuleProcessingQueue:
     """
     def __init__(self, rules: Iterable[Rule]):
         """
-        Default constructor.
+        Constructor.
         :param rules: the data to be processed (these will be copied so changes to the set outside of this object will
         have no effect)
         """
@@ -81,18 +82,18 @@ class RuleProcessingQueue:
         self._lists_lock.release()
 
 
-class RulesSource(RegisteringSource):
+class RulesSource(RegisteringDataSource):
     """
-    TODO
+    Rule source where rules are registered from within Python modules within a given directory. These modules can be
+    changed on-the-fly.
     """
     # Regex used to determine if a file contains a rule(s)
     FILE_PATH_MATCH_REGEX = ".*\.rule\.py"
 
     def __init__(self, directory_location: str):
         """
-        TODO
-        :param directory_location:
-        :return:
+        Constructor.
+        :param directory_location: the directory in which rules can be sourced from
         """
         super().__init__(directory_location, Rule)
 

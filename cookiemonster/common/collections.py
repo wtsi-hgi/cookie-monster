@@ -30,11 +30,3 @@ class FileUpdateCollection(list):
                 most_recent.append(file_update)
 
         return most_recent
-
-
-# TODO: Is this still required?
-class EnrichmentCollection(list):
-    """
-    Collection of `Enrichment` instances; extends `list`
-    """
-    pass

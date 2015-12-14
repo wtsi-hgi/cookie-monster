@@ -114,7 +114,7 @@ GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
 
-from typing import Any, Union, Optional, Callable
+from typing import Any, Union, Optional, Callable, Iterable
 from copy import deepcopy
 from datetime import datetime, timedelta
 from time import time, mktime
@@ -125,7 +125,6 @@ from couchdb.client import Server, Document, ViewResults, Row
 
 from hgicommon.collections import Metadata
 from cookiemonster.common.models import Enrichment
-from cookiemonster.common.collections import EnrichmentCollection
 from cookiemonster.common.enums import EnrichmentSource
 
 
@@ -620,14 +619,14 @@ class Ernie(_Couch):
         req_body = _EnrichmentEncoder().encode(metadata)
         self.upsert('metadata', 'append', location=path, body=req_body)
 
-    def get_metadata(self, path: str) -> EnrichmentCollection:
+    def get_metadata(self, path: str) -> Iterable[Enrichment]:
         '''
         Get all the collected metadata for a file
 
         @param  path  File path
-        @return EnrichmentCollection
+        @return Iterable[Enrichment]
         '''
-        output = EnrichmentCollection()
+        output = []
         results = self.query('metadata', 'collate', key    = path,
                                                     reduce = True,
                                                     group  = True)

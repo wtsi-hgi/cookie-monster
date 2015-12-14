@@ -31,8 +31,8 @@ To delete a pre-existing rule, delete the file containing it or remove the relev
 rule, simply change its code and it will be updated on save.
 
 
-### Cookie Enrichments
-## Changing enrichment loaders on-the-fly
+## Cookie Enrichments
+### Changing enrichment loaders on-the-fly
 Similarly to rules, the enrichment loaders, used to increase the knowledge of a cookie, can be changed during execution.
 Files containing enrichment loaders must have a name matching the format: ``*.loader.py``.
 ```python
