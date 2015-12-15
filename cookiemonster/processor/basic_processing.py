@@ -47,12 +47,15 @@ class BasicProcessorManager(ProcessorManager):
                  enrichment_manager: EnrichmentManager, notifier: Notifier):
         """
         Constructor.
-        :param number_of_processors: the maximum number of processors to use
+        :param number_of_processors: the maximum number of processors to use. Must be at least 1
         :param cookie_jar: the cookie jar to get updates from
         :param rules_source: the source of the rules
         :param enrichment_manager: the manager to use when loading more information about a cookie
         :param notifier: the notifier
         """
+        if number_of_processors < 1:
+            raise ValueError("Must be instantiated with at least one processor, not %d" % number_of_processors)
+
         self._cookie_jar = cookie_jar
         self._rules_source = rules_source
         self._notifier = notifier

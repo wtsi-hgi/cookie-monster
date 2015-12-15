@@ -1,44 +1,40 @@
-import copy
 import unittest
 from datetime import datetime
 from multiprocessing import Lock
-from threading import Thread
-from typing import Iterable, Callable, List
+from threading import Thread, Semaphore
+from typing import Callable, List
 from unittest.mock import MagicMock, call
-
-from multiprocessing import Semaphore
 
 from hgicommon.collections import Metadata
 from hgicommon.data_source import ListDataSource
+from hgicommon.mixable import Priority
 
 from cookiemonster.common.models import Cookie, Notification, Enrichment
 from cookiemonster.processor._enrichment import EnrichmentManager
+from cookiemonster.processor.basic_processing import BasicProcessorManager, BasicProcessor
 from cookiemonster.processor.models import Rule, EnrichmentLoader
 from cookiemonster.processor.models import RuleAction
-from cookiemonster.processor.basic_processing import BasicProcessorManager, BasicProcessor
-from cookiemonster.tests.processor._stubs import StubCookieJar
+from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
 from cookiemonster.tests.processor._stubs import StubNotifier
+
+COOKIE_PATH = "/my/cookie"
 
 
 class TestBasicProcessor(unittest.TestCase):
     """
     Tests for `BasicProcessor`.
     """
-    FILE_IDENTIFIER = "abc"
-
     def setUp(self):
-        self.cookie = Cookie(TestBasicProcessor.FILE_IDENTIFIER)
+        self.cookie = Cookie(COOKIE_PATH)
         self.rules = [Rule(lambda *args: False, lambda *args: RuleAction([], False)) for _ in range(10)]
         self.processor = BasicProcessor()
 
     def test_process_when_no_rules(self):
-        self.rules = []
-
         def assertions(terminate_processing: bool, notifications: List[Notification]):
             self.assertFalse(terminate_processing)
             self.assertEquals(len(notifications), 0)
 
-        self.processor.process(self.cookie, self.rules, TestBasicProcessor._create_assert_on_complete(assertions))
+        self.processor.process(self.cookie, [], TestBasicProcessor._create_assert_on_complete(assertions))
 
     def test_process_when_no_matched_rules(self):
         def assertions(terminate_processing: bool, notifications: List[Notification]):
@@ -50,8 +46,10 @@ class TestBasicProcessor(unittest.TestCase):
     def test_process_when_matched_rules_and_no_termination(self):
         notifications = [Notification(i) for i in range(3)]
 
-        self.rules.append(Rule(lambda *args: True, lambda *args: RuleAction([notifications[0], notifications[1]], False)))
-        self.rules.append(Rule(lambda *args: True, lambda *args: RuleAction([notifications[2]], False)))
+        self.rules.append(Rule(
+                lambda *args: True, lambda *args: RuleAction([notifications[0], notifications[1]], False)))
+        self.rules.append(Rule(
+                lambda *args: True, lambda *args: RuleAction([notifications[2]], False)))
 
         def assertions(terminate_processing: bool, selected_notifications: List[Notification]):
             self.assertFalse(terminate_processing)
@@ -59,30 +57,41 @@ class TestBasicProcessor(unittest.TestCase):
 
         self.processor.process(self.cookie, self.rules, TestBasicProcessor._create_assert_on_complete(assertions))
 
-    @unittest.skip("Running order of data not yet established")
     def test_process_when_matched_rules_and_termination(self):
-        pass
+        notifications = [Notification(i) for i in range(2)]
 
+        self.rules.append(Rule(
+                lambda *args: True, lambda *args: RuleAction([notifications[0]], False), Priority.MIN_PRIORITY))
+        self.rules.append(Rule(
+                lambda *args: True, lambda *args: RuleAction([notifications[1]], True),
+                Priority.get_lower_priority_value(Priority.MAX_PRIORITY)))
+        self.rules.append(Rule(
+                lambda *args: False, lambda *args: RuleAction([], True), Priority.MAX_PRIORITY))
+
+        def assertions(terminate_processing: bool, selected_notifications: List[Notification]):
+            self.assertTrue(terminate_processing)
+            self.assertEquals(selected_notifications, [notifications[1]])
+
+        self.processor.process(self.cookie, self.rules, TestBasicProcessor._create_assert_on_complete(assertions))
 
     @staticmethod
     def _create_assert_on_complete(assertions: Callable[[bool, List[Notification]], None]) \
             -> Callable[[bool, List[Notification]], None]:
         """
-        TODO
-        :param assertions:
-        :return:
+        Creates assertions that are checked once processing has completed.
+        :param assertions: function with the assertions that are to be made
+        :return: the function to use as the `on_complete` with processors
         """
         lock = Lock()
         lock.acquire()
+        # This child thread keeps everything alive until `on_complete` is called and executed
+        Thread(target=lock.acquire).start()
 
         def on_complete(terminate_processing: bool, notifications: List[Notification]):
             assertions(terminate_processing, notifications)
             lock.release()
 
-        Thread(target=lock.acquire).start()
-
         return on_complete
-
 
 
 class TestBasicProcessorManager(unittest.TestCase):
@@ -92,117 +101,129 @@ class TestBasicProcessorManager(unittest.TestCase):
     _NUMBER_OF_PROCESSORS = 5
 
     def setUp(self):
-        self.cookie_jar = StubCookieJar()
+        self.cookie_jar = create_magic_mock_cookie_jar()
+
         self.notifier = StubNotifier()
+        self.notifier.do = MagicMock()
+
         self.rules = []
         self.enrichment_loaders = []
 
-        self.cookie = Cookie("")
-        self.rule = Rule(lambda information: True, lambda information: RuleAction(set(), True))
-        self.rules.append(self.rule)
+        self.notifications = [Notification("a", "b"), Notification("c", "d")]
+        self.cookie = Cookie(COOKIE_PATH)
 
         self.enrichment_manager = EnrichmentManager(ListDataSource(self.enrichment_loaders))
-        self.process_manager = BasicProcessorManager(
+        self.processor_manager = BasicProcessorManager(
             TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, ListDataSource(self.rules),
             self.enrichment_manager, self.notifier)
 
+    def test_init_with_less_than_one_processor(self):
+        self.assertRaises(ValueError, BasicProcessorManager, 0, self.cookie_jar, ListDataSource(self.rules),
+                          self.enrichment_manager, self.notifier)
+
     def test_process_any_cookies_when_no_jobs(self):
-        self.cookie_jar.get_next_for_processing = MagicMock(return_value=None)
-        self.process_manager.on_cookie_processed = MagicMock()
+        self.processor_manager.process_any_cookies()
 
-        self.process_manager.process_any_cookies()
         self.cookie_jar.get_next_for_processing.assert_called_once_with()
-        self.process_manager.on_cookie_processed.assert_not_called()
-
-    def test_process_any_cookies_when_jobs_but_no_free_processors(self):
-        zero_process_manager = BasicProcessorManager(
-            0, self.cookie_jar, ListDataSource(self.rules), self.enrichment_manager, self.notifier)
-        self.cookie_jar.get_next_for_processing = MagicMock(return_value=self.cookie)
-        zero_process_manager.on_cookie_processed = MagicMock()
-
-        zero_process_manager.process_any_cookies()
-        zero_process_manager.on_cookie_processed.assert_not_called()
-
-    def test_process_any_cookies_when_jobs_and_free_processors(self):
-        number_of_jobs = 50
-        self.cookie_jar.get_next_for_processing = MagicMock(
-            side_effect=[copy.copy(self.cookie) for _ in range(number_of_jobs)] + [None for _ in range(100)])
-
-        semaphore = Semaphore(0)
-
-        def v_semaphore(*args):
-            semaphore.release()
-
-        self.process_manager.on_cookie_processed = MagicMock(side_effect=v_semaphore)
-
-        self.process_manager.process_any_cookies()
-        calls = [call(self.cookie, True, []) for _ in range(number_of_jobs)]
-
-        for _ in range(number_of_jobs):
-            semaphore.acquire()
-
-        self.process_manager.on_cookie_processed.assert_has_calls(calls)
-
-    def test_on_cookie_processed_when_no_rules_matched_and_no_more_data_can_be_loaded(self):
-        self.cookie_jar.mark_as_reprocess = MagicMock()
-        self.cookie_jar.mark_as_complete = MagicMock()
-        self.notifier.do = MagicMock()
-
-        self.process_manager.on_cookie_processed(self.cookie, False)
-        self.cookie_jar.mark_as_reprocess.assert_not_called()
-        self.cookie_jar.mark_as_complete.assert_called_once_with(self.cookie.path)
-        self.notifier.do.assert_called_with(Notification("unknown", self.cookie.path))      # XXX
-
-    def test_on_cookie_processed_when_no_rules_matched_and_but_data_can_be_loaded(self):
-        enrichment = Enrichment("source", datetime.min, Metadata())
-        data_loader = EnrichmentLoader(lambda *args: True, lambda *args: enrichment)
-        self.enrichment_loaders.append(data_loader)
-
-        self.cookie_jar.mark_as_reprocess = MagicMock()
-        self.cookie_jar.mark_as_complete = MagicMock()
-        self.cookie_jar.enrich_cookie = MagicMock()
-        self.notifier.do = MagicMock()
-
-        self.process_manager.on_cookie_processed(self.cookie, False)
-        self.cookie_jar.enrich_cookie.assert_called_once_with(self.cookie.path, enrichment)
-        self.cookie_jar.mark_as_reprocess.assert_called_once_with(self.cookie.path)
         self.cookie_jar.mark_as_complete.assert_not_called()
         self.notifier.do.assert_not_called()
 
-    def test_on_cookie_processed_when_rules_matched_and_terminate(self):
-        notifications = [Notification("a", "b"), Notification("c", "d")]
+    def test_process_any_cookies_when_jobs(self):
+        complete = Semaphore(0)
 
-        self.rules.remove(self.rule)
-        assert len(self.rules) == 0
+        def on_complete(*args):
+            complete.release()
 
-        self.cookie_jar.mark_as_reprocess = MagicMock()
-        self.cookie_jar.mark_as_complete = MagicMock()
-        self.notifier.do = MagicMock()
+        self.cookie_jar.mark_as_complete = MagicMock(side_effect=on_complete)
 
-        self.process_manager.on_cookie_processed(self.cookie, True, notifications)
-        self.cookie_jar.mark_as_reprocess.assert_not_called()
+        self.rules.append(Rule(lambda cookie: True, lambda cookie: RuleAction([], True)))
+
+        number_to_process = 100
+        for i in range(number_to_process):
+            self.cookie_jar.mark_as_reprocess("%s/%s" % (COOKIE_PATH, i))
+            Thread(target=self.processor_manager.process_any_cookies).start()
+
+        completed = 0
+        while completed != number_to_process:
+            complete.acquire()
+            completed += 1
+
+    def test_process_any_cookies_when_no_free_processors(self):
+        single_processor_manager = BasicProcessorManager(
+            1, self.cookie_jar, ListDataSource(self.rules), self.enrichment_manager, self.notifier)
+
+        complete = Semaphore(0)
+
+        def on_complete(*args):
+            complete.release()
+
+        self.cookie_jar.mark_as_complete = MagicMock(side_effect=on_complete)
+
+        rule_lock = Lock()
+        rule_lock.acquire()
+
+        def matching_criteria(cookie: Cookie) -> bool:
+            rule_lock.acquire()
+            return True
+
+        self.rules.append(Rule(matching_criteria, lambda cookie: RuleAction([], True)))
+
+        self.cookie_jar.mark_as_reprocess(self.cookie.path)
+        single_processor_manager.process_any_cookies()
+        # Processor should have locked at this point - i.e. 0 free processors
+
+        # The fact that there are more cookies should be "remembered" by the processor manager
+        self.cookie_jar.mark_as_reprocess("/other/coookie")
+        single_processor_manager.process_any_cookies()
+
+        # Change the rules for the next cookie to be processed
+        self.rules.pop()
+        self.rules.append(Rule(lambda cookie: True, lambda cookie: RuleAction([], True)))
+
+        # Free the processor to complete the first cookie
+        rule_lock.release()
+        rule_lock.release()
+
+        # Wait for both cookies to be processed
+        completed = 0
+        while completed != 2:
+            complete.acquire()
+            completed += 1
+
+        self.cookie_jar.mark_as_complete.assert_has_calls([call(self.cookie.path), call("/other/coookie")])
+        self.notifier.do.assert_not_called()
+
+    def test_on_cookie_processed_when_no_terminiation_no_enrichment(self):
+        self.cookie_jar.mark_as_reprocess(self.cookie.path)
+        self.cookie_jar.get_next_for_processing()
+
+        self.processor_manager.on_cookie_processed(self.cookie, False, self.notifications)
+
         self.cookie_jar.mark_as_complete.assert_called_once_with(self.cookie.path)
-        self.notifier.do.assert_has_calls([call(notification) for notification in notifications], True)
+        self.notifier.do.assert_has_calls(
+                [call(notification) for notification in self.notifications] +
+                [call(Notification("unknown", self.cookie.path))], True)
 
-    def test_on_cookie_processed_when_rules_matched_and_not_terminate_and_more_data(self):
-        notifications = [Notification("a", "b"), Notification("c", "d")]
+    def test_on_cookie_processed_when_no_termination_but_enrichment(self):
         enrichment = Enrichment("source", datetime.min, Metadata())
-        enrichement_loader = EnrichmentLoader(lambda *args: True, lambda *args: enrichment)
-        self.enrichment_loaders.append(enrichement_loader)
+        enrichment_loader = EnrichmentLoader(lambda *args: True, lambda *args: enrichment)
+        self.enrichment_loaders.append(enrichment_loader)
 
-        self.rules.remove(self.rule)
-        assert len(self.rules) == 0
+        self.processor_manager.on_cookie_processed(self.cookie, False, self.notifications)
 
-        self.cookie_jar.mark_as_reprocess = MagicMock()
-        self.cookie_jar.mark_as_complete = MagicMock()
-        self.cookie_jar.enrich_cookie = MagicMock()
-        self.notifier.do = MagicMock()
-
-        self.process_manager.on_cookie_processed(self.cookie, False, notifications)
         self.cookie_jar.enrich_cookie.assert_called_once_with(self.cookie.path, enrichment)
         self.cookie_jar.mark_as_reprocess.assert_called_once_with(self.cookie.path)
         self.cookie_jar.mark_as_complete.assert_not_called()
-        self.notifier.do.assert_has_calls([call(notification) for notification in notifications], True)
+        self.notifier.do.assert_has_calls([call(notification) for notification in self.notifications], True)
+
+    def test_on_cookie_processed_when_termination(self):
+        self.cookie_jar.mark_as_reprocess(self.cookie.path)
+        self.cookie_jar.get_next_for_processing()
+
+        self.processor_manager.on_cookie_processed(self.cookie, True, self.notifications)
+
+        self.cookie_jar.mark_as_complete.assert_called_once_with(self.cookie.path)
+        self.notifier.do.assert_has_calls([call(notification) for notification in self.notifications], True)
 
 
 if __name__ == "__main__":

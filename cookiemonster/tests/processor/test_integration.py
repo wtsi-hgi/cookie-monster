@@ -1,18 +1,14 @@
-from copy import copy
-import logging
 import shutil
 import unittest
+from copy import copy
 from datetime import datetime
-from multiprocessing import Lock
 from os.path import normpath, join, dirname, realpath
 from tempfile import mkdtemp
 from threading import Semaphore
-from typing import Sequence, Tuple, List, Iterable
+from typing import Sequence, Tuple, Optional, Iterable
 from unittest.mock import MagicMock, call
 
 from hgicommon.collections import Metadata
-from hgicommon.data_source import RegisteringDataSource, SynchronisedFilesDataSource
-from hgicommon.data_source.static_from_file import FileSystemChange
 
 from cookiemonster.common.models import Enrichment, Notification
 from cookiemonster.cookiejar import CookieJar
@@ -22,13 +18,16 @@ from cookiemonster.processor._enrichment import EnrichmentManager, EnrichmentLoa
 from cookiemonster.processor._rules import RuleSource
 from cookiemonster.processor.basic_processing import BasicProcessorManager
 from cookiemonster.processor.processing import ProcessorManager
-from cookiemonster.tests.processor._helpers import add_data_files
+from cookiemonster.tests.processor._helpers import add_data_files, block_until_processed
+from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
 from cookiemonster.tests.processor._stubs import StubNotifier
+from cookiemonster.tests.processor.example_rule.enrich_match_rule import MATCHES_ENIRCHED_COOKIE_WITH_PATH
 from cookiemonster.tests.processor.example_rule.name_match_rule import MATCHES_COOKIES_WITH_PATH, NOTIFIES
 
 _RULE_FILE_LOCATIONS = [
     normpath(join(dirname(realpath(__file__)), "example_rule/no_match_rule.py")),
-    normpath(join(dirname(realpath(__file__)), "example_rule/name_match_rule.py"))
+    normpath(join(dirname(realpath(__file__)), "example_rule/name_match_rule.py")),
+    normpath(join(dirname(realpath(__file__)), "example_rule/enrich_match_rule.py"))
 ]
 _ENRICHMENT_LOADER_LOCATIONS = [
     normpath(join(dirname(realpath(__file__)), "example_enrichment_loader/no_loader.py")),
@@ -54,7 +53,7 @@ class TestIntegration(unittest.TestCase):
         enrichment_manager = EnrichmentManager(self.enrichment_loader_source)
 
         # Setup cookie jar
-        self.cookie_jar = InMemoryCookieJar()    # type: CookieJar
+        self.cookie_jar = create_magic_mock_cookie_jar()
 
         # Setup rules source
         self.rules_source = RuleSource(self.rules_directory)
@@ -62,6 +61,7 @@ class TestIntegration(unittest.TestCase):
 
         # Setup notifier
         self.notifier = StubNotifier()   # type: Notifier
+        self.notifier.do = MagicMock()
 
         # Setup the data processor manager
         self.processor_manager = BasicProcessorManager(
@@ -73,87 +73,58 @@ class TestIntegration(unittest.TestCase):
 
         self.cookie_jar.add_listener(cookie_jar_connector)
 
-        # Enable better debugging
-        # logging.root.setLevel(logging.DEBUG)
-
     def test_with_no_rules_or_enrichments(self):
-        cookie_enrichments = TestIntegration._generate_n_cookie_enrichments(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS)
-        self._process_cookies(cookie_enrichments)
+        cookie_paths = TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS)
+        block_until_processed(self.cookie_jar, cookie_paths)
 
-        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_enrichments))
-        self.assertEquals(self.notifier.do.call_count, len(cookie_enrichments))
+        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
+        self.assertEquals(self.notifier.do.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
-        self.cookie_jar.mark_as_reprocess.assert_not_called()
 
-    def test_with_rules_enrichments(self):
+    def test_with_enrichments_no_rules(self):
         add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
 
-        cookie_enrichments = TestIntegration._generate_n_cookie_enrichments(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS)
-        self._process_cookies(cookie_enrichments)
+        cookie_paths = TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS)
+        block_until_processed(self.cookie_jar, cookie_paths)
 
-        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_enrichments))
-        self.assertEquals(self.notifier.do.call_count, len(cookie_enrichments))
+        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
+        self.assertEquals(self.notifier.do.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
-        self.cookie_jar.mark_as_reprocess.assert_not_called()
 
     def test_with_rules_no_enrichments(self):
         add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
 
-        cookie_enrichments = list(
-                TestIntegration._generate_n_cookie_enrichments(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS))
-        cookie_enrichments.append((MATCHES_COOKIES_WITH_PATH, Enrichment("source", datetime.max, Metadata())))
+        cookie_paths = list(TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS))
+        cookie_paths.append(MATCHES_COOKIES_WITH_PATH)
+        block_until_processed(self.cookie_jar, cookie_paths)
 
-        self._process_cookies(cookie_enrichments)
-
-        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_enrichments))
-        self.assertEquals(self.notifier.do.call_count, len(cookie_enrichments))
+        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
+        self.assertEquals(self.notifier.do.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
-        self.cookie_jar.mark_as_reprocess.assert_not_called()
         self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notifier.do.call_args_list)
 
-    def _process_cookies(self, cookie_enrichments: Sequence[Tuple[str, Enrichment]]):
-        """
-        Processes the given cookie enrichments, blocking until all processing has been completed.
-        :param cookie_enrichments: the cookie enrichments to process where the first item in the tuple is the cookie's
-        path and the second is the enrichment
-        """
-        processed_semaphore = Semaphore(0)
+    def test_with_rules_and_enrichments(self):
+        add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
+        add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
 
-        original_mark_as_completed = self.cookie_jar.mark_as_complete
-        original_mark_as_reprocess = self.cookie_jar.mark_as_reprocess
+        cookie_paths = list(TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS))
+        cookie_paths.append(MATCHES_ENIRCHED_COOKIE_WITH_PATH)
+        block_until_processed(self.cookie_jar, cookie_paths)
 
-        def on_complete(path: str):
-            processed_semaphore.release()
-            original_mark_as_completed(path)
-
-        def on_reprocess(path: str):
-            processed_semaphore.release()
-            original_mark_as_reprocess(path)
-
-        self.notifier.do = MagicMock()
-        self.cookie_jar.mark_as_failed = MagicMock()
-        self.cookie_jar.mark_as_complete = MagicMock(side_effect=on_complete)
-        self.cookie_jar.mark_as_reprocess = MagicMock(side_effect=on_reprocess)
-
-        for cookie_enrichment in cookie_enrichments:
-            self.cookie_jar.enrich_cookie(cookie_enrichment[0], cookie_enrichment[1])
-
-        processed = 0
-        while processed != len(cookie_enrichments):
-            processed_semaphore.acquire()
-            processed += 1
+        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
+        self.assertEquals(self.notifier.do.call_count, len(cookie_paths))
+        self.cookie_jar.mark_as_failed.assert_not_called()
+        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notifier.do.call_args_list)
 
     def tearDown(self):
         shutil.rmtree(self.rules_directory)
         shutil.rmtree(self.enrichment_loaders_directory)
 
     @staticmethod
-    def _generate_n_cookie_enrichments(number: int) -> Sequence[Tuple[str, Enrichment]]:
+    def _generate_cookie_paths(number: int) -> Sequence[str]:
         """
-        Generates the given number of example cookie enrichments.
-        :param number: the number of example cookie enrichments to generate
-        :return: the generated cookie enrichments
+        Generates the given number of example cookie paths.
+        :param number: the number of example cookie paths to generate
+        :return: the generated cookie paths
         """
-        enrichment = Enrichment("my_source", datetime.min, Metadata())
-        cookie_enrichments = [("%s/%s" % (TestIntegration._PATH, i), copy(enrichment)) for i in range(number)]
-        return cookie_enrichments
+        return ["%s/%s" % (TestIntegration._PATH, i) for i in range(number)]

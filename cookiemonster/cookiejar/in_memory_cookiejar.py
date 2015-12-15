@@ -36,7 +36,7 @@ class InMemoryCookieJar(CookieJar):
 
     def mark_as_failed(self, path: str, requeue_delay: timedelta):
         if path not in self._known_data:
-            raise ValueError("File not known: " % path)
+            raise ValueError("File not known: %s" % path)
         with self.lists_lock:
             self._assert_is_being_processed(path)
             self._processing.remove(path)
@@ -44,7 +44,7 @@ class InMemoryCookieJar(CookieJar):
 
     def mark_as_complete(self, path: str):
         if path not in self._known_data:
-            raise ValueError("File not known: " % path)
+            raise ValueError("File not known: %s" % path)
         with self.lists_lock:
             self._assert_is_being_processed(path)
             self._processing.remove(path)
@@ -52,10 +52,11 @@ class InMemoryCookieJar(CookieJar):
 
     def mark_as_reprocess(self, path: str):
         if path not in self._known_data:
-            raise ValueError("File not known: " % path)
+            cookie = Cookie(path)
+            self._known_data[path] = cookie
         with self.lists_lock:
-            self._assert_is_being_processed(path)
-            self._processing.remove(path)
+            if path in self._processing:
+                self._processing.remove(path)
             self._waiting.append(path)
         self.notify_listeners()
 
