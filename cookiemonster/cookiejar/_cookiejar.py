@@ -99,7 +99,7 @@ class CookieJar(Listenable, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def mark_as_reprocess(self, path: str):
+    def mark_for_processing(self, path: str):
         '''
         Mark a file for reprocessing, regardless of changes to its
         metadata, returning it to the queue immediately

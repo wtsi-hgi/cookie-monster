@@ -140,7 +140,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         number_to_process = 100
         for i in range(number_to_process):
-            self.cookie_jar.mark_as_reprocess("%s/%s" % (COOKIE_PATH, i))
+            self.cookie_jar.mark_for_processing("%s/%s" % (COOKIE_PATH, i))
             Thread(target=self.processor_manager.process_any_cookies).start()
 
         completed = 0
@@ -168,12 +168,12 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         self.rules.append(Rule(matching_criteria, lambda cookie: RuleAction([], True)))
 
-        self.cookie_jar.mark_as_reprocess(self.cookie.path)
+        self.cookie_jar.mark_for_processing(self.cookie.path)
         single_processor_manager.process_any_cookies()
         # Processor should have locked at this point - i.e. 0 free processors
 
         # The fact that there are more cookies should be "remembered" by the processor manager
-        self.cookie_jar.mark_as_reprocess("/other/coookie")
+        self.cookie_jar.mark_for_processing("/other/coookie")
         single_processor_manager.process_any_cookies()
 
         # Change the rules for the next cookie to be processed
@@ -194,7 +194,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.notifier.do.assert_not_called()
 
     def test_on_cookie_processed_when_no_terminiation_no_enrichment(self):
-        self.cookie_jar.mark_as_reprocess(self.cookie.path)
+        self.cookie_jar.mark_for_processing(self.cookie.path)
         self.cookie_jar.get_next_for_processing()
 
         self.processor_manager.on_cookie_processed(self.cookie, False, self.notifications)
@@ -212,12 +212,12 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.processor_manager.on_cookie_processed(self.cookie, False, self.notifications)
 
         self.cookie_jar.enrich_cookie.assert_called_once_with(self.cookie.path, enrichment)
-        self.cookie_jar.mark_as_reprocess.assert_called_once_with(self.cookie.path)
+        self.cookie_jar.mark_for_processing.assert_called_once_with(self.cookie.path)
         self.cookie_jar.mark_as_complete.assert_not_called()
         self.notifier.do.assert_has_calls([call(notification) for notification in self.notifications], True)
 
     def test_on_cookie_processed_when_termination(self):
-        self.cookie_jar.mark_as_reprocess(self.cookie.path)
+        self.cookie_jar.mark_for_processing(self.cookie.path)
         self.cookie_jar.get_next_for_processing()
 
         self.processor_manager.on_cookie_processed(self.cookie, True, self.notifications)

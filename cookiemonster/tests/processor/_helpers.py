@@ -23,7 +23,7 @@ def block_until_processed(cookie_jar: CookieJar, cookie_paths: Sequence[str]):
     processed_semaphore = Semaphore(0)
 
     original_mark_as_completed = cookie_jar.mark_as_complete
-    original_mark_as_reprocess = cookie_jar.mark_as_reprocess
+    original_mark_as_reprocess = cookie_jar.mark_for_processing
 
     def on_complete(path: str):
         processed_semaphore.release()
@@ -34,10 +34,10 @@ def block_until_processed(cookie_jar: CookieJar, cookie_paths: Sequence[str]):
         original_mark_as_reprocess(path)
 
     cookie_jar.mark_as_complete = MagicMock(side_effect=on_complete)
-    cookie_jar.mark_as_reprocess = MagicMock(side_effect=on_reprocess)
+    cookie_jar.mark_for_processing = MagicMock(side_effect=on_reprocess)
 
     for cookie_path in cookie_paths:
-        cookie_jar.mark_as_reprocess(cookie_path)
+        cookie_jar.mark_for_processing(cookie_path)
 
     processed = 0
     while processed != len(cookie_paths):

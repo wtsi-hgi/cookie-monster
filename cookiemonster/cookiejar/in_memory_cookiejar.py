@@ -50,7 +50,7 @@ class InMemoryCookieJar(CookieJar):
             self._processing.remove(path)
             self._completed.append(path)
 
-    def mark_as_reprocess(self, path: str):
+    def mark_for_processing(self, path: str):
         if path not in self._known_data:
             cookie = Cookie(path)
             self._known_data[path] = cookie
