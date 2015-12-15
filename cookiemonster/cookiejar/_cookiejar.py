@@ -27,11 +27,11 @@ Jars. Such implementations must define the following methods:
 * `mark_as_complete` should mark a file as having completed its
   processing successfully
 
-* `mark_as_reprocess` should mark a file as requiring reprocessing,
-  which returns it to the queue immediately. Note that this method is
-  intended to be invoked under exceptional circumstances (e.g.,
-  manually, via some external service, or when downstream processes
-  change, etc.) rather than part of the usual workflow (i.e.,
+* `mark_for_processing` should forcibly mark a file as requiring
+  (re)processing, which returns it to the queue immediately. Note that
+  this method is intended to be invoked under exceptional circumstances
+  (e.g., manually, via some external service, or when downstream
+  processes change, etc.) rather than part of the usual workflow (i.e.,
   `enrich_cookie` will trigger queueing automatically)
 
 * `get_next_for_processing` should return the next Cookie from the queue
@@ -99,9 +99,9 @@ class CookieJar(Listenable, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def mark_as_reprocess(self, path: str):
+    def mark_for_processing(self, path: str):
         '''
-        Mark a file for reprocessing, regardless of changes to its
+        Mark a file for (re)processing, regardless of changes to its
         metadata, returning it to the queue immediately
 
         @param  path  File path

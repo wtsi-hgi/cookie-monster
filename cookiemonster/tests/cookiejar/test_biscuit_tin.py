@@ -253,7 +253,7 @@ class TestCookieJar(unittest.TestCase):
         before = self.jar.get_next_for_processing()
         self.jar.mark_as_complete(before.path)
 
-        self.jar.mark_as_reprocess(before.path)
+        self.jar.mark_for_processing(before.path)
         self.assertEqual(self.jar.queue_length(), 1)
 
         after = self.jar.get_next_for_processing()

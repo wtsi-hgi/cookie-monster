@@ -60,7 +60,7 @@ class BiscuitTin(CookieJar):
     def mark_as_complete(self, path: str):
         self._queue.mark_finished(path)
 
-    def mark_as_reprocess(self, path: str):
+    def mark_for_processing(self, path: str):
         self._queue.mark_dirty(path)
         self.notify_listeners(self.queue_length())
 
