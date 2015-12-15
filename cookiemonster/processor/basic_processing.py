@@ -109,7 +109,7 @@ class BasicProcessorManager(ProcessorManager):
                 logging.info("Appliyng enrichment from source \"%s\" to cookie with path \"%s\""
                               % (cookie.path, enrichment.source))
                 self._cookie_jar.enrich_cookie(cookie.path, enrichment)
-                self._cookie_jar.mark_as_reprocess(cookie.path)
+                self._cookie_jar.mark_for_processing(cookie.path)
 
     def _claim_processor(self) -> Optional[Processor]:
         """

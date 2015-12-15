@@ -19,7 +19,7 @@ class StubCookieJar(CookieJar):
     def enrich_cookie(self, path: str, enrichment: Enrichment):
         pass
 
-    def mark_as_reprocess(self, path: str):
+    def mark_for_processing(self, path: str):
         pass
 
     def queue_length(self) -> int:

@@ -83,7 +83,7 @@ class TestIntegration(unittest.TestCase):
         self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_enrichments))
         self.assertEquals(self.notifier.do.call_count, len(cookie_enrichments))
         self.cookie_jar.mark_as_failed.assert_not_called()
-        self.cookie_jar.mark_as_reprocess.assert_not_called()
+        self.cookie_jar.mark_for_processing.assert_not_called()
 
     def test_with_rules_enrichments(self):
         add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
@@ -94,7 +94,7 @@ class TestIntegration(unittest.TestCase):
         self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_enrichments))
         self.assertEquals(self.notifier.do.call_count, len(cookie_enrichments))
         self.cookie_jar.mark_as_failed.assert_not_called()
-        self.cookie_jar.mark_as_reprocess.assert_not_called()
+        self.cookie_jar.mark_for_processing.assert_not_called()
 
     def test_with_rules_no_enrichments(self):
         add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
@@ -108,7 +108,7 @@ class TestIntegration(unittest.TestCase):
         self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_enrichments))
         self.assertEquals(self.notifier.do.call_count, len(cookie_enrichments))
         self.cookie_jar.mark_as_failed.assert_not_called()
-        self.cookie_jar.mark_as_reprocess.assert_not_called()
+        self.cookie_jar.mark_for_processing.assert_not_called()
         self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notifier.do.call_args_list)
 
     def _process_cookies(self, cookie_enrichments: Sequence[Tuple[str, Enrichment]]):
@@ -120,7 +120,7 @@ class TestIntegration(unittest.TestCase):
         processed_semaphore = Semaphore(0)
 
         original_mark_as_completed = self.cookie_jar.mark_as_complete
-        original_mark_as_reprocess = self.cookie_jar.mark_as_reprocess
+        original_mark_for_processing = self.cookie_jar.mark_for_processing
 
         def on_complete(path: str):
             processed_semaphore.release()
@@ -128,12 +128,12 @@ class TestIntegration(unittest.TestCase):
 
         def on_reprocess(path: str):
             processed_semaphore.release()
-            original_mark_as_reprocess(path)
+            original_mark_for_processing(path)
 
         self.notifier.do = MagicMock()
         self.cookie_jar.mark_as_failed = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock(side_effect=on_complete)
-        self.cookie_jar.mark_as_reprocess = MagicMock(side_effect=on_reprocess)
+        self.cookie_jar.mark_for_processing = MagicMock(side_effect=on_reprocess)
 
         for cookie_enrichment in cookie_enrichments:
             self.cookie_jar.enrich_cookie(cookie_enrichment[0], cookie_enrichment[1])

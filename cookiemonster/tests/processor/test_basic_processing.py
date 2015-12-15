@@ -144,12 +144,12 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.process_manager.on_cookie_processed.assert_has_calls(calls)
 
     def test_on_cookie_processed_when_no_rules_matched_and_no_more_data_can_be_loaded(self):
-        self.cookie_jar.mark_as_reprocess = MagicMock()
+        self.cookie_jar.mark_for_processing = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock()
         self.notifier.do = MagicMock()
 
         self.process_manager.on_cookie_processed(self.cookie, False)
-        self.cookie_jar.mark_as_reprocess.assert_not_called()
+        self.cookie_jar.mark_for_processing.assert_not_called()
         self.cookie_jar.mark_as_complete.assert_called_once_with(self.cookie.path)
         self.notifier.do.assert_called_with(Notification("unknown", self.cookie.path))      # XXX
 
@@ -158,14 +158,14 @@ class TestBasicProcessorManager(unittest.TestCase):
         data_loader = EnrichmentLoader(lambda *args: True, lambda *args: enrichment)
         self.enrichment_loaders.append(data_loader)
 
-        self.cookie_jar.mark_as_reprocess = MagicMock()
+        self.cookie_jar.mark_for_processing = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock()
         self.cookie_jar.enrich_cookie = MagicMock()
         self.notifier.do = MagicMock()
 
         self.process_manager.on_cookie_processed(self.cookie, False)
         self.cookie_jar.enrich_cookie.assert_called_once_with(self.cookie.path, enrichment)
-        self.cookie_jar.mark_as_reprocess.assert_called_once_with(self.cookie.path)
+        self.cookie_jar.mark_for_processing.assert_called_once_with(self.cookie.path)
         self.cookie_jar.mark_as_complete.assert_not_called()
         self.notifier.do.assert_not_called()
 
@@ -175,12 +175,12 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.rules.remove(self.rule)
         assert len(self.rules) == 0
 
-        self.cookie_jar.mark_as_reprocess = MagicMock()
+        self.cookie_jar.mark_for_processing = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock()
         self.notifier.do = MagicMock()
 
         self.process_manager.on_cookie_processed(self.cookie, True, notifications)
-        self.cookie_jar.mark_as_reprocess.assert_not_called()
+        self.cookie_jar.mark_for_processing.assert_not_called()
         self.cookie_jar.mark_as_complete.assert_called_once_with(self.cookie.path)
         self.notifier.do.assert_has_calls([call(notification) for notification in notifications], True)
 
@@ -193,14 +193,14 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.rules.remove(self.rule)
         assert len(self.rules) == 0
 
-        self.cookie_jar.mark_as_reprocess = MagicMock()
+        self.cookie_jar.mark_for_processing = MagicMock()
         self.cookie_jar.mark_as_complete = MagicMock()
         self.cookie_jar.enrich_cookie = MagicMock()
         self.notifier.do = MagicMock()
 
         self.process_manager.on_cookie_processed(self.cookie, False, notifications)
         self.cookie_jar.enrich_cookie.assert_called_once_with(self.cookie.path, enrichment)
-        self.cookie_jar.mark_as_reprocess.assert_called_once_with(self.cookie.path)
+        self.cookie_jar.mark_for_processing.assert_called_once_with(self.cookie.path)
         self.cookie_jar.mark_as_complete.assert_not_called()
         self.notifier.do.assert_has_calls([call(notification) for notification in notifications], True)
 
