@@ -1,8 +1,7 @@
 FROM python:3.5
-MAINTAINER "hgi@sanger.ac.uk"
+MAINTAINER "Colin Nolan" <hgi@sanger.ac.uk>
 
-# Copy just the requirements first, so this can be cached and doesn't
-# have to be rebuilt every time the application code changes
+# Copy files
 COPY requirements.txt test_requirements.txt /cookie-monster/
 WORKDIR cookie-monster
 
