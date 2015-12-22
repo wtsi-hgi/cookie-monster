@@ -1,3 +1,4 @@
 SQLAlchemy==1.0.9
 CouchDB==1.0
+Flask==0.10.1
 git+https://github.com/wtsi-hgi/common-python.git@develop#egg=hgicommon
