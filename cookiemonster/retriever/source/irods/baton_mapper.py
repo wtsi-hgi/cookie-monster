@@ -1,32 +1,58 @@
 from datetime import datetime
-from typing import List, Any
+
+from baton._baton_mappers import BatonCustomObjectMapper
+from baton.models import PreparedSpecificQuery
+from baton.types import CustomObjectType
+from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import UpdateCollection
-from cookiemonster.retriever._models import QueryResult
-from cookiemonster.retriever.source.irods.irods_config import IrodsConfig
+from cookiemonster.common.models import Update
 from cookiemonster.retriever.mappers import UpdateMapper
+from cookiemonster.retriever.source.irods._baton_constants import BATON_UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY, \
+    BATON_UPDATE_COLLECTION_NAME_PROPERTY, BATON_UPDATE_DATA_OBJECT_NAME_PROPERTY, BATON_UPDATE_HASH_PROPERTY, \
+    BATON_UPDATE_DATA_TIMESTAMP_PROPERTY, BATON_UPDATE_METADATA_TIMESTAMP_PROPERTY
+from cookiemonster.retriever.source.irods._baton_constants import BATON_UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY
+
+_ALIAS = "updates"
 
 
-class BatonUpdateMapper(UpdateMapper):
+class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
     """
     Retrieves updates from iRODS using baton.
     """
-    def __init__(self, irods_config: IrodsConfig):
-        """
-        Constructor.
-        :param irods_config: the configuration iRODS requires to connect to iRODS.
-        """
-        self._irods_config = irods_config
+    def get_all_since(self, since: datetime) -> UpdateCollection:
+        since_timestamp = since.timestamp()
+        until_timestamp = BatonUpdateMapper._get_current_time().timestamp()
 
-    def get_all_since(self, since: datetime) -> QueryResult:
-        raise NotImplementedError()
+        query = PreparedSpecificQuery(_ALIAS, [since_timestamp, until_timestamp, since_timestamp, until_timestamp])
+        updates = self._get_with_prepared_specific_query(query)
+
+        # TODO: Merge metadata updates for the same data object
+
+        return UpdateCollection(updates)
+
+    def _object_serialiser(self, object_as_json: dict) -> CustomObjectType:
+        metadata = Metadata()
+        metadata_update = BATON_UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY in object_as_json
+        if metadata_update:
+            key = object_as_json[BATON_UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY]
+            value = object_as_json[BATON_UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY]
+            metadata[key] = value
+
+        path = "%s/%s" % (object_as_json[BATON_UPDATE_COLLECTION_NAME_PROPERTY],
+                       object_as_json[BATON_UPDATE_DATA_OBJECT_NAME_PROPERTY])
+
+        hash = object_as_json[BATON_UPDATE_HASH_PROPERTY] if BATON_UPDATE_HASH_PROPERTY in object_as_json else ""
+
+        modified_at = object_as_json[BATON_UPDATE_DATA_TIMESTAMP_PROPERTY] if not metadata_update \
+            else object_as_json[BATON_UPDATE_METADATA_TIMESTAMP_PROPERTY]
+
+        return Update(path, hash, modified_at, metadata)
 
     @staticmethod
-    def _convert_to_models(updates: List[Any]) -> UpdateCollection:
+    def _get_current_time() -> datetime:
         """
-        Converts a given list of file update entries (in the form of the JSON returned by iRODS) into
-        `UpdateCollection`.
-        :param updates: the file update entries ni the form of the JSON returned by iRODS
-        :return: a `UpdateCollection` created from the given entries
+        Gets the current time. Can be overriden to control environment for testing.
+        :return: the current time
         """
-        raise NotImplementedError()
+        return datetime.now()
