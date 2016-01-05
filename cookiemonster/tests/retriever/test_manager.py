@@ -26,8 +26,8 @@ class _BaseRetrievalManagerTest(unittest.TestCase):
         self.retrieval_log_mapper = StubRetrievalLogMapper()
 
         self.updates = UpdateCollection([
-            Update("a", hash("b"), datetime(year=1999, month=1, day=2), Metadata()),
-            Update("b", hash("c"), datetime(year=1998, month=12, day=20), Metadata())])
+            Update("a", datetime(year=1999, month=1, day=2), Metadata()),
+            Update("b", datetime(year=1998, month=12, day=20), Metadata())])
 
         def do_query(*args):
             RetrievalManager._get_current_time = MagicMock(

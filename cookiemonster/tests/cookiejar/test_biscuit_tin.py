@@ -59,9 +59,11 @@ from cookiemonster.common.models import Enrichment, Cookie
 import cookiemonster.cookiejar._dbi as dbi
 from cookiemonster.cookiejar import BiscuitTin
 
+
 def _change_time(time):
     ''' Mock the timing so we can control it '''
     dbi._now = MagicMock(return_value=time)
+
 
 class TestCookieJar(unittest.TestCase):
     def setUp(self):
@@ -289,6 +291,7 @@ class TestCookieJar(unittest.TestCase):
         
         after = new_jar.get_next_for_processing()
         self.assertEqual(before, after)
+
 
 if __name__ == '__main__':
     unittest.main()

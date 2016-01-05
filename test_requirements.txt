@@ -1,2 +1,3 @@
 nose==1.3.7
 docker-py==1.6.0
+git+https://github.com/wtsi-hgi/test-with-baton.git@master#egg=testwithbaton

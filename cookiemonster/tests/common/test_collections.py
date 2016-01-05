@@ -11,6 +11,8 @@ class TestUpdateCollection(unittest.TestCase):
     """
     Tests for `UpdateCollection`.
     """
+    _TARGET = "/my/target"
+
     def setUp(self):
         self.metadata = Metadata()
 
@@ -19,16 +21,16 @@ class TestUpdateCollection(unittest.TestCase):
 
     def test_can_instantiate_with_list(self):
         updates_list = [
-            Update("", "", datetime.min, self.metadata),
-            Update("", "", datetime.min, self.metadata)
+            Update(TestUpdateCollection._TARGET, datetime.min, self.metadata),
+            Update(TestUpdateCollection._TARGET, datetime.min, self.metadata)
         ]
         updates = UpdateCollection(updates_list)
         self.assertCountEqual(updates, updates_list)
 
     def test_can_instantiate_with_update_collection(self):
         updates_1= UpdateCollection([
-            Update("", "", datetime.min, self.metadata),
-            Update("", "", datetime.min, self.metadata)
+            Update(TestUpdateCollection._TARGET, datetime.min, self.metadata),
+            Update(TestUpdateCollection._TARGET, datetime.min, self.metadata)
         ])
         updates_2 = UpdateCollection(updates_1)
         self.assertCountEqual(updates_2, updates_1)
@@ -38,18 +40,26 @@ class TestUpdateCollection(unittest.TestCase):
 
     def test_get_most_recent(self):
         updates = UpdateCollection([
-            Update("", "", datetime.max, self.metadata),
-            Update("", "", datetime.min, self.metadata)
+            Update(TestUpdateCollection._TARGET, datetime.max, self.metadata),
+            Update(TestUpdateCollection._TARGET, datetime.min, self.metadata)
         ])
         self.assertCountEqual(updates.get_most_recent(), [updates[0]])
 
     def test_get_most_recent_when_many_have_same_latest(self):
         updates = UpdateCollection([
-            Update("", "", datetime.max, self.metadata),
-            Update("", "", datetime.min, self.metadata),
-            Update("", "", datetime.max, self.metadata)
+            Update(TestUpdateCollection._TARGET, datetime.max, self.metadata),
+            Update(TestUpdateCollection._TARGET, datetime.min, self.metadata),
+            Update(TestUpdateCollection._TARGET, datetime.max, self.metadata)
         ])
         self.assertCountEqual(updates.get_most_recent(), [updates[0], updates[2]])
+
+    def test_get_entity_updates(self):
+        updates = UpdateCollection([
+            Update(TestUpdateCollection._TARGET, datetime.max, self.metadata),
+            Update(TestUpdateCollection._TARGET + "/other", datetime.max, self.metadata),
+            Update(TestUpdateCollection._TARGET, datetime.min, self.metadata)
+        ])
+        self.assertCountEqual(updates.get_entity_updates(TestUpdateCollection._TARGET), [updates[0], updates[2]])
 
 
 if __name__ == "__main__":

@@ -28,9 +28,8 @@ class Update(Model):
     """
     Model of a file update.
     """
-    def __init__(self, target: str, hash: hash, timestamp: datetime, metadata: Metadata):
+    def __init__(self, target: str, timestamp: datetime, metadata: Metadata=Metadata()):
         self.target = target
-        self.hash = hash
         self.timestamp = timestamp
         self.metadata = metadata
 
