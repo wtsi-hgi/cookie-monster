@@ -216,4 +216,4 @@ class API(object):
         for route in self._routes:
             self._service.route(route._route, methods=route._get_methods)(route._response)
 
-        self._service.run(port=port)
+        self._service.run(debug=False, port=port)
