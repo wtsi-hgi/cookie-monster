@@ -53,7 +53,7 @@ import re
 import inspect
 import collections
 import json
-from typing import Callable, List, Interable, Union, Tuple
+from typing import Callable, List, Interable, Union, Tuple, Optional
 from enum import Enum
 
 from flask import Flask, request
@@ -84,7 +84,7 @@ def _has_request_body(method:HTTPMethod) -> bool:
 
 class HTTPSource(object):
     ''' HTTP data source and method handlers '''
-    def __init__(self, route:str, model:Model=None):
+    def __init__(self, route:str, model:Optional[Model]=None):
         self._route   = route
         self._model   = model
         self._methods = {}
@@ -185,7 +185,7 @@ class API(object):
         self._service = Flask(name)
         self._routes  = {}
 
-    def create_route(self, route:str, model:Model=None) -> HTTPSource:
+    def create_route(self, route:str, model:Optional[Model]=None) -> HTTPSource:
         '''
         Define a route; where routes may be parametrised, using tags
         within angled brackets, and be associated with a specific model.
