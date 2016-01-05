@@ -33,6 +33,7 @@ _DOCKERFILE_PATH = normpath(join(dirname(realpath(__file__)),
                                  '../../../docker/couchdb'))
 _COUCHDB_IMAGE   = 'hgi/couchdb'
 
+
 def _get_port():
     ''' Return available port '''
     free_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -41,6 +42,7 @@ def _get_port():
     port = free_socket.getsockname()[1]
     free_socket.close()
     return port
+
 
 class CouchDBContainer(object):
     def __init__(self):

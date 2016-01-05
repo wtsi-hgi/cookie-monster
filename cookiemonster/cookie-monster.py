@@ -24,7 +24,6 @@ from cookiemonster.processor.processing import ProcessorManager
 from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel
 from cookiemonster.retriever.log.sqlalchemy_mapper import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.manager import PeriodicRetrievalManager
-from cookiemonster.retriever.source.irods.irods_config import IrodsConfig
 from cookiemonster.tests.retriever._stubs import StubUpdateMapper
 
 
@@ -120,7 +119,6 @@ def create_retrieval_manager(retrieval_period: timedelta, retrieval_log_database
     :param retrieval_log_database_location: the location of the database in which retrieval logs are to be stored
     :return: the retrieval manager
     """
-    irods_config = IrodsConfig()
     update_mapper = StubUpdateMapper()
 
     database_connector = SQLAlchemyDatabaseConnector(retrieval_log_database_location)

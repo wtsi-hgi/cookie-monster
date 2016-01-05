@@ -36,9 +36,7 @@ class TestConvertToSqlalchemyRetrievalLog(unittest.TestCase):
     """
     def setUp(self):
         self._retrieve_log = RetrievalLog(
-            _LATEST_RETRIEVED_TIMESTAMP,
-            _NUMBER_OF_FILE_UPDATES,
-            _TIME_TAKEN_TO_COMPLETE_QUERY)
+                _LATEST_RETRIEVED_TIMESTAMP, _NUMBER_OF_FILE_UPDATES, _TIME_TAKEN_TO_COMPLETE_QUERY)
 
     def test_with_valid(self):
         sqlalchemy_retrieve_log = convert_to_sqlalchemy_retrieval_log(self._retrieve_log)
