@@ -8,9 +8,9 @@ If ``RuleSource`` is being used by your ``ProcessorManager`` to attain the rules
 instances, it is possible to dynamically changes the rules used by the Cookie Monster for future jobs (jobs already 
 running will continue to use the set of rules that they had when they were started).
 
-The following code illustrates how a rule is registered. If appropriate, the code can be inserted into an existing rule 
-file. Alternatively, it can be added to a new file in the rules directory, with a name matching the format: ``*.rule.py``.
-Rule files can be put into subdirectories.
+The following code illustrates how a rule is defined and registered. If appropriate, the code can be inserted into an 
+existing rule file. Alternatively, it can be added to a new file in the rules directory, with a name matching the
+format: ``*.rule.py``. Rule files can be put into subdirectories.
 ```python
 from cookiemonster import Cookie, Notification, Rule, RuleAction
 from hgicommon.mixable import Priority
