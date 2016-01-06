@@ -84,7 +84,7 @@ def _has_request_body(method:HTTPMethod) -> bool:
 
 class HTTPSource(object):
     ''' HTTP data source and method handlers '''
-    def __init__(self, route:str, model:Optional[Model]=None):
+    def __init__(self, route:str, model:Optional[type]=None):
         self._route   = route
         self._model   = model
         self._methods = {}
@@ -149,6 +149,8 @@ class HTTPSource(object):
 
         if _has_request_body(method):
             # Deserialise request body
+            # FIXME If the _model constructor doesn't match the below
+            #       (i.e., no arguments), then this will fail!
             model = self._model()
             data  = request.get_json(force=True)
 
@@ -186,7 +188,7 @@ class API(object):
         self._service = Flask(name)
         self._routes  = {}
 
-    def create_route(self, route:str, model:Optional[Model]=None) -> HTTPSource:
+    def create_route(self, route:str, model:Optional[type]=None) -> HTTPSource:
         '''
         Define a route; where routes may be parametrised, using tags
         within angled brackets, and be associated with a specific model.
