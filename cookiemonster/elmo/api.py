@@ -44,6 +44,7 @@ Copyright (c) 2016 Genome Research Limited
 '''
 
 from enum import Enum
+from threading import Thread
 
 from cookiemonster.elmo._framework import API, HTTPMethod, HTTPSource
 
@@ -61,6 +62,7 @@ class HTTP_API(object):
     def __init__(self):
         self._api = API('elmo')
         self._dependencies = {}
+        self._service = None
 
     def inject(self, name:APIDependency, dependency:object):
         '''
@@ -93,5 +95,6 @@ class HTTP_API(object):
         api.create_route('/queue/reprocess', CookiePath) \
            .set_method_handler(HTTPMethod.POST, dep[APIDependency.CookieJar].POST_mark_for_processing)
 
-        # TODO Threading
-        api.listen(port)
+        # Start service
+        self._service = Thread(target=api.listen, args=(port,))
+        self._service.start()
