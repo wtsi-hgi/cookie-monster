@@ -53,7 +53,7 @@ import re
 import inspect
 import collections
 import json
-from typing import Callable, List, Interable, Union, Tuple, Optional
+from typing import Callable, List, Iterable, Union, Tuple, Optional
 from enum import Enum
 
 from flask import Flask, request
@@ -63,7 +63,7 @@ from hgicommon.models import Model
 
 # Type aliases
 _ResponseT = Union[str, Tuple[str, int], Tuple[str, int, dict]]
-HandlerT = Callable[..., Union[Model, Iterable[Model]]]
+_HandlerT = Callable[..., Union[Model, Iterable[Model]]]
 
 
 class HTTPMethod(Enum):
@@ -92,7 +92,7 @@ class HTTPSource(object):
         # Extract any parameters from route
         self._parameters = list(set(re.findall('(?<=<)\w+(?=>)', route)))
 
-    def set_method_handler(self, method:HTTPMethod, handler:HandlerT) -> HTTPSource:
+    def set_method_handler(self, method:HTTPMethod, handler:_HandlerT) -> 'HTTPSource':
         '''
         Add/update an HTTP method handler for the data source
 
@@ -106,7 +106,7 @@ class HTTPSource(object):
             # The handlers for a parametrised route must have kwargs
             raise TypeError('A parametrised route handler must accept keyword arguments')
 
-        if has_request_body(method) and len(handler_args.args) != 1:
+        if _has_request_body(method) and len(handler_args.args) != 1:
             # POST and PUT handlers *must* have one argument, as well as 
             # kwargs, to pass in the deserialised request body
             raise TypeError('A {} handler must have a single argument'.format(method.value))
@@ -146,7 +146,7 @@ class HTTPSource(object):
 
         method = HTTPMethod(request.method)
 
-        if has_request_body(method):
+        if _has_request_body(method):
             # Deserialise request body
             model = self._model()
             data  = request.get_json(force=True)
@@ -213,7 +213,7 @@ class API(object):
 
         @param  port  The port to listen for HTTP requests
         '''
-        for route in self._routes:
-            self._service.route(route._route, methods=route._get_methods)(route._response)
+        for route, source in self._routes.items():
+            self._service.route(route, methods=source._get_methods())(source._response)
 
         self._service.run(debug=False, port=port)

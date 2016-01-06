@@ -76,7 +76,7 @@ class HTTP_API(object):
         # Check all dependencies are satisfied
         for d in APIDependency:
             if d not in dep:
-                raise KeyError('Dependencies not fully satisfied; missing {}'.format(d.value))
+                raise KeyError('Dependencies not fully satisfied; missing {}'.format(d.name))
 
         # Build service
         api.create_route('/cookie-jar/queue-length', QueueLength) \
