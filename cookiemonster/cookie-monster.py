@@ -24,6 +24,7 @@ from cookiemonster.processor.processing import ProcessorManager
 from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyModel
 from cookiemonster.retriever.log.sqlalchemy_mapper import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.manager import PeriodicRetrievalManager
+from cookiemonster.elmo import HTTP_API, APIDependency
 from cookiemonster.tests.retriever._stubs import StubUpdateMapper
 
 
@@ -36,7 +37,9 @@ def main():
     number_of_processors = 5
 
     manager_db_host = "http://localhost:5984"
-    manager_db_prefix = "cookiemonster"
+    manager_db_name = "cookiemonster"
+
+    http_api_port = 5000
 
     # Setup database for retrieval log
     setup_retrieval_log_database(retrieval_log_database_location)
@@ -48,7 +51,7 @@ def main():
     enrichment_manager = EnrichmentManager()
 
     # Setup cookie jar
-    # cookie_jar = BiscuitTin(manager_db_host, manager_db_prefix)
+    # cookie_jar = BiscuitTin(manager_db_host, manager_db_name)
     cookie_jar = InMemoryCookieJar()    # type: CookieJar
 
     # Setup rules source
@@ -61,6 +64,11 @@ def main():
     # Setup the data processor manager
     processor_manager = BasicProcessorManager(
         number_of_processors, cookie_jar, rules_source, enrichment_manager, notifier)    # type: ProcessorManager
+
+    # Setup the HTTP API
+    api = HTTP_API()
+    api.inject(APIDependency.CookieJar, cookie_jar)
+    api.listen(http_api_port)
 
     # Connect the cookie jar to the retrieval manager
     def put_update_in_cookie_jar(update_collection: UpdateCollection):

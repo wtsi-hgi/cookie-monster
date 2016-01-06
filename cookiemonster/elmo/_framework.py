@@ -35,8 +35,8 @@ Note that `API.create_route` and `HTTPSource.add_method_handler` both
 return an `HTTPSource` object, which self-references the route in
 question. As such, methods can be chained for convenience:
 
-    api.create_route('/api/<foo>', FooModel)
-       .set_method_handler(HTTPMethod.GET,  foo_get_handler)
+    api.create_route('/api/<foo>', FooModel) \
+       .set_method_handler(HTTPMethod.GET,  foo_get_handler) \
        .set_method_handler(HTTPMethod.POST, foo_post_handler)
 
 Authors
