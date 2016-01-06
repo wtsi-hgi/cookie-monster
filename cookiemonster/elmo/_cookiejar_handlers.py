@@ -1,7 +1,7 @@
 '''
 Cookie Jar API Handlers
 =======================
-Exportable classes: `CookieJarHandlers`, `QueueLength`
+Exportable classes: `CookieJarHandlers`, `QueueLength`, `CookiePath`
 
 Authors
 -------
