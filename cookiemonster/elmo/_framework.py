@@ -106,10 +106,11 @@ class HTTPSource(object):
             # The handlers for a parametrised route must have kwargs
             raise TypeError('A parametrised route handler must accept keyword arguments')
 
-        if _has_request_body(method) and len(handler_args.args) != 1:
+        if _has_request_body(method) and len(handler_args.args) == 0:
+            print(handler_args.args)
             # POST and PUT handlers *must* have one argument, as well as 
             # kwargs, to pass in the deserialised request body
-            raise TypeError('A {} handler must have a single argument'.format(method.value))
+            raise TypeError('A {} handler must have an argument'.format(method.value))
 
         if method in self._methods:
             del self._methods[method]
@@ -214,6 +215,11 @@ class API(object):
         @param  port  The port to listen for HTTP requests
         '''
         for route, source in self._routes.items():
-            self._service.route(route, methods=source._get_methods())(source._response)
+            self._service.add_url_rule(
+                rule=route,
+                endpoint=route,
+                view_func=source._response,
+                methods=source._get_methods()
+            )
 
         self._service.run(debug=False, port=port)

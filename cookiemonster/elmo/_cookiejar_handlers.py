@@ -22,8 +22,18 @@ class QueueLength(Model):
     def __init__(self, size:Optional[int]=None):
         self.queue_length = size
 
+class CookiePath(Model):
+    ''' Cookie path model '''
+    def __init__(self, path:Optional[str]=None):
+        self.path = path
+
 class CookieJarHandlers(DependencyInjectionHandler):
     ''' Handler functions for CookieJar '''
-    def get_queue_length(self, **kwargs):
+    def GET_queue_length(self, **kwargs):
         cookiejar = self._dependency
         return QueueLength(cookiejar.queue_length())
+
+    def POST_mark_for_processing(self, cookie:CookiePath, **kwargs):
+        cookiejar = self._dependency
+        cookiejar.mark_for_processing(cookie.path)
+        return cookie

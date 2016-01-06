@@ -22,8 +22,16 @@ Routes
 ------
 The following routes have been specified:
 
-    /cookie-jar/queue-length
-      GET  The current processing queue length
+    /queue
+      GET   The current processing queue length
+
+    /queue/reprocess
+      POST  Mark the file in the request's `.path` for reprocessing
+
+FIXME While we don't have any hypermedia, sources and sinks goes against
+      proper RESTful design. However, this is largely from the lack of
+      useful exposed methods that could use parametrised routes
+      productively...
 
 Authors
 -------
@@ -40,7 +48,7 @@ from enum import Enum
 from cookiemonster.elmo._framework import API, HTTPMethod, HTTPSource
 
 # Data source handlers and models
-from cookiemonster.elmo._cookiejar_handlers import CookieJarHandlers, QueueLength
+from cookiemonster.elmo._cookiejar_handlers import CookieJarHandlers, QueueLength, CookiePath
 
 
 class APIDependency(Enum):
@@ -79,8 +87,11 @@ class HTTP_API(object):
                 raise KeyError('Dependencies not fully satisfied; missing {}'.format(d.name))
 
         # Build service
-        api.create_route('/cookie-jar/queue-length', QueueLength) \
-           .set_method_handler(HTTPMethod.GET, dep[APIDependency.CookieJar].get_queue_length)
+        api.create_route('/queue', QueueLength) \
+           .set_method_handler(HTTPMethod.GET, dep[APIDependency.CookieJar].GET_queue_length)
+
+        api.create_route('/queue/reprocess', CookiePath) \
+           .set_method_handler(HTTPMethod.POST, dep[APIDependency.CookieJar].POST_mark_for_processing)
 
         # TODO Threading
         api.listen(port)
