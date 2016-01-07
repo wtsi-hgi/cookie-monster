@@ -48,6 +48,7 @@ class EnrichmentLoaderSource(RegisteringDataSource):
     """
     # Regex used to determine if a file contains an enrichment loader(s)
     FILE_PATH_MATCH_REGEX = ".*loader\.py"
+    _COMPILED_FILE_PATH_MATCH_REGEX = re.compile(FILE_PATH_MATCH_REGEX)
 
     def __init__(self, directory_location: str):
         """
@@ -56,8 +57,5 @@ class EnrichmentLoaderSource(RegisteringDataSource):
         """
         super().__init__(directory_location, EnrichmentLoader)
 
-    # Compiled `FILE_PATH_MATCH_REGEX`
-    _compiled_file_path_match_regex = re.compile(FILE_PATH_MATCH_REGEX)
-
     def is_data_file(self, file_path: str) -> bool:
-        return EnrichmentLoaderSource._compiled_file_path_match_regex.search(file_path)
+        return EnrichmentLoaderSource._COMPILED_FILE_PATH_MATCH_REGEX.search(file_path)

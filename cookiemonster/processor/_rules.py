@@ -11,15 +11,14 @@ from cookiemonster.processor.models import Rule
 
 class RuleQueue:
     """
-    A priority queue of rules that are used when processing a Cookie.
+    A priority queue of rules that are used when processing a cookie.
 
     Thread-safe.
     """
     def __init__(self, rules: Iterable[Rule]):
         """
         Constructor.
-        :param rules: the data to be processed (these will be copied so changes to the set outside of this object will
-        have no effect)
+        :param rules: the data to be processed (immutable copy made)
         """
         self._rules = copy.copy(rules)
         self._not_applied = PriorityQueue()
@@ -55,8 +54,10 @@ class RuleQueue:
 
     def mark_as_applied(self, rule: Rule):
         """
-        Marks the given rule as applied. Will raise a `ValueError` if the rule has already been marked as applied or
-        if the rule is not marked as being applied (i.e. not acquired via `get_next`).
+        Marks the given rule as applied.
+
+        Will raise a `ValueError` if the rule has already been marked as applied or if the rule is not marked as being
+        applied (i.e. not acquired via `get_next`).
 
         Thread-safe.
         :param rule: the rule to mark as applied
@@ -92,6 +93,7 @@ class RuleSource(RegisteringDataSource):
     """
     # Regex used to determine if a file contains a rule(s)
     FILE_PATH_MATCH_REGEX = ".*rule\.py"
+    _COMPILED_FILE_PATH_MATCH_REGEX = re.compile(FILE_PATH_MATCH_REGEX)
 
     def __init__(self, directory_location: str):
         """
@@ -100,8 +102,5 @@ class RuleSource(RegisteringDataSource):
         """
         super().__init__(directory_location, Rule)
 
-    # Compiled `FILE_PATH_MATCH_REGEX`
-    _compiled_file_path_match_regex = re.compile(FILE_PATH_MATCH_REGEX)
-
     def is_data_file(self, file_path: str) -> bool:
-        return RuleSource._compiled_file_path_match_regex.search(file_path)
+        return RuleSource._COMPILED_FILE_PATH_MATCH_REGEX.search(file_path)

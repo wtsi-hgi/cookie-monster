@@ -1,18 +1,11 @@
 import shutil
 import unittest
-from copy import copy
-from datetime import datetime
 from os.path import normpath, join, dirname, realpath
 from tempfile import mkdtemp
-from threading import Semaphore
-from typing import Sequence, Tuple, Optional, Iterable
+from typing import Sequence
 from unittest.mock import MagicMock, call
 
-from hgicommon.collections import Metadata
-
-from cookiemonster.common.models import Enrichment, Notification
-from cookiemonster.cookiejar import CookieJar
-from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
+from cookiemonster.common.models import Notification
 from cookiemonster.notifier.notifier import Notifier
 from cookiemonster.processor._enrichment import EnrichmentManager, EnrichmentLoaderSource
 from cookiemonster.processor._rules import RuleSource
@@ -128,3 +121,7 @@ class TestIntegration(unittest.TestCase):
         :return: the generated cookie paths
         """
         return ["%s/%s" % (TestIntegration._PATH, i) for i in range(number)]
+
+
+if __name__ == "__main__":
+    unittest.main()

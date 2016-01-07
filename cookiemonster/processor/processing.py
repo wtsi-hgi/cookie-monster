@@ -12,7 +12,7 @@ class Processor(metaclass=ABCMeta):
     """
     @abstractmethod
     def process(self, cookie: Cookie, rules: Iterable[Rule],
-                on_complete: Callable[[bool, Optional[List[Notification]]], None]):
+                on_complete: Callable[[bool, Optional[Iterable[Notification]]], None]):
         """
         Processes the given cookie.
         :param cookie: the cookie that is to be processed
@@ -25,23 +25,22 @@ class Processor(metaclass=ABCMeta):
 
 class ProcessorManager(metaclass=ABCMeta):
     """
-    Manages the continuous processing of file updates.
+    Manager of the continuous processing of dirty cookies.
     """
     @abstractmethod
     def process_any_cookies(self):
         """
-        Check for new cookie jobs that are to be processed and process them (in a different thread) if they are
-        available.
+        Check for new cookie jobs that are to be processed and process them if they are available.
         """
         pass
 
     @abstractmethod
-    def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: List[Notification]=()):
+    def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: Iterable[Notification]=()):
         """
         Called when processing of a cookie has been completed.
         :param cookie: the cookie that has been processed
         :param stop_processing: whether rule indicates that we should stop processing the given cookie
-        :param notifications: list of external processes that are to be notified. List should only be given if processor
-        were matched
+        :param notifications: external processes that are to be notified. Should only be given if at least one rule was
+        matched
         """
         pass

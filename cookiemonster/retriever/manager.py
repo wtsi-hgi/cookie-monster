@@ -21,7 +21,7 @@ class RetrievalManager(Listenable[UpdateCollection]):
         :param update_mapper: the object through which updates can be retrieved from the source
         :param retrieval_log_mapper: mapper through which retrieval logs can be stored
         """
-        super(RetrievalManager, self).__init__()
+        super().__init__()
         self.update_mapper = update_mapper
         self._retrieval_log_mapper = retrieval_log_mapper
 

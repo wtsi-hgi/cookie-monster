@@ -5,14 +5,12 @@ from cookiemonster.common.models import Notification
 
 class Notifier(metaclass=ABCMeta):
     """
-    TODO
+    Notifies interested party about notifications generated from processing cookies.
     """
     @abstractmethod
     def do(self, notification: Notification):
         """
-        TODO
-        :param notification:
-        :return:
+        Notifies the interested part of the given notification.
+        :param notification: the notification to give
         """
         pass
-

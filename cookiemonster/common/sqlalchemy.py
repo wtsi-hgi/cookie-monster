@@ -8,7 +8,7 @@ class SQLAlchemyDatabaseConnector:
     """
     def __init__(self, database_location : str):
         """
-        Default constructor.
+        Constructor.
         :param database_location: the url of the database that connections can be made to.
         """
         self._engine = None

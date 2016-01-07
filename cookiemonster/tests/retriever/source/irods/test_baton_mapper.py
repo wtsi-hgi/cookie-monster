@@ -70,7 +70,7 @@ class TestBatonUpdateMapper(unittest.TestCase):
         self.assertEquals(len(updates), 1)
         relevant_updates = updates.get_entity_updates(location)
         # Expect the mapper to have combined all updates into one
-        # (see discussion: https://github.com/wtsi-hgi/cookie-monster/issues/3#issuecomment-168990482)
+        # (see discussion: https://github.com/wtsi-hgi/cookie-monster/issues/3)
         self.assertEquals(len(relevant_updates), 1)
         self.assertEquals(relevant_updates[0].target, location)
         self.assertEquals(relevant_updates[0].metadata, metadata)
