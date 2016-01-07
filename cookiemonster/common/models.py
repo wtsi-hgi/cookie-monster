@@ -13,14 +13,12 @@ GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 """
 from datetime import datetime
-from enum import Enum
-from enum import unique
 from functools import total_ordering
-from typing import Any, Union, Set, Optional, TypeVar, Generic
+from typing import Any, Union, Set, Optional
+
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
 
-import cookiemonster
 from cookiemonster.common.enums import EnrichmentSource
 
 
@@ -28,7 +26,7 @@ class Update(Model):
     """
     Model of a file update.
     """
-    def __init__(self, target: str, timestamp: datetime, metadata: Metadata=Metadata()):
+    def __init__(self, target: str, timestamp: datetime, metadata: Metadata = Metadata()):
         self.target = target
         self.timestamp = timestamp
         self.metadata = metadata
@@ -40,13 +38,13 @@ class Enrichment(Model):
     Metadata enrichment model
     """
     def __init__(self, source: Union[EnrichmentSource, str], timestamp: datetime, metadata: Metadata):
-        self.source    = source
+        self.source = source
         self.timestamp = timestamp
-        self.metadata  = metadata
+        self.metadata = metadata
 
     def __lt__(self, other):
         """ Order enrichments by their timestamp """
-        return (self.timestamp < other.timestamp)
+        return self.timestamp < other.timestamp
 
 
 class Cookie(Model):
@@ -80,8 +78,8 @@ class Cookie(Model):
         return next((
             enrichment.metadata[key]
             for enrichment in reversed(self.enrichments)
-            if  enrichment.source == source
-            and key in enrichment.metadata
+            if enrichment.source == source
+               and key in enrichment.metadata
         ), default)
 
     def get_metadata_sources(self) -> Set[Union[EnrichmentSource, str]]:
@@ -95,9 +93,9 @@ class Notification(Model):
     """
     A model of a notification that should be sent to an external process.
     """
-    def __init__(self, external_process_name: str, data: Optional[Any]=None):
+    def __init__(self, external_process_name: str, data: Optional[Any] = None):
         """
-        Default constructor.
+        Constructor.
         :param external_process_name: the name of the external process that should be informed
         :param data: the data (if any) that should be given to the external process
         """

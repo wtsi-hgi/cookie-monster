@@ -16,15 +16,15 @@ from cookiemonster import Cookie, Notification, Rule, RuleAction
 from hgicommon.mixable import Priority
 from hgicommon.data_source import register
 
-def _matching_criteria(cookie: Cookie) -> bool:
+def _matches(cookie: Cookie) -> bool:
     return "my_study" in cookie.path
         
-def _action_generator(cookie: Cookie) -> RuleAction:
+def _generate_action(cookie: Cookie) -> RuleAction:
     return RuleAction([Notification("everyone", cookie.path)], True)
 
 _priority = Priority.MAX_PRIORITY
 
-_rule = Rule(_matching_criteria, _action_generator, _priority)
+_rule = Rule(_matches, _generate_action, _priority)
 register(_rule)
 ```
 

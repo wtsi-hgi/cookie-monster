@@ -12,8 +12,7 @@ from hgicommon.mixable import Priority
 from cookiemonster.common.models import Cookie, Notification, Enrichment
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor.basic_processing import BasicProcessorManager, BasicProcessor
-from cookiemonster.processor.models import Rule, EnrichmentLoader
-from cookiemonster.processor.models import RuleAction
+from cookiemonster.processor.models import Rule, EnrichmentLoader, RuleAction
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
 from cookiemonster.tests.processor._stubs import StubNotifier
 

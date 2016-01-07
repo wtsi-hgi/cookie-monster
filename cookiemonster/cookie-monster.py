@@ -85,10 +85,10 @@ def main():
 
     # Let's see if the setup works!
     updates_1 = UpdateCollection([
-        Update("file_id_1", hash("hash"), datetime(year=2000, month=9, day=10), Metadata())
+        Update("file_id_1", datetime(year=2000, month=9, day=10), Metadata())
     ])
     updates_2 = UpdateCollection([
-        Update("file_id_2", hash("hash"), datetime(year=2001, month=8, day=7), Metadata())
+        Update("file_id_2", datetime(year=2001, month=8, day=7), Metadata())
     ])
     no_updates = [UpdateCollection() for _ in range(1000)]
 

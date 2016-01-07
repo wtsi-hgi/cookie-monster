@@ -1,5 +1,4 @@
-from enum import Enum, unique
-from typing import Callable, Iterable, TypeVar, Generic
+from typing import Callable, Iterable
 
 from hgicommon.mixable import Priority
 from hgicommon.models import Model
@@ -13,7 +12,7 @@ class RuleAction(Model):
     """
     def __init__(self, notifications: Iterable[Notification], terminate_processing: bool):
         """
-        Default constructor.
+        Constructor.
         :param notifications: notifications for external processes
         :param terminate_processing: whether the data processor should stop processing the update
         """
@@ -25,17 +24,17 @@ class Rule(Model, Priority):
     """
     A model of a rule that defines an action that should be executed if a criteria is matched.
     """
-    def __init__(self, matching_criteria: Callable[[Cookie], bool], action_generator: Callable[[Cookie], RuleAction],
+    def __init__(self, matches: Callable[[Cookie], bool], generate_action: Callable[[Cookie], RuleAction],
                  priority: int = Priority.MIN_PRIORITY):
         """
         Default constructor.
-        :param matching_criteria: see `Rule.matching_criteria`
-        :param action_generator: see `Rule.action_generator`
+        :param matches: see `Rule._matches`
+        :param generate_action: see `Rule.generate_action`
         :param priority: the priority of the rule (default to the minimum possible)
         """
         super().__init__(priority)
-        self._matching_criteria = matching_criteria
-        self._action_generator = action_generator
+        self._matches = matches
+        self._generate_action = generate_action
 
     def __hash__(self):
         return id(self)
@@ -43,15 +42,15 @@ class Rule(Model, Priority):
     def __str__(self):
         return str(id(self))
 
-    def matching_criteria(self, cookie: Cookie) -> bool:
+    def matches(self, cookie: Cookie) -> bool:
         """
         Returns whether this rule applies to the given cookie that is being processed.
         :param cookie: the cookie to check if the rule applies to
         :return: whether the rule applies
         """
-        return self._matching_criteria(cookie)
+        return self._matches(cookie)
 
-    def action_generator(self, cookie: Cookie) -> RuleAction:
+    def generate_action(self, cookie: Cookie) -> RuleAction:
         """
         Returns the action that should be taken in response to the given cookie.
 
@@ -59,9 +58,9 @@ class Rule(Model, Priority):
         :param cookie: the cookie to generate an action for
         :return: the generated action
         """
-        if not self.matching_criteria(cookie):
+        if not self._matches(cookie):
             return ValueError("Rules does not match cookie: %s" % cookie)
-        return self._action_generator(cookie)
+        return self._generate_action(cookie)
 
 
 class EnrichmentLoader(Model, Priority):
@@ -71,7 +70,7 @@ class EnrichmentLoader(Model, Priority):
     def __init__(self, can_enrich: Callable[[Cookie], bool], load_enrichment: Callable[[Cookie], Enrichment],
                  priority: int=Priority.MIN_PRIORITY):
         """
-        Default constructor.
+        Constructor.
         :param can_enrich: see `EnrichmentLoader.can_enrich`
         :param load_enrichment: see `EnrichmentLoader.load_enrichment`
         :param priority: the priority used to decide when the enrichment loader should be used
@@ -82,7 +81,7 @@ class EnrichmentLoader(Model, Priority):
 
     def can_enrich(self, cookie: Cookie) -> bool:
         """
-        Returns whether or not the data that this enrichment loader can enrich the given cookie
+        Returns whether or not the data that this enrichment loader can enrich the given cookie.
         :param cookie: cookie containing the data that is already known
         :return: whether it is possible to enrich the given cookie
         """

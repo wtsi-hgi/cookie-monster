@@ -11,7 +11,10 @@ class InMemoryCookieJar(CookieJar):
     In memory implementation of a `CookieJar`.
     """
     def __init__(self):
-        super(InMemoryCookieJar, self).__init__()
+        """
+        Constructor.
+        """
+        super().__init__()
         self._known_data = dict()   # type: Dict[str, Cookie]
         self._processing = []   # type: List[str]
         self._waiting = []  # type: List[str]

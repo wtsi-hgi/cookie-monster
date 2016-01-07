@@ -7,15 +7,15 @@ MATCHES_COOKIES_WITH_PATH = "/my/special/cookie"
 NOTIFIES = "everyone"
 
 
-def _matching_criteria(cookie: Cookie) -> bool:
+def _matches(cookie: Cookie) -> bool:
     return cookie.path == MATCHES_COOKIES_WITH_PATH
 
 
-def _action_generator(cookie: Cookie) -> RuleAction:
+def _generate_action(cookie: Cookie) -> RuleAction:
     return RuleAction([Notification(NOTIFIES, cookie.path)], True)
 
 
 _priority = Priority.MAX_PRIORITY
 
-_rule = Rule(_matching_criteria, _action_generator, _priority)
+_rule = Rule(_matches, _generate_action, _priority)
 register(_rule)

@@ -1,6 +1,6 @@
 import logging
 from threading import Lock, Thread
-from typing import List, Callable, Optional, Sequence
+from typing import List, Callable, Optional, Sequence, Iterable
 
 from hgicommon.data_source import DataSource
 
@@ -15,10 +15,10 @@ from cookiemonster.processor.processing import ProcessorManager, Processor
 
 class BasicProcessor(Processor):
     """
-    Simple processor for a single file update.
+    Simple processor for a single cookie.
     """
     def process(self, cookie: Cookie, rules: Sequence[Rule],
-                on_complete: Callable[[bool, Optional[List[Notification]]], None]):
+                on_complete: Callable[[bool, Optional[Iterable[Notification]]], None]):
         logging.info("Processing cookie with path \"%s\", which has %d enrichment(s). Using %d rule(s)"
                      % (cookie.path, len(cookie.enrichments), len(rules)))
         rule_queue = RuleQueue(rules)
@@ -28,8 +28,8 @@ class BasicProcessor(Processor):
 
         while not terminate and rule_queue.has_unapplied_rules():
             rule = rule_queue.get_next()
-            if rule.matching_criteria(cookie):
-                rule_action = rule.action_generator(cookie)
+            if rule._matches(cookie):
+                rule_action = rule.generate_action(cookie)
                 notifications += rule_action.notifications
                 terminate = rule_action.terminate_processing
             rule_queue.mark_as_applied(rule)
@@ -91,7 +91,7 @@ class BasicProcessorManager(ProcessorManager):
         else:
             logging.debug("Triggered to process cookies but no free processors")
 
-    def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: List[Notification]=()):
+    def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: Iterable[Notification]=()):
         for notification in notifications:
             logging.info("Notifying \"%s\" as a result of processing cookie with path \"%s\""
                           % (notification.external_process_name, cookie.path))
@@ -105,12 +105,12 @@ class BasicProcessorManager(ProcessorManager):
 
             if enrichment is None:
                 logging.info("Cannot enrich cookie with path \"%s\" any further" % cookie.path)
-                # FIXME: No guarantee that such a notification can be given
+                # FIXME: No guarantee that such a notification can be given!
                 self._notifier.do(Notification("unknown", cookie.path))
                 self._cookie_jar.mark_as_complete(cookie.path)
             else:
                 logging.info("Appliyng enrichment from source \"%s\" to cookie with path \"%s\""
-                              % (cookie.path, enrichment.source))
+                             % (cookie.path, enrichment.source))
                 self._cookie_jar.enrich_cookie(cookie.path, enrichment)
                 self._cookie_jar.mark_for_processing(cookie.path)
 
@@ -119,7 +119,7 @@ class BasicProcessorManager(ProcessorManager):
         Claims a processor.
 
         Thread-safe.
-        :return: the claimed processor, else `None` if no were available
+        :return: the claimed processor, else `None` if none were available
         """
         if len(self._idle_processors) == 0:
             return None
