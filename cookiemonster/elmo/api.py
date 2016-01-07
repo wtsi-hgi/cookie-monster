@@ -11,12 +11,14 @@ Enumeration of Cookie Monster dependencies
 
 HTTP_API
 --------
-Set up and launch the API service on a separate thread
+Set up and launch the API service as a separate process
 
 * `inject` Link a Cookie Monster dependency into the service
 
-* `listen` Start the service on a separate thread, listening on the
+* `listen` Start the service as a separate process, listening on the
   specified port
+
+* `stop` Forcibly stop the running service
 
 Routes
 ------
@@ -44,7 +46,7 @@ Copyright (c) 2016 Genome Research Limited
 '''
 
 from enum import Enum
-from threading import Thread
+from multiprocessing import Process
 
 from cookiemonster.elmo._framework import API, HTTPMethod, HTTPSource
 
@@ -76,7 +78,7 @@ class HTTP_API(object):
     def listen(self, port:int=5000):
         '''
         Check all dependencies are satisfied, define the service and
-        start it on a separate thread
+        start it as a separate process
 
         @param  port  The port to listen for HTTP requests
         '''
@@ -96,5 +98,13 @@ class HTTP_API(object):
            .set_method_handler(HTTPMethod.POST, dep[APIDependency.CookieJar].POST_mark_for_processing)
 
         # Start service
-        self._service = Thread(target=api.listen, args=(port,))
+        self._service = Process(target=api.listen, args=(port,))
         self._service.start()
+
+    def stop(self):
+        '''
+        Stop the running service
+        '''
+        if self._service:
+            self._service.terminate()
+            self._service.join()
