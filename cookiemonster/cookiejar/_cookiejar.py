@@ -27,7 +27,7 @@ Jars. Such implementations must define the following methods:
 * `mark_as_complete` should mark a file as having completed its
   processing successfully
 
-* `mark_as_reprocess` should mark a file as requiring reprocessing,
+* `mark_for_processing` should mark a file as requiring reprocessing,
   which returns it to the queue immediately. Note that this method is
   intended to be invoked under exceptional circumstances (e.g.,
   manually, via some external service, or when downstream processes
