@@ -53,6 +53,24 @@ _enrichment_loader = EnrichmentLoader(_can_enrich, _load_enrichment, _priority)
 register(_enrichment_loader)
 ```
 
+## HTTP API
+
+A JSON-based HTTP API is provided to expose certain functionality as an
+outwardly facing interface, on a configurable port. Currently, the
+following endpoints are defined:
+
+**`/queue`**
+* `GET` Get the current status details of the "to process" queue,
+  returning a JSON object with the following members: `queue_length`
+
+**`/queue/reprocess`**
+* `POST` Mark a file as requiring reprocessing, which will immediately
+  return it (if necessary) to the "to process" queue. This method
+  expects a JSON request body consisting of an object with a `path`
+  member; returning the same.
+
+Note that *all* requests must include `application/json` in their
+`Accept` header.
 
 ## How to develop
 ### Testing
