@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from typing import Dict, Iterable
 
@@ -12,8 +13,8 @@ from cookiemonster.common.models import Update
 from cookiemonster.retriever.mappers import UpdateMapper
 from cookiemonster.retriever.source.irods._constants import UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY, \
     UPDATE_COLLECTION_NAME_PROPERTY, UPDATE_DATA_OBJECT_NAME_PROPERTY, UPDATE_HASH_PROPERTY, \
-    UPDATE_DATA_TIMESTAMP_PROPERTY, UPDATE_METADATA_TIMESTAMP_PROPERTY, SPECIFIC_QUERY_ALIAS, \
-    UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY
+    UPDATE_DATA_TIMESTAMP_PROPERTY, UPDATE_METADATA_TIMESTAMP_PROPERTY, DATA_UPDATES_QUERY_ALIAS, \
+    UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY, METADATA_UPDATES_QUERY_ALIAS
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
@@ -42,9 +43,18 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         # are returned
         since_timestamp = since_timestamp.zfill(11)
 
-        query = PreparedSpecificQuery(
-                SPECIFIC_QUERY_ALIAS, [since_timestamp, until_timestamp, since_timestamp, until_timestamp])
-        updates = self._get_with_prepared_specific_query(query)
+        arguments = [since_timestamp, until_timestamp, since_timestamp, until_timestamp]
+
+        updates = []
+
+        async def _run_query(query: PreparedSpecificQuery) -> Iterable[Update]:
+            return self._get_with_prepared_specific_query(updates_query)
+
+        aliases = [DATA_UPDATES_QUERY_ALIAS, METADATA_UPDATES_QUERY_ALIAS]
+        async for alias in aliases:
+            updates_query = PreparedSpecificQuery(alias, arguments)
+            updates.extend(list(_run_query(updates_query)))
+
 
         return BatonUpdateMapper._combine_updates_for_same_entity(updates)
 
@@ -88,7 +98,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
             else:
                 existing_update = combined_updates_map[target]
 
-                # Update timestamp to the newest
+                # Preserve newest timestamp
                 if update.timestamp > existing_update.timestamp:
                     existing_update.timestamp = update.timestamp
 
