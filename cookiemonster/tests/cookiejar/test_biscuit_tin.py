@@ -47,7 +47,7 @@ Copyright (c) 2015 Genome Research Limited
 '''
 import unittest
 from unittest.mock import MagicMock
-from cookiemonster.tests.cookiejar._docker import CouchDBContainer
+from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer
 
 from datetime import datetime, timedelta
 from time import sleep
