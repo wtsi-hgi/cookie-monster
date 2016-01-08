@@ -17,7 +17,6 @@ import unittest
 from unittest.mock import MagicMock
 
 from cookiemonster import Cookie
-from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
 from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer, _get_port
 
 import json
@@ -112,7 +111,7 @@ class TestElmo(unittest.TestCase):
 
         data = _decode_json_response(r)
         self.assertIn('queue_length', data)
-        self.assertEqual(data['queue_length'], 0)
+        self.assertEqual(data['queue_length'], self.jar.queue_length()) # Should be 0
 
         self.http.close()
 
@@ -121,12 +120,13 @@ class TestElmo(unittest.TestCase):
 
         self.http.request('GET', '/queue', headers=self.REQ_HEADER)
         data = _decode_json_response(self.http.getresponse())
-        self.assertEqual(data['queue_length'], 1)
+        self.assertEqual(data['queue_length'], self.jar.queue_length()) # Should be 1
 
     def test_reprocess(self):
         '''
         HTTP API: POST /queue/reprocess
         '''
+        # Add mocked update notifier to Cookie Jar
         dirty_cookie_listener = MagicMock()
         self.jar.add_listener(dirty_cookie_listener)
 
@@ -145,7 +145,6 @@ class TestElmo(unittest.TestCase):
 
         # Check queue has been updated
         self.assertEquals(self.jar.queue_length(), 1)
-        # Check dirty cookie listener was called
         self.assertEquals(dirty_cookie_listener.call_count, 1)
 
 
