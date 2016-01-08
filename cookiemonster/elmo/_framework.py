@@ -18,6 +18,8 @@ its routes and method handlers, using the following methods:
 * `listen` Build the service defined by its routes and method handlers
   and start it, listening on the specified port
 
+* `stop` Stop the running service
+
 HTTPMethod
 ----------
 Enumeration of supported HTTP methods
@@ -55,6 +57,8 @@ import collections
 import json
 from typing import Callable, List, Iterable, Union, Tuple, Optional
 from enum import Enum
+from uuid import uuid4
+from http.client import HTTPConnection
 
 from flask import Flask, request
 
@@ -186,7 +190,18 @@ class API(object):
         @param  name  API service name
         '''
         self._service = Flask(name)
-        self._routes  = {}
+        self._routes = {}
+        self._shutdown_route = '/{}'.format(uuid4().hex)
+
+    def _shutdown_handler(self):
+        '''
+        Initiate server shutdown request
+        Based on http://flask.pocoo.org/snippets/67/
+        '''
+        shutdown = request.environ.get('werkzeug.server.shutdown')
+        if shutdown is None:
+            raise RuntimeError('Not running with the Werkzeug server')
+        shutdown()
 
     def create_route(self, route:str, model:Optional[type]=None) -> HTTPSource:
         '''
@@ -224,4 +239,25 @@ class API(object):
                 methods=source._get_methods()
             )
 
+        # Shutdown route
+        self._service.add_url_rule(
+            rule=self._shutdown_route,
+            endpoint=self._shutdown_route,
+            view_func=self._shutdown_handler,
+            methods=['POST']
+        )
+
+        self._port = port
+        self._running = True
         self._service.run(debug=False, port=port)
+
+    def stop(self):
+        '''
+        Stop the running service: We can only do this by making a
+        request to a special endpoint :P
+        '''
+        if self._running:
+            conn = HTTPConnection('localhost', self._port)
+            conn.request('POST', self._shutdown_route)
+            conn.close()
+            self._running = False

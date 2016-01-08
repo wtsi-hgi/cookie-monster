@@ -137,7 +137,7 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(len(to_process.enrichments), 2)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
-        self.assertEquals(self.eg_listener.call_count, 1)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test04_enrich_and_complete(self):
         '''

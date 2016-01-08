@@ -13,8 +13,9 @@ connect to (and create, if necessary) said database on the host and set
 up (again, if necessary) the required design documents to manage the
 processing queue and metadata repository.
 
-`BiscuitTin` implements `Listenable`; when metadata is enriched, it will
-broadcast the current queue length to all downstream listeners.
+`BiscuitTin` implements `Listenable`; when a cookie is queued (i.e., on
+metadata enrichment or exceptional marking), it will broadcast the
+updated queue length to all downstream listeners.
 
 Authors
 -------
@@ -62,6 +63,7 @@ class BiscuitTin(CookieJar):
 
     def mark_for_processing(self, path: str):
         self._queue.mark_dirty(path)
+        self.notify_listeners(self.queue_length())
 
     def get_next_for_processing(self) -> Optional[Cookie]:
         to_process = self._queue.dequeue()
