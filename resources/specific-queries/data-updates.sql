@@ -7,4 +7,4 @@ SELECT DISTINCT Collection.coll_name AS collectionName,
     FROM R_DATA_MAIN AS Data
         INNER JOIN R_COLL_MAIN AS Collection
             ON Data.coll_id = Collection.coll_id
-    WHERE Data.modify_ts >= ? AND Data.modify_ts <= ?
+    WHERE Data.modify_ts > ? AND Data.modify_ts <= ?
