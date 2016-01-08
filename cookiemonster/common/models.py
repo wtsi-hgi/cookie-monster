@@ -91,13 +91,15 @@ class Cookie(Model):
 
 class Notification(Model):
     """
-    A model of a notification that should be sent to an external process.
+    A model of a notification that should be sent to a receiver.
     """
-    def __init__(self, external_process_name: str, data: Optional[Any] = None):
+    def __init__(self, about: str, data: Optional[Any]=None, sender: str=None):
         """
         Constructor.
-        :param external_process_name: the name of the external process that should be informed
-        :param data: the data (if any) that should be given to the external process
+        :param about: what the notification is about
+        :param data: the data (if any) that should be given to the about
+        :param sender: the name of the sender (`None` if not defined)
         """
-        self.external_process_name = external_process_name
+        self.about = about
+        self.sender = sender
         self.data = data

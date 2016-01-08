@@ -5,15 +5,17 @@ from tempfile import mkdtemp
 from typing import Sequence
 from unittest.mock import MagicMock, call
 
+from hgicommon.data_source import ListDataSource
+
 from cookiemonster.common.models import Notification
-from cookiemonster.notifier.notifier import Notifier
+from cookiemonster.notifications.notification_receiver import NotificationReceiverSource, NotificationReceiver
 from cookiemonster.processor._enrichment import EnrichmentManager, EnrichmentLoaderSource
 from cookiemonster.processor._rules import RuleSource
 from cookiemonster.processor.basic_processing import BasicProcessorManager
 from cookiemonster.processor.processing import ProcessorManager
 from cookiemonster.tests.processor._helpers import add_data_files, block_until_processed
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
-from cookiemonster.tests.processor._stubs import StubNotifier
+from cookiemonster.tests.processor._stubs import StubNotificationReceiver
 from cookiemonster.tests.processor.example_rule.enrich_match_rule import MATCHES_ENIRCHED_COOKIE_WITH_PATH
 from cookiemonster.tests.processor.example_rule.name_match_rule import MATCHES_COOKIES_WITH_PATH, NOTIFIES
 
@@ -52,14 +54,14 @@ class TestIntegration(unittest.TestCase):
         self.rules_source = RuleSource(self.rules_directory)
         self.rules_source.start()
 
-        # Setup notifier
-        self.notifier = StubNotifier()   # type: Notifier
-        self.notifier.do = MagicMock()
+        # Setup notifications
+        self.notification_receiver = StubNotificationReceiver()
+        self.notification_receiver.receive = MagicMock()
 
         # Setup the data processor manager
         self.processor_manager = BasicProcessorManager(
                 TestIntegration._NUMBER_OF_PROCESSORS, self.cookie_jar, self.rules_source, enrichment_manager,
-                self.notifier)   # type: ProcessorManager
+                ListDataSource([self.notification_receiver]))   # type: ProcessorManager
 
         def cookie_jar_connector(*args):
             self.processor_manager.process_any_cookies()
@@ -71,7 +73,7 @@ class TestIntegration(unittest.TestCase):
         block_until_processed(self.cookie_jar, cookie_paths)
 
         self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
-        self.assertEquals(self.notifier.do.call_count, len(cookie_paths))
+        self.assertEquals(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
 
     def test_with_enrichments_no_rules(self):
@@ -81,7 +83,7 @@ class TestIntegration(unittest.TestCase):
         block_until_processed(self.cookie_jar, cookie_paths)
 
         self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
-        self.assertEquals(self.notifier.do.call_count, len(cookie_paths))
+        self.assertEquals(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
 
     def test_with_rules_no_enrichments(self):
@@ -92,9 +94,9 @@ class TestIntegration(unittest.TestCase):
         block_until_processed(self.cookie_jar, cookie_paths)
 
         self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
-        self.assertEquals(self.notifier.do.call_count, len(cookie_paths))
+        self.assertEquals(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
-        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notifier.do.call_args_list)
+        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notification_receiver.receive.call_args_list)
 
     def test_with_rules_and_enrichments(self):
         add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
@@ -105,9 +107,9 @@ class TestIntegration(unittest.TestCase):
         block_until_processed(self.cookie_jar, cookie_paths)
 
         self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
-        self.assertEquals(self.notifier.do.call_count, len(cookie_paths))
+        self.assertEquals(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
-        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notifier.do.call_args_list)
+        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notification_receiver.receive.call_args_list)
 
     def tearDown(self):
         shutil.rmtree(self.rules_directory)

@@ -16,8 +16,8 @@ from cookiemonster.common.models import Update
 from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
-from cookiemonster.notifier.notifier import Notifier
-from cookiemonster.notifier.printing_notifier import PrintingNotifier
+from cookiemonster.notifications.notifier import Notifier
+from cookiemonster.notifications.printing_notifier import PrintingNotifier
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor.basic_processing import BasicProcessorManager
 from cookiemonster.processor.processing import ProcessorManager
@@ -58,7 +58,7 @@ def main():
     rules = []
     rules_source = ListDataSource(rules) # type: DataSource[Rule]
 
-    # Setup notifier
+    # Setup notifications
     notifier = PrintingNotifier()   # type: Notifier
 
     # Setup the data processor manager

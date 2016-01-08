@@ -1,9 +1,11 @@
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import List, Optional, Callable, Iterable
+from typing import Optional, Callable, Iterable
 
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.processor.models import Rule
+
+ABOUT_NO_RULES_MATCH = "unknown"
 
 
 class Processor(metaclass=ABCMeta):

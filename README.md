@@ -34,8 +34,8 @@ rule, simply change its code and it will be updated on save.
 
 ## Cookie Enrichments
 ### Changing enrichment loaders on-the-fly
-Similarly to rules, the enrichment loaders, used to increase the knowledge of a cookie, can be changed during execution.
-Files containing enrichment loaders must have a name matching the format: ``*.loader.py``.
+Similarly to [rules](#rules), the enrichment loaders can be changed during execution. Files containing enrichment
+loaders must have a name matching the format: ``*.loader.py``.
 ```python
 from cookiemonster import EnrichmentLoader, Cookie, Enrichment
 from hgicommon.mixable import Priority
@@ -53,6 +53,26 @@ _enrichment_loader = EnrichmentLoader(_can_enrich, _load_enrichment, _priority)
 register(_enrichment_loader)
 ```
 
+
+### Notification Receivers
+Rules can specify that a notification or set of notifications should be broadcast if a cookie matches the rule's
+criteria; notification receivers receive these notifications. They can then determine what action should be taken.
+
+#### Changing notification receivers on-the-fly
+Notification receivers can also be changed on the fly in the same way [rules](#rules) and 
+[cookie enrichments](#cookie-enrichments). Files containing enrichment loaders must have a name matching the format:
+``*.notification_receivers.py``.
+```python
+from cookiemonster import Notification, NotificationReceiver
+from hgicommon.data_source import register
+
+def _retrieve(notification: Notification) -> bool:
+    if notification.about == "something_exciting":
+        print(notification)
+    
+_notification_receiver = NotificationReceiver(_retrieve)
+register(_notification_receiver)
+```
 
 ## How to develop
 ### Testing
