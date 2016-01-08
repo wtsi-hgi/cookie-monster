@@ -84,6 +84,9 @@ class TestCookieJar(unittest.TestCase):
                                Metadata({'quux': 'snuffleupagus'})]
         self.eg_enrichments = [Enrichment('random', datetime(1981, 9, 25, 5, 55), self.eg_metadata[0]),
                                Enrichment(EnrichmentSource.IRODS, datetime(2015, 12, 9, 9), self.eg_metadata[1])]
+        self.eg_listener = MagicMock()
+
+        self.jar.add_listener(self.eg_listener)
 
         # Change time zone to Testing Standard Time ;)
         _change_time(123456)
@@ -98,6 +101,7 @@ class TestCookieJar(unittest.TestCase):
         '''
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertIsNone(self.jar.get_next_for_processing())
+        self.eg_listener.assert_not_called()
 
     def test02_single_enrichment(self):
         '''
@@ -113,6 +117,7 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(to_process.path, self.eg_paths[0])
         self.assertEqual(len(to_process.enrichments), 1)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
+        self.assertEquals(self.eg_listener.call_count, 1)
 
     def test03_multiple_enrichment(self):
         '''
@@ -132,6 +137,7 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(len(to_process.enrichments), 2)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test04_enrich_and_complete(self):
         '''
@@ -141,6 +147,7 @@ class TestCookieJar(unittest.TestCase):
         to_process = self.jar.get_next_for_processing()
         self.jar.mark_as_complete(to_process.path)
         self.assertEqual(self.jar.queue_length(), 0)
+        self.assertEquals(self.eg_listener.call_count, 1)
 
     def test05_process_multiple(self):
         '''
@@ -175,6 +182,7 @@ class TestCookieJar(unittest.TestCase):
 
         self.jar.mark_as_complete(second.path)
         self.assertEqual(self.jar.queue_length(), 0)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test06_process_multiple_intertwined(self):
         '''
@@ -191,6 +199,7 @@ class TestCookieJar(unittest.TestCase):
         second = self.jar.get_next_for_processing()
         self.jar.mark_as_complete(second.path)
         self.assertEqual(self.jar.queue_length(), 0)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test07_fail_immediate(self):
         '''
@@ -203,6 +212,7 @@ class TestCookieJar(unittest.TestCase):
         after = self.jar.get_next_for_processing()
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(before, after)
+        self.assertEquals(self.eg_listener.call_count, 1)
 
     def test08_fail_delayed(self):
         '''
@@ -226,6 +236,8 @@ class TestCookieJar(unittest.TestCase):
         _change_time(123459)
         self.assertEqual(self.jar.queue_length(), 1)
 
+        self.assertEquals(self.eg_listener.call_count, 1)
+
     def test09_out_of_order_enrichment(self):
         '''
         CookieJar Sequence: Enrich -> Get Next -> Enrich same -> Mark Complete -> Get Next
@@ -246,6 +258,7 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(len(to_process.enrichments), 2)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test10_reprocess(self):
         '''
@@ -261,6 +274,7 @@ class TestCookieJar(unittest.TestCase):
         after = self.jar.get_next_for_processing()
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(before, after)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test11_connection_failure(self):
         '''

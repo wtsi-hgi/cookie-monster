@@ -14,6 +14,9 @@ Copyright (c) 2016 Genome Research Limited
 '''
 
 import unittest
+from unittest.mock import MagicMock
+
+from cookiemonster import Cookie
 from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer, _get_port
 
 import json
@@ -108,7 +111,7 @@ class TestElmo(unittest.TestCase):
 
         data = _decode_json_response(r)
         self.assertIn('queue_length', data)
-        self.assertEqual(data['queue_length'], 0)
+        self.assertEqual(data['queue_length'], self.jar.queue_length()) # Should be 0
 
         self.http.close()
 
@@ -117,13 +120,18 @@ class TestElmo(unittest.TestCase):
 
         self.http.request('GET', '/queue', headers=self.REQ_HEADER)
         data = _decode_json_response(self.http.getresponse())
-        self.assertEqual(data['queue_length'], 1)
+        self.assertEqual(data['queue_length'], self.jar.queue_length()) # Should be 1
 
     def test_reprocess(self):
         '''
         HTTP API: POST /queue/reprocess
         '''
-        request = {'path': '/foo'}
+        # Add mocked update notifier to Cookie Jar
+        dirty_cookie_listener = MagicMock()
+        self.jar.add_listener(dirty_cookie_listener)
+
+        cookie_path = '/foo'
+        request = {'path': cookie_path}
         self.http.request('POST', '/queue/reprocess', body=json.dumps(request), headers=self.REQ_HEADER)
         r = self.http.getresponse()
 
@@ -136,9 +144,8 @@ class TestElmo(unittest.TestCase):
         self.http.close()
 
         # Check queue has been updated
-        self.http.request('GET', '/queue', headers=self.REQ_HEADER)
-        data = _decode_json_response(self.http.getresponse())
-        self.assertEqual(data['queue_length'], 1)
+        self.assertEquals(self.jar.queue_length(), 1)
+        self.assertEquals(dirty_cookie_listener.call_count, 1)
 
 
 if __name__ == '__main__':
