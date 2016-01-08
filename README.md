@@ -2,8 +2,13 @@
 
 # Cookie Monster
 
-## Rules
-### Changing rules on-the-fly
+## Setup
+### Rules
+Rules have a matching criteria to which cookies are compared to determine if any action should be taken. If matched, 
+the rule specifies an action for the cookie that can indicate that notification receivers should be informed and whether
+further processing of the cookie is required. The order in which rules are applied is determined by their priority.
+
+#### Changing rules on-the-fly
 If ``RuleSource`` is being used by your ``ProcessorManager`` to attain the rules that are followed by ``Processor``
 instances, it is possible to dynamically changes the rules used by the Cookie Monster for future jobs (jobs already 
 running will continue to use the set of rules that they had when they were started).
@@ -20,7 +25,7 @@ def _matches(cookie: Cookie) -> bool:
     return "my_study" in cookie.path
         
 def _generate_action(cookie: Cookie) -> RuleAction:
-    return RuleAction([Notification("everyone", cookie.path)], True)
+    return RuleAction([Notification("everyone", data=cookie.path, sender="this_rule")], True)
 
 _priority = Priority.MAX_PRIORITY
 
@@ -32,8 +37,11 @@ To delete a pre-existing rule, delete the file containing it or remove the relev
 rule, simply change its code and it will be updated on save.
 
 
-## Cookie Enrichments
-### Changing enrichment loaders on-the-fly
+### Cookie Enrichments
+If all the rules have been applied against a cookie and none of them indicated in their action that no further
+processing is required, cookie "enrichment" loaders can be used to load more information about a cookie.
+
+#### Changing enrichment loaders on-the-fly
 Similarly to rules, the enrichment loaders, used to increase the knowledge of a cookie, can be changed during execution.
 Files containing enrichment loaders must have a name matching the format: ``*.loader.py``.
 ```python
