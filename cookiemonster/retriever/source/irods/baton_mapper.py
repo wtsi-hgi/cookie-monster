@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
+from threading import Barrier, Semaphore, Thread
 from typing import Dict, Iterable
 
 import pytz
@@ -44,19 +45,22 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         since_timestamp = since_timestamp.zfill(11)
 
         arguments = [since_timestamp, until_timestamp, since_timestamp, until_timestamp]
-
-        updates = []
-
-        async def _run_query(query: PreparedSpecificQuery) -> Iterable[Update]:
-            return self._get_with_prepared_specific_query(updates_query)
-
         aliases = [DATA_UPDATES_QUERY_ALIAS, METADATA_UPDATES_QUERY_ALIAS]
-        async for alias in aliases:
+        all_updates = []
+        semaphore = Semaphore(0)
+
+        def run_threaded(alias: str):
             updates_query = PreparedSpecificQuery(alias, arguments)
-            updates.extend(list(_run_query(updates_query)))
+            updates = self._get_with_prepared_specific_query(updates_query)
+            all_updates.extend(list(updates))
+            semaphore.release()
 
+        for alias in aliases:
+            Thread(target=run_threaded, args=(alias, )).start()
+        for _ in range(len(aliases)):
+            semaphore.acquire()
 
-        return BatonUpdateMapper._combine_updates_for_same_entity(updates)
+        return BatonUpdateMapper._combine_updates_for_same_entity(all_updates)
 
     def _object_serialiser(self, object_as_json: dict) -> CustomObjectType:
         metadata = Metadata()
