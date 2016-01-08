@@ -64,10 +64,10 @@ register(_enrichment_loader)
 
 ### Notification Receivers
 Rules can specify that a notification or set of notifications should be broadcast if a cookie matches the rule's
-criteria; notification receivers receive these notifications. They can then determine what action should be taken.
+criteria; notification receivers receive these notifications.
 
 #### Changing notification receivers on-the-fly
-Notification receivers can also be changed on the fly in the same way [rules](#rules) and 
+Notification receivers can also be changed on the fly in the same way as [rules](#rules) and 
 [cookie enrichments](#cookie-enrichments). Files containing enrichment loaders must have a name matching the format:
 ``*.notification_receiver.py``.
 ```python
