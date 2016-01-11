@@ -179,7 +179,7 @@ class API(object):
         # Secret shutdown route
         self._shutdown_route = '/{}'.format(uuid4().hex)
 
-    def _shutdown_handler(self):
+    def _shutdown_handler(self) -> str:
         '''
         Initiate server shutdown request
         Based on http://flask.pocoo.org/snippets/67/
@@ -188,6 +188,8 @@ class API(object):
         if shutdown is None:
             raise RuntimeError('Not running with the Werkzeug server')
         shutdown()
+
+        return 'API service shutting down...'
 
     def create_route(self, route:str) -> Endpoint:
         '''
