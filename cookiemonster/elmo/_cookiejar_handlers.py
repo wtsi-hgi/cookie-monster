@@ -15,7 +15,7 @@ Copyright (c) 2016 Genome Research Limited
 
 from typing import Optional
 from hgicommon.models import Model
-from cookiemonster.elmo._handlers import DependencyInjectionHandler
+from cookiemonster.elmo._handler_injection import DependencyInjectionHandler
 
 class QueueLength(Model):
     ''' Queue length model '''
