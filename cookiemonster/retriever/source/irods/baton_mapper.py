@@ -44,7 +44,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         # are returned
         since_timestamp = since_timestamp.zfill(11)
 
-        arguments = [since_timestamp, until_timestamp, since_timestamp, until_timestamp]
+        arguments = [since_timestamp, until_timestamp]
         aliases = [DATA_UPDATES_QUERY_ALIAS, METADATA_UPDATES_QUERY_ALIAS]
         all_updates = []
         semaphore = Semaphore(0)
