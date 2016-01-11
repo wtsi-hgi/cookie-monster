@@ -161,7 +161,7 @@ class Endpoint(object):
                 # If the JSON cannot be decoded (BadRequest), or the
                 # handler can't make sense of the decoded data
                 # (ValueError), then (re)raise a Bad Request response
-                return 'Couldn\'t deserialise request body', 400
+                return 'Couldn\'t decode request body', 400
 
         else:
             response = self._methods[method](**kwargs)

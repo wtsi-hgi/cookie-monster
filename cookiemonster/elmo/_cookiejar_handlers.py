@@ -39,8 +39,8 @@ class CookieJarHandlers(DependencyInjectionHandler):
 
         if isinstance(data, str):
             cookie = {'path': data}
-        elif isinstance(data, dict):
-            cookie = {k:v for k, v in data.items() if k == 'path'}
+        elif isinstance(data, dict) and 'path' in data:
+            cookie = {'path': data['path']}
         else:
             raise ValueError()
 
