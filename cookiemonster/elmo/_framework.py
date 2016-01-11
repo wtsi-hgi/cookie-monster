@@ -73,6 +73,7 @@ from uuid import uuid4
 from http.client import HTTPConnection
 
 from flask import Flask, request
+from werkzeug.exceptions import BadRequest
 
 
 # Type aliases
@@ -154,10 +155,13 @@ class Endpoint(object):
             # Deserialise request body
             try:
                 data = request.get_json(force=True)
-            except:
-                return 'Couldn\'t deserialise request body', 400
+                response = self._methods[method](data, **kwargs)
 
-            response = self._methods[method](data, **kwargs)
+            except (BadRequest, ValueError):
+                # If the JSON cannot be decoded (BadRequest), or the
+                # handler can't make sense of the decoded data
+                # (ValueError), then (re)raise a Bad Request response
+                return 'Couldn\'t deserialise request body', 400
 
         else:
             response = self._methods[method](**kwargs)

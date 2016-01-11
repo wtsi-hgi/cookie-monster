@@ -42,8 +42,7 @@ class CookieJarHandlers(DependencyInjectionHandler):
         elif isinstance(data, dict):
             cookie = {k:v for k, v in data.items() if k == 'path'}
         else:
-            # FIXME Failure?
-            pass
+            raise ValueError()
 
         cookiejar.mark_for_processing(cookie['path'])
         return cookie
