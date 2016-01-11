@@ -112,14 +112,14 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.notifications = [Notification("a", "b"), Notification("c", "d")]
         self.cookie = Cookie(COOKIE_PATH)
 
-        self.enrichment_manager = EnrichmentManager(ListDataSource(self.enrichment_loaders))
+        self.enrichment_loaders = self.enrichment_loaders
         self.processor_manager = BasicProcessorManager(
             TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, ListDataSource(self.rules),
-            self.enrichment_manager, ListDataSource([self.notification_receiver]))
+            ListDataSource(self.enrichment_loaders), ListDataSource([self.notification_receiver]))
 
     def test_init_with_less_than_one_processor(self):
         self.assertRaises(ValueError, BasicProcessorManager, 0, self.cookie_jar, ListDataSource(self.rules),
-                          self.enrichment_manager, self.notification_receiver)
+                          self.enrichment_loaders, self.notification_receiver)
 
     def test_process_any_cookies_when_no_jobs(self):
         self.processor_manager.process_any_cookies()
@@ -150,7 +150,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
     def test_process_any_cookies_when_no_free_processors(self):
         single_processor_manager = BasicProcessorManager(1, self.cookie_jar, ListDataSource(self.rules),
-                                                         self.enrichment_manager,
+                                                         ListDataSource(self.enrichment_loaders),
                                                          ListDataSource([self.notification_receiver]))
 
         complete = Semaphore(0)
@@ -174,7 +174,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         # Processor should have locked at this point - i.e. 0 free processors
 
         # The fact that there are more cookies should be "remembered" by the processor manager
-        self.cookie_jar.mark_for_processing("/other/coookie")
+        self.cookie_jar.mark_for_processing("/other/cookie")
         single_processor_manager.process_any_cookies()
 
         # Change the rules for the next cookie to be processed
@@ -191,7 +191,7 @@ class TestBasicProcessorManager(unittest.TestCase):
             complete.acquire()
             completed += 1
 
-        self.cookie_jar.mark_as_complete.assert_has_calls([call(self.cookie.path), call("/other/coookie")])
+        self.cookie_jar.mark_as_complete.assert_has_calls([call(self.cookie.path), call("/other/cookie")])
         self.notification_receiver.receive.assert_not_called()
 
     def test_on_cookie_processed_when_no_terminiation_no_enrichment(self):

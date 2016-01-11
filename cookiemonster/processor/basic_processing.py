@@ -94,6 +94,7 @@ class BasicProcessorManager(ProcessorManager):
             logging.debug("Triggered to process cookies but no free processors")
 
     def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: Iterable[Notification]=()):
+        # TODO: Notifications could be done in parallel
         for notification in notifications:
             self._notify_notification_receivers(notification)
 
@@ -114,7 +115,6 @@ class BasicProcessorManager(ProcessorManager):
                 logging.info("Applying enrichment from source \"%s\" to cookie with path \"%s\""
                              % (cookie.path, enrichment.source))
                 self._cookie_jar.enrich_cookie(cookie.path, enrichment)
-                self._cookie_jar.mark_for_processing(cookie.path)
 
     def _claim_processor(self) -> Optional[Processor]:
         """
@@ -149,7 +149,7 @@ class BasicProcessorManager(ProcessorManager):
         :param notification: the notification to give to all notification receivers
         """
         notification_receivers = self._notification_receivers_source.get_all()
-        logging.info("Notifying %d notification receivers of notification about %s"
+        logging.info("Notifying %d notification receivers of notification about \"%s\""
                      % (len(notification_receivers), notification.about))
         for notification_receiver in notification_receivers:
             notification_receiver.receive(notification)

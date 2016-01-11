@@ -45,7 +45,6 @@ class TestIntegration(unittest.TestCase):
         # Setup enrichment
         self.enrichment_loader_source = EnrichmentLoaderSource(self.enrichment_loaders_directory)
         self.enrichment_loader_source.start()
-        enrichment_manager = EnrichmentManager(self.enrichment_loader_source)
 
         # Setup cookie jar
         self.cookie_jar = create_magic_mock_cookie_jar()
@@ -60,8 +59,8 @@ class TestIntegration(unittest.TestCase):
 
         # Setup the data processor manager
         self.processor_manager = BasicProcessorManager(
-                TestIntegration._NUMBER_OF_PROCESSORS, self.cookie_jar, self.rules_source, enrichment_manager,
-                ListDataSource([self.notification_receiver]))   # type: ProcessorManager
+                TestIntegration._NUMBER_OF_PROCESSORS, self.cookie_jar, self.rules_source,
+                self.enrichment_loader_source, ListDataSource([self.notification_receiver]))   # type: ProcessorManager
 
         def cookie_jar_connector(*args):
             self.processor_manager.process_any_cookies()
