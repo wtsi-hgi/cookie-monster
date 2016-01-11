@@ -20,47 +20,72 @@ class InMemoryCookieJar(CookieJar):
         self._waiting = []  # type: List[str]
         self._failed = []   # type: List[str]
         self._completed = []    # type: List[str]
+        self._reprocess_on_complete = []    # type: List[str]
         self._lists_lock = Lock()
 
     def enrich_cookie(self, path: str, enrichment: Enrichment):
         with self._lists_lock:
             if path not in self._known_data:
                 self._known_data[path] = Cookie(path)
+            self._known_data[path].enrichments.append(enrichment)
 
-        self._known_data[path].enrichments.append(enrichment)
-        self.mark_for_processing(path)
+        if path not in self._waiting:
+            self.mark_for_processing(path)
+        else:
+            with self._lists_lock:
+                self._reprocess_on_complete = path
 
-    def mark_as_failed(self, path: str, requeue_delay: timedelta):
+    def mark_as_failed(self, path: str, requeue_delay: Optional[timedelta]):
         if path not in self._known_data:
             raise ValueError("File not known: %s" % path)
         with self._lists_lock:
             self._assert_is_being_processed(path)
             self._processing.remove(path)
-            self._failed.append(path)
+
+        if requeue_delay == timedelta(0):
+            self.mark_for_processing(path)
+        else:
+            with self._lists_lock:
+                self._failed.append(path)
+            if requeue_delay is not None:
+                pass
+                # TODO: Timing
 
     def mark_as_complete(self, path: str):
         if path not in self._known_data:
             raise ValueError("File not known: %s" % path)
+        reprocess = False
+
         with self._lists_lock:
             self._assert_is_being_processed(path)
             self._processing.remove(path)
-            self._completed.append(path)
+
+            if path not in self._reprocess_on_complete:
+                self._completed.append(path)
+            else:
+                reprocess = True
+
+        if reprocess:
+            self.mark_for_processing(path)
 
     def mark_for_processing(self, path: str):
         if path not in self._known_data:
             self._known_data[path] = Cookie(path)
 
         with self._lists_lock:
-            if path in self._completed:
-                self._completed.remove(path)
-            self._waiting.append(path)
-        self.notify_listeners(self.queue_length())
+            if path in self._reprocess_on_complete:
+                self._reprocess_on_complete.remove(path)
+            if path not in self._waiting:
+                if path in self._completed:
+                    self._completed.remove(path)
+                self._waiting.append(path)
+            self.notify_listeners(self.queue_length())
 
     def get_next_for_processing(self) -> Optional[Cookie]:
         with self._lists_lock:
             if len(self._waiting) == 0:
                 return None
-            path = self._waiting.pop()
+            path = self._waiting.pop(0)
             self._processing.append(path)
             self._assert_is_being_processed(path)
         return self._known_data[path]
