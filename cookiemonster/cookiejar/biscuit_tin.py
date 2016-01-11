@@ -54,9 +54,9 @@ class BiscuitTin(CookieJar):
         self._queue.mark_dirty(path)
         self.notify_listeners(self.queue_length())
 
-    def mark_as_failed(self, path: str, requeue_delay: timedelta):
+    def mark_as_failed(self, path: str, requeue_delay: Optional[timedelta] = None):
         self._queue.mark_finished(path)
-        self._queue.mark_dirty(path, requeue_delay)
+        self._queue.mark_dirty(path, requeue_delay or timedelta())
 
     def mark_as_complete(self, path: str):
         self._queue.mark_finished(path)
