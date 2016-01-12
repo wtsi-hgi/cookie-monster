@@ -43,7 +43,7 @@ Authors
 License
 -------
 GPLv3 or later
-Copyright (c) 2015 Genome Research Limited
+Copyright (c) 2015, 2016 Genome Research Limited
 '''
 import unittest
 from unittest.mock import MagicMock
@@ -117,7 +117,7 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(to_process.path, self.eg_paths[0])
         self.assertEqual(len(to_process.enrichments), 1)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
-        self.assertEquals(self.eg_listener.call_count, 1)
+        self.assertEqual(self.eg_listener.call_count, 1)
 
     def test03_multiple_enrichment(self):
         '''
@@ -137,7 +137,7 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(len(to_process.enrichments), 2)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
-        self.assertEquals(self.eg_listener.call_count, 2)
+        self.assertEqual(self.eg_listener.call_count, 2)
 
     def test04_enrich_and_complete(self):
         '''
@@ -147,7 +147,7 @@ class TestCookieJar(unittest.TestCase):
         to_process = self.jar.get_next_for_processing()
         self.jar.mark_as_complete(to_process.path)
         self.assertEqual(self.jar.queue_length(), 0)
-        self.assertEquals(self.eg_listener.call_count, 1)
+        self.assertEqual(self.eg_listener.call_count, 1)
 
     def test05_process_multiple(self):
         '''
@@ -182,7 +182,7 @@ class TestCookieJar(unittest.TestCase):
 
         self.jar.mark_as_complete(second.path)
         self.assertEqual(self.jar.queue_length(), 0)
-        self.assertEquals(self.eg_listener.call_count, 2)
+        self.assertEqual(self.eg_listener.call_count, 2)
 
     def test06_process_multiple_intertwined(self):
         '''
@@ -199,7 +199,7 @@ class TestCookieJar(unittest.TestCase):
         second = self.jar.get_next_for_processing()
         self.jar.mark_as_complete(second.path)
         self.assertEqual(self.jar.queue_length(), 0)
-        self.assertEquals(self.eg_listener.call_count, 2)
+        self.assertEqual(self.eg_listener.call_count, 2)
 
     def test07_fail_immediate(self):
         '''
@@ -212,7 +212,7 @@ class TestCookieJar(unittest.TestCase):
         after = self.jar.get_next_for_processing()
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(before, after)
-        self.assertEquals(self.eg_listener.call_count, 1)
+        self.assertEqual(self.eg_listener.call_count, 1)
 
     def test08_fail_delayed(self):
         '''
@@ -236,7 +236,11 @@ class TestCookieJar(unittest.TestCase):
         _change_time(123459)
         self.assertEqual(self.jar.queue_length(), 1)
 
-        self.assertEquals(self.eg_listener.call_count, 1)
+        # FIXME? The listener won't be called immediately once the
+        # cookie reappears on the queue, but is instead dependant on the
+        # polling interval... That is: The correct value for this should
+        # be 2 (i.e., once on enrichment and then again on failure)
+        self.assertEqual(self.eg_listener.call_count, 1)
 
     def test09_out_of_order_enrichment(self):
         '''
@@ -258,7 +262,7 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(len(to_process.enrichments), 2)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
-        self.assertEquals(self.eg_listener.call_count, 2)
+        self.assertEqual(self.eg_listener.call_count, 2)
 
     def test10_reprocess(self):
         '''
@@ -274,7 +278,7 @@ class TestCookieJar(unittest.TestCase):
         after = self.jar.get_next_for_processing()
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(before, after)
-        self.assertEquals(self.eg_listener.call_count, 2)
+        self.assertEqual(self.eg_listener.call_count, 2)
 
     def test11_connection_failure(self):
         '''
