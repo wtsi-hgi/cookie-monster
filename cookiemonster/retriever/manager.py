@@ -155,15 +155,11 @@ class PeriodicRetrievalManager(RetrievalManager):
 
         if len(updates) > 0:
             # Next time, get all updates since the most recent that was received last time
-            # XXX: Small delta added to exclude latest result received last time. This makes the assumption that the
-            # granularity of the timestamps at the source is the same as here: no smaller than the delta (else records
-            # will be missed) and no larger else the exclude will not work and other records could be missed.
-             next_retrieve.updates_since = localise_to_utc(updates.get_most_recent()[0].timestamp) \
-                                           + timedelta.resolution
-
-        # if next_retrieve.updates_since is None \
-        #         or next_retrieve.updates_since < (retrieve.updates_since + self._retrieval_period):
-        #     next_retrieve.updates_since = retrieve.updates_since + self._retrieval_period
+            next_retrieve.updates_since = localise_to_utc(updates.get_most_recent()[0].timestamp)
+        else:
+            # Get all updates since same time in future (not going to move since time forward to simplify things - there
+            # is no risk of getting duplicates as no updates in range queried previously)
+            next_retrieve.updates_since = retrieve.updates_since
 
         self._schedule_next_retrieve(next_retrieve)
 
