@@ -120,6 +120,7 @@ from datetime import datetime, timedelta
 from time import time, mktime
 from uuid import uuid4
 from json import JSONEncoder
+import itertools
 
 from couchdb.client import Server, Document, ViewResults, Row
 
@@ -631,7 +632,12 @@ class Ernie(_Couch):
                                                     reduce = True,
                                                     group  = True)
         if len(results):
-            for enrichment in results.rows[0].value:
+            data = results.rows[0].value
+            if all(isinstance(element, list) for element in data):
+                # If a rereduction has occurred, flatten the list of lists
+                data = itertools.chain.from_iterable(data)
+
+            for enrichment in data:
                 output.append(Enrichment(
                     source    = _to_enrichment_source(enrichment['source']),
                     timestamp = datetime.fromtimestamp(enrichment['timestamp']),
