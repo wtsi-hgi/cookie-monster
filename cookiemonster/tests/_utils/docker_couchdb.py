@@ -104,7 +104,7 @@ class CouchDBContainer(object):
                 test_connection.close()
                 finish_time = datetime.now()
 
-            if type(response) is HTTPResponse and response.status == 200:
+            if isinstance(response, HTTPResponse) and response.status == 200:
                 couchdb_started = True
                 break
 
