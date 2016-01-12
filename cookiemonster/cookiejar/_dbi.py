@@ -626,15 +626,14 @@ class Ernie(_Couch):
         @param  path  File path
         @return Iterable[Enrichment]
         '''
-        output = []
         results = self.query('metadata', 'collate', key=path, reduce=False)
 
-        for enrichment in results:
-            output.append(Enrichment(
-                source    = _to_enrichment_source(enrichment.value['source']),
-                timestamp = datetime.fromtimestamp(enrichment.value['timestamp']),
-                metadata  = Metadata(enrichment.value['metadata'])
-            ))
+        output = [
+            Enrichment(source    = _to_enrichment_source(enrichment.value['source']),
+                       timestamp = datetime.fromtimestamp(enrichment.value['timestamp']),
+                       metadata  = Metadata(enrichment.value['metadata']))
+            for enrichment in results
+        ]
 
         return sorted(output)
 
