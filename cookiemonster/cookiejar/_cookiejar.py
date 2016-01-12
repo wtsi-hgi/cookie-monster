@@ -43,6 +43,10 @@ Jars. Such implementations must define the following methods:
 * `queue_length` should return the number of files currently in the
   queue for processing
 
+* `broadcast_length_on_change` should notify all listeners of the
+  current queue length when it changes (n.b., this should almost
+  certainly need to be implemented on a separate thread)
+
 Authors
 -------
 * Christopher Harrison <ch12@sanger.ac.uk>
@@ -50,7 +54,7 @@ Authors
 License
 -------
 GPLv3 or later
-Copyright (c) 2015 Genome Research Limited
+Copyright (c) 2015, 2016 Genome Research Limited
 '''
 
 from abc import ABCMeta, abstractmethod
@@ -130,5 +134,13 @@ class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
         Get the number of items ready for processing
 
         @return Number of items in the queue
+        '''
+        pass
+
+    @abstractmethod
+    def broadcast_length_on_change(self):
+        '''
+        Broadcast the queue length, to all listeners, when it changes
+        n.b., This will probably need to run in a separate thread
         '''
         pass
