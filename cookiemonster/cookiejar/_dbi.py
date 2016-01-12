@@ -120,7 +120,6 @@ from datetime import datetime, timedelta
 from time import time, mktime
 from uuid import uuid4
 from json import JSONEncoder
-import itertools
 
 from couchdb.client import Server, Document, ViewResults, Row
 
@@ -628,21 +627,14 @@ class Ernie(_Couch):
         @return Iterable[Enrichment]
         '''
         output = []
-        results = self.query('metadata', 'collate', key    = path,
-                                                    reduce = True,
-                                                    group  = True)
-        if len(results):
-            data = results.rows[0].value
-            if all(isinstance(element, list) for element in data):
-                # If a rereduction has occurred, flatten the list of lists
-                data = itertools.chain.from_iterable(data)
+        results = self.query('metadata', 'collate', key=path, reduce=False)
 
-            for enrichment in data:
-                output.append(Enrichment(
-                    source    = _to_enrichment_source(enrichment['source']),
-                    timestamp = datetime.fromtimestamp(enrichment['timestamp']),
-                    metadata  = Metadata(enrichment['metadata'])
-                ))
+        for enrichment in results:
+            output.append(Enrichment(
+                source    = _to_enrichment_source(enrichment.value['source']),
+                timestamp = datetime.fromtimestamp(enrichment.value['timestamp']),
+                metadata  = Metadata(enrichment.value['metadata'])
+            ))
 
         return sorted(output)
 
@@ -650,7 +642,6 @@ class Ernie(_Couch):
         ''' Define views and update handlers '''
         # View: metadata/collate
         # Metadata (Enrichment) documents keyed by `location`
-        # Reduce to collate into an array
         self.define_view('metadata', 'collate',
             map_fn = '''
                 function(doc) {
@@ -661,11 +652,6 @@ class Ernie(_Couch):
                             metadata:  doc.metadata
                         });
                     }
-                }
-            ''',
-            reduce_fn = '''
-                function(keys, values) {
-                    return values;
                 }
             '''
         )
