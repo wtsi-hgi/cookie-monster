@@ -161,9 +161,9 @@ class PeriodicRetrievalManager(RetrievalManager):
              next_retrieve.updates_since = localise_to_utc(updates.get_most_recent()[0].timestamp) \
                                            + timedelta.resolution
 
-        if next_retrieve.updates_since is None \
-                or next_retrieve.updates_since < (retrieve.updates_since + self._retrieval_period):
-            next_retrieve.updates_since = retrieve.updates_since + self._retrieval_period
+        # if next_retrieve.updates_since is None \
+        #         or next_retrieve.updates_since < (retrieve.updates_since + self._retrieval_period):
+        #     next_retrieve.updates_since = retrieve.updates_since + self._retrieval_period
 
         self._schedule_next_retrieve(next_retrieve)
 
