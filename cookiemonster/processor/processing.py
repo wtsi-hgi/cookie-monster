@@ -42,7 +42,6 @@ class ProcessorManager(metaclass=ABCMeta):
         Called when processing of a cookie has been completed.
         :param cookie: the cookie that has been processed
         :param stop_processing: whether rule indicates that we should stop processing the given cookie
-        :param notifications: external processes that are to be notified. Should only be given if at least one rule was
-        matched
+        :param notifications: external processes that are to be notified
         """
         pass
