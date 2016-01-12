@@ -54,13 +54,22 @@ class BiscuitTin(CookieJar):
         # Queue length change watching
         self._notify_interval = notify_interval.total_seconds()
         self._last_length = 0
-        self._watcher = Thread(target=self.broadcast_length_on_change, daemon=True)
+        self._watcher = Thread(target=self._broadcast_length_on_change, daemon=True)
         self._watcher.start()
+
+    def _broadcast_length_on_change(self):
+        # NOTE Because delayed reprocessing requests appear in the queue
+        # passively, we have to poll rather than using CouchDB's nifty
+        # change API to get changes...thus take "on change" liberally!
+        while True:
+            sleep(self._notify_interval)
+            if self._last_length != self.queue_length():
+                self._broadcast_length()
 
     def _broadcast_length(self):
         '''
         Broadcast the current queue length to all listeners and keep the
-        last broadcasted state
+        latest broadcast state
         '''
         self._last_length = self.queue_length()
         self.notify_listeners(self._last_length)
@@ -71,6 +80,8 @@ class BiscuitTin(CookieJar):
         self._broadcast_length()
 
     def mark_as_failed(self, path: str, requeue_delay: Optional[timedelta] = None):
+        # NOTE The notification requirement is satisfied by polling in a
+        # separate thread with _broadcast_length_on_change
         self._queue.mark_finished(path)
         self._queue.mark_dirty(path, requeue_delay or timedelta())
 
@@ -94,14 +105,3 @@ class BiscuitTin(CookieJar):
 
     def queue_length(self) -> int:
         return self._queue.queue_length()
-
-    def broadcast_length_on_change(self):
-        '''
-        Because delayed reprocessing requests appear in the queue
-        passively, we have to poll rather than using CouchDB's nifty
-        change API to get the changes...thus take "on change" liberally!
-        '''
-        while True:
-            sleep(self._notify_interval)
-            if self._last_length != self.queue_length():
-                self._broadcast_length()

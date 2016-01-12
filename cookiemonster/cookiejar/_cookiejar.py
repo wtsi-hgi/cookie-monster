@@ -23,7 +23,8 @@ Jars. Such implementations must define the following methods:
 
 * `mark_as_failed` should mark a file as having failed processing. This
   should have the effect of requeueing the file after a specified grace
-  period
+  period, whereupon listeners should be notified of the updated queue
+  length
 
 * `mark_as_complete` should mark a file as having completed its
   processing successfully
@@ -42,10 +43,6 @@ Jars. Such implementations must define the following methods:
 
 * `queue_length` should return the number of files currently in the
   queue for processing
-
-* `broadcast_length_on_change` should notify all listeners of the
-  current queue length when it changes (n.b., this should almost
-  certainly need to be implemented on a separate thread)
 
 Authors
 -------
@@ -134,13 +131,5 @@ class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
         Get the number of items ready for processing
 
         @return Number of items in the queue
-        '''
-        pass
-
-    @abstractmethod
-    def broadcast_length_on_change(self):
-        '''
-        Broadcast the queue length, to all listeners, when it changes
-        n.b., This will probably need to run in a separate thread
         '''
         pass
