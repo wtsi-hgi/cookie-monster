@@ -1,9 +1,9 @@
 from datetime import datetime
 from typing import List
 
-import pytz
 from hgicommon.collections import Metadata
 
+from cookiemonster.common.helpers import localise_to_utc
 from cookiemonster.common.models import Update
 
 
@@ -24,8 +24,8 @@ class UpdateCollection(list):
         most_recent = [Update("sentinel", datetime.min, Metadata())]
         for update in self:
             assert len(most_recent) > 0
-            most_recent_so_far = UpdateCollection._localise_to_utc(most_recent[0].timestamp)
-            timestamp = UpdateCollection._localise_to_utc(update.timestamp)
+            most_recent_so_far = localise_to_utc(most_recent[0].timestamp)
+            timestamp = localise_to_utc(update.timestamp)
             assert timestamp != datetime.min
 
             if timestamp > most_recent_so_far:
@@ -44,15 +44,3 @@ class UpdateCollection(list):
         :return: any updates relating to the entity
         """
         return [update for update in self if update.target == entity_location]
-
-    @staticmethod
-    def _localise_to_utc(timestamp: datetime) -> datetime:
-        """
-        Localise the given timestamp to UTC.
-        :param timestamp: the timestamp to localise
-        :return: the timestamp localised to UTC
-        """
-        if timestamp.tzinfo is None:
-            return pytz.utc.localize(timestamp)
-        else:
-            return timestamp.astimezone(pytz.utc)

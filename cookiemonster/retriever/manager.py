@@ -7,6 +7,7 @@ from threading import Timer, Thread
 from hgicommon.mixable import Listenable
 
 from cookiemonster.common.collections import UpdateCollection
+from cookiemonster.common.helpers import localise_to_utc
 from cookiemonster.retriever._models import RetrievalLog
 from cookiemonster.retriever.mappers import RetrievalLogMapper, UpdateMapper
 
@@ -30,6 +31,7 @@ class RetrievalManager(Listenable[UpdateCollection]):
         Runs the retriever in the same thread.
         :param updates_since: the time from which to get updates from (defaults to getting all updates).
         """
+        updates_since = localise_to_utc(updates_since)
         self._do_retrieve(updates_since)
 
     def _do_retrieve(self, updates_since: datetime) -> UpdateCollection:
@@ -67,7 +69,7 @@ class RetrievalManager(Listenable[UpdateCollection]):
         Gets the current time. Can be overriden to control environment for testing.
         :return: the current time
         """
-        return datetime.now()
+        return localise_to_utc(datetime.now())
 
 
 class PeriodicRetrievalManager(RetrievalManager):
@@ -104,6 +106,8 @@ class PeriodicRetrievalManager(RetrievalManager):
         self._thread = None
 
     def run(self, updates_since: datetime=datetime.min):
+        updates_since = localise_to_utc(updates_since)
+
         with self._state_lock:
             if self._running:
                 raise RuntimeError("Already running")
@@ -154,7 +158,8 @@ class PeriodicRetrievalManager(RetrievalManager):
             # XXX: Small delta added to exclude latest result received last time. This makes the assumption that the
             # granularity of the timestamps at the source is the same as here: no smaller than the delta (else records
             # will be missed) and no larger else the exclude will not work and other records could be missed.
-            next_retrieve.updates_since = updates.get_most_recent()[0].timestamp + timedelta.resolution
+             next_retrieve.updates_since = localise_to_utc(updates.get_most_recent()[0].timestamp) \
+                                           + timedelta.resolution
 
         if next_retrieve.updates_since is None \
                 or next_retrieve.updates_since < (retrieve.updates_since + self._retrieval_period):
@@ -176,8 +181,7 @@ class PeriodicRetrievalManager(RetrievalManager):
             else:
                 interval = retrieve.scheduled_for - RetrievalManager._get_current_time()
                 # Run timer in same thread
-                self._timer = Timer(
-                    interval.total_seconds(), self._do_retrieve_periodically, args=(retrieve, ))
+                self._timer = Timer(interval.total_seconds(), self._do_retrieve_periodically, args=(retrieve, ))
                 self._timer.run()
 
     def _calculate_next_scheduled_time(self, previous_scheduled_time: datetime, previous_computation_time: timedelta):
