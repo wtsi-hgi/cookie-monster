@@ -10,6 +10,7 @@ from baton.types import CustomObjectType
 from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import UpdateCollection
+from cookiemonster.common.helpers import localise_to_utc
 from cookiemonster.common.models import Update
 from cookiemonster.retriever.mappers import UpdateMapper
 from cookiemonster.retriever.source.irods._constants import UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY, \
@@ -28,10 +29,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
     """
     def get_all_since(self, since: datetime) -> UpdateCollection:
         # iRODS works with Epoch time therefore ensure `since` is localised as UTC
-        if since.tzinfo is None:
-            since = pytz.utc.localize(since)
-        else:
-            since = since.astimezone(pytz.utc)
+        since = localise_to_utc(since)
 
         if since < _EPOCH:
             since = _EPOCH
