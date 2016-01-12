@@ -60,12 +60,15 @@ class TestIntegration(unittest.TestCase):
         # Setup the data processor manager
         self.processor_manager = BasicProcessorManager(
                 TestIntegration._NUMBER_OF_PROCESSORS, self.cookie_jar, self.rules_source,
-                self.enrichment_loader_source, ListDataSource([self.notification_receiver]))   # type: ProcessorManager
+                self.enrichment_loader_source, ListDataSource([self.notification_receiver]))
 
         def cookie_jar_connector(*args):
             self.processor_manager.process_any_cookies()
 
         self.cookie_jar.add_listener(cookie_jar_connector)
+
+        # Hijack notify
+        self.processor_manager._notify_notification_receivers = self.notification_receiver.receive
 
     def test_with_no_rules_or_enrichments(self):
         cookie_paths = TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS)
