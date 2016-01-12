@@ -1,4 +1,6 @@
+import asyncio
 from datetime import datetime, timezone
+from threading import Barrier, Semaphore, Thread
 from typing import Dict, Iterable
 
 import pytz
@@ -12,8 +14,8 @@ from cookiemonster.common.models import Update
 from cookiemonster.retriever.mappers import UpdateMapper
 from cookiemonster.retriever.source.irods._constants import UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY, \
     UPDATE_COLLECTION_NAME_PROPERTY, UPDATE_DATA_OBJECT_NAME_PROPERTY, UPDATE_HASH_PROPERTY, \
-    UPDATE_DATA_TIMESTAMP_PROPERTY, UPDATE_METADATA_TIMESTAMP_PROPERTY, SPECIFIC_QUERY_ALIAS, \
-    UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY
+    UPDATE_DATA_TIMESTAMP_PROPERTY, UPDATE_METADATA_TIMESTAMP_PROPERTY, DATA_UPDATES_QUERY_ALIAS, \
+    UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY, METADATA_UPDATES_QUERY_ALIAS
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
@@ -42,11 +44,23 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         # are returned
         since_timestamp = since_timestamp.zfill(11)
 
-        query = PreparedSpecificQuery(
-                SPECIFIC_QUERY_ALIAS, [since_timestamp, until_timestamp, since_timestamp, until_timestamp])
-        updates = self._get_with_prepared_specific_query(query)
+        arguments = [since_timestamp, until_timestamp]
+        aliases = [DATA_UPDATES_QUERY_ALIAS, METADATA_UPDATES_QUERY_ALIAS]
+        all_updates = []
+        semaphore = Semaphore(0)
 
-        return BatonUpdateMapper._combine_updates_for_same_entity(updates)
+        def run_threaded(alias: str):
+            updates_query = PreparedSpecificQuery(alias, arguments)
+            updates = self._get_with_prepared_specific_query(updates_query)
+            all_updates.extend(list(updates))
+            semaphore.release()
+
+        for alias in aliases:
+            Thread(target=run_threaded, args=(alias, )).start()
+        for _ in range(len(aliases)):
+            semaphore.acquire()
+
+        return BatonUpdateMapper._combine_updates_for_same_entity(all_updates)
 
     def _object_serialiser(self, object_as_json: dict) -> CustomObjectType:
         metadata = Metadata()
@@ -88,7 +102,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
             else:
                 existing_update = combined_updates_map[target]
 
-                # Update timestamp to the newest
+                # Preserve newest timestamp
                 if update.timestamp > existing_update.timestamp:
                     existing_update.timestamp = update.timestamp
 

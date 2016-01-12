@@ -24,10 +24,12 @@ Authors
 License
 -------
 GPLv3 or later
-Copyright (c) 2015 Genome Research Limited
+Copyright (c) 2015, 2016 Genome Research Limited
 '''
 from datetime import timedelta
 from typing import Optional
+from time import sleep
+from threading import Thread
 
 from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.cookiejar._cookiejar import CookieJar
@@ -35,35 +37,60 @@ from cookiemonster.cookiejar._dbi import Bert, Ernie
 
 
 class BiscuitTin(CookieJar):
-    """
-    Persistent implementation of `CookieJar`.
-    """
-    def __init__(self, db_host: str, db_name: str):
+    ''' Persistent implementation of `CookieJar` '''
+    def __init__(self, db_host: str, db_name: str, notify_interval: timedelta=timedelta(minutes=10)):
         '''
-        Constructor: Initialise the database connections
+        Constructor: Initialise the database connections and the queue
+        length change notifier
 
-        @param  db_host  Database host URL
-        @param  db_name  Database name
+        @param  db_host          Database host URL
+        @param  db_name          Database name
+        @param  notify_interval  Queue length notification interval
         '''
         super().__init__()
         self._queue = Bert(db_host, db_name)
         self._metadata = Ernie(db_host, db_name)
 
+        # Queue length change watching
+        self._notify_interval = notify_interval.total_seconds()
+        self._last_length = 0
+        self._watcher = Thread(target=self._broadcast_length_on_change, daemon=True)
+        self._watcher.start()
+
+    def _broadcast_length_on_change(self):
+        # NOTE Because delayed reprocessing requests appear in the queue
+        # passively, we have to poll rather than using CouchDB's nifty
+        # change API to get changes...thus take "on change" liberally!
+        while True:
+            sleep(self._notify_interval)
+            if self._last_length != self.queue_length():
+                self._broadcast_length()
+
+    def _broadcast_length(self):
+        '''
+        Broadcast the current queue length to all listeners and keep the
+        latest broadcast state
+        '''
+        self._last_length = self.queue_length()
+        self.notify_listeners(self._last_length)
+
     def enrich_cookie(self, path: str, enrichment: Enrichment):
         self._metadata.add_metadata(path, enrichment)
         self._queue.mark_dirty(path)
-        self.notify_listeners(self.queue_length())
+        self._broadcast_length()
 
-    def mark_as_failed(self, path: str, requeue_delay: timedelta):
+    def mark_as_failed(self, path: str, requeue_delay: Optional[timedelta] = None):
+        # NOTE The notification requirement is satisfied by polling in a
+        # separate thread with _broadcast_length_on_change
         self._queue.mark_finished(path)
-        self._queue.mark_dirty(path, requeue_delay)
+        self._queue.mark_dirty(path, requeue_delay or timedelta())
 
     def mark_as_complete(self, path: str):
         self._queue.mark_finished(path)
 
     def mark_for_processing(self, path: str):
         self._queue.mark_dirty(path)
-        self.notify_listeners(self.queue_length())
+        self._broadcast_length()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
         to_process = self._queue.dequeue()

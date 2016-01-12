@@ -1,6 +1,6 @@
 '''
-Generic Handler Classes
-=======================
+Dependency Injection Handler
+============================
 Exportable classes: `DependencyInjectionHandler`
 
 DependencyInjectionHandler

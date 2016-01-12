@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, call
 from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import UpdateCollection
+from cookiemonster.common.helpers import localise_to_utc
 from cookiemonster.common.models import Update
 from cookiemonster.retriever._models import RetrievalLog
 from cookiemonster.retriever.manager import PeriodicRetrievalManager, RetrievalManager
@@ -18,7 +19,7 @@ class _BaseRetrievalManagerTest(unittest.TestCase):
     """
     Base class for unit tests on `RetrievalManager` instances.
     """
-    SINCE = datetime.min
+    SINCE = localise_to_utc(datetime.min)
     TIME_TAKEN_TO_DO_RETRIEVE = timedelta(milliseconds=1)
 
     def setUp(self):

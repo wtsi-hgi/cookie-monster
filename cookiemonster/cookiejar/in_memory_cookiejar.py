@@ -20,27 +20,20 @@ class InMemoryCookieJar(CookieJar):
         self._waiting = []  # type: List[str]
         self._failed = []   # type: List[str]
         self._completed = []    # type: List[str]
-        self.lists_lock = Lock()
+        self._lists_lock = Lock()
 
     def enrich_cookie(self, path: str, enrichment: Enrichment):
-        if path not in self._known_data:
-            cookie = Cookie(path)
-            self._known_data[path] = cookie
+        with self._lists_lock:
+            if path not in self._known_data:
+                self._known_data[path] = Cookie(path)
 
         self._known_data[path].enrichments.append(enrichment)
-
-        self.lists_lock.acquire()
-        if path not in self._waiting:
-            self._waiting.append(path)
-            self.lists_lock.release()
-            self.notify_listeners()
-        else:
-            self.lists_lock.release()
+        self.mark_for_processing(path)
 
     def mark_as_failed(self, path: str, requeue_delay: timedelta):
         if path not in self._known_data:
             raise ValueError("File not known: %s" % path)
-        with self.lists_lock:
+        with self._lists_lock:
             self._assert_is_being_processed(path)
             self._processing.remove(path)
             self._failed.append(path)
@@ -48,23 +41,23 @@ class InMemoryCookieJar(CookieJar):
     def mark_as_complete(self, path: str):
         if path not in self._known_data:
             raise ValueError("File not known: %s" % path)
-        with self.lists_lock:
+        with self._lists_lock:
             self._assert_is_being_processed(path)
             self._processing.remove(path)
             self._completed.append(path)
 
     def mark_for_processing(self, path: str):
         if path not in self._known_data:
-            cookie = Cookie(path)
-            self._known_data[path] = cookie
-        with self.lists_lock:
-            if path in self._processing:
-                self._processing.remove(path)
+            self._known_data[path] = Cookie(path)
+
+        with self._lists_lock:
+            if path in self._completed:
+                self._completed.remove(path)
             self._waiting.append(path)
-        self.notify_listeners()
+        self.notify_listeners(self.queue_length())
 
     def get_next_for_processing(self) -> Optional[Cookie]:
-        with self.lists_lock:
+        with self._lists_lock:
             if len(self._waiting) == 0:
                 return None
             path = self._waiting.pop()

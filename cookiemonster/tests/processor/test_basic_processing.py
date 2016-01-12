@@ -13,8 +13,9 @@ from cookiemonster.common.models import Cookie, Notification, Enrichment
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor.basic_processing import BasicProcessorManager, BasicProcessor
 from cookiemonster.processor.models import Rule, EnrichmentLoader, RuleAction
+from cookiemonster.processor.processing import ABOUT_NO_RULES_MATCH
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
-from cookiemonster.tests.processor._stubs import StubNotifier
+from cookiemonster.tests.processor._stubs import StubNotificationReceiver
 
 COOKIE_PATH = "/my/cookie"
 
@@ -102,8 +103,8 @@ class TestBasicProcessorManager(unittest.TestCase):
     def setUp(self):
         self.cookie_jar = create_magic_mock_cookie_jar()
 
-        self.notifier = StubNotifier()
-        self.notifier.do = MagicMock()
+        self.notification_receiver = StubNotificationReceiver()
+        self.notification_receiver.receive = MagicMock()
 
         self.rules = []
         self.enrichment_loaders = []
@@ -111,21 +112,21 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.notifications = [Notification("a", "b"), Notification("c", "d")]
         self.cookie = Cookie(COOKIE_PATH)
 
-        self.enrichment_manager = EnrichmentManager(ListDataSource(self.enrichment_loaders))
+        self.enrichment_loaders = self.enrichment_loaders
         self.processor_manager = BasicProcessorManager(
             TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, ListDataSource(self.rules),
-            self.enrichment_manager, self.notifier)
+            ListDataSource(self.enrichment_loaders), ListDataSource([self.notification_receiver]))
 
     def test_init_with_less_than_one_processor(self):
         self.assertRaises(ValueError, BasicProcessorManager, 0, self.cookie_jar, ListDataSource(self.rules),
-                          self.enrichment_manager, self.notifier)
+                          self.enrichment_loaders, self.notification_receiver)
 
     def test_process_any_cookies_when_no_jobs(self):
         self.processor_manager.process_any_cookies()
 
         self.cookie_jar.get_next_for_processing.assert_called_once_with()
         self.cookie_jar.mark_as_complete.assert_not_called()
-        self.notifier.do.assert_not_called()
+        self.notification_receiver.receive.assert_not_called()
 
     def test_process_any_cookies_when_jobs(self):
         complete = Semaphore(0)
@@ -148,8 +149,9 @@ class TestBasicProcessorManager(unittest.TestCase):
             completed += 1
 
     def test_process_any_cookies_when_no_free_processors(self):
-        single_processor_manager = BasicProcessorManager(
-            1, self.cookie_jar, ListDataSource(self.rules), self.enrichment_manager, self.notifier)
+        single_processor_manager = BasicProcessorManager(1, self.cookie_jar, ListDataSource(self.rules),
+                                                         ListDataSource(self.enrichment_loaders),
+                                                         ListDataSource([self.notification_receiver]))
 
         complete = Semaphore(0)
 
@@ -172,7 +174,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         # Processor should have locked at this point - i.e. 0 free processors
 
         # The fact that there are more cookies should be "remembered" by the processor manager
-        self.cookie_jar.mark_for_processing("/other/coookie")
+        self.cookie_jar.mark_for_processing("/other/cookie")
         single_processor_manager.process_any_cookies()
 
         # Change the rules for the next cookie to be processed
@@ -189,8 +191,8 @@ class TestBasicProcessorManager(unittest.TestCase):
             complete.acquire()
             completed += 1
 
-        self.cookie_jar.mark_as_complete.assert_has_calls([call(self.cookie.path), call("/other/coookie")])
-        self.notifier.do.assert_not_called()
+        self.cookie_jar.mark_as_complete.assert_has_calls([call(self.cookie.path), call("/other/cookie")])
+        self.notification_receiver.receive.assert_not_called()
 
     def test_on_cookie_processed_when_no_terminiation_no_enrichment(self):
         self.cookie_jar.mark_for_processing(self.cookie.path)
@@ -199,9 +201,9 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.processor_manager.on_cookie_processed(self.cookie, False, self.notifications)
 
         self.cookie_jar.mark_as_complete.assert_called_once_with(self.cookie.path)
-        self.notifier.do.assert_has_calls(
+        self.notification_receiver.receive.assert_has_calls(
                 [call(notification) for notification in self.notifications] +
-                [call(Notification("unknown", self.cookie.path))], True)
+                [call(Notification(ABOUT_NO_RULES_MATCH, self.cookie.path, "BasicProcessorManager"))], True)
 
     def test_on_cookie_processed_when_no_termination_but_enrichment(self):
         enrichment = Enrichment("source", datetime.min, Metadata())
@@ -213,7 +215,8 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.cookie_jar.enrich_cookie.assert_called_once_with(self.cookie.path, enrichment)
         self.cookie_jar.mark_for_processing.assert_called_once_with(self.cookie.path)
         self.cookie_jar.mark_as_complete.assert_not_called()
-        self.notifier.do.assert_has_calls([call(notification) for notification in self.notifications], True)
+        self.notification_receiver.receive.assert_has_calls(
+                [call(notification) for notification in self.notifications], True)
 
     def test_on_cookie_processed_when_termination(self):
         self.cookie_jar.mark_for_processing(self.cookie.path)
@@ -222,7 +225,8 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.processor_manager.on_cookie_processed(self.cookie, True, self.notifications)
 
         self.cookie_jar.mark_as_complete.assert_called_once_with(self.cookie.path)
-        self.notifier.do.assert_has_calls([call(notification) for notification in self.notifications], True)
+        self.notification_receiver.receive.assert_has_calls(
+                [call(notification) for notification in self.notifications], True)
 
 
 if __name__ == "__main__":

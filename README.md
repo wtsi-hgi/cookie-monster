@@ -2,8 +2,13 @@
 
 # Cookie Monster
 
-## Rules
-### Changing rules on-the-fly
+## Setup
+### Rules
+Rules have a matching criteria to which cookies are compared to determine if any action should be taken. If matched, 
+the rule specifies an action for the cookie that can indicate that notification receivers should be informed and whether
+further processing of the cookie is required. The order in which rules are applied is determined by their priority.
+
+#### Changing rules on-the-fly
 If ``RuleSource`` is being used by your ``ProcessorManager`` to attain the rules that are followed by ``Processor``
 instances, it is possible to dynamically changes the rules used by the Cookie Monster for future jobs (jobs already 
 running will continue to use the set of rules that they had when they were started).
@@ -20,7 +25,7 @@ def _matches(cookie: Cookie) -> bool:
     return "my_study" in cookie.path
         
 def _generate_action(cookie: Cookie) -> RuleAction:
-    return RuleAction([Notification("everyone", cookie.path)], True)
+    return RuleAction([Notification("everyone", data=cookie.path, sender="this_rule")], True)
 
 _priority = Priority.MAX_PRIORITY
 
@@ -32,10 +37,13 @@ To delete a pre-existing rule, delete the file containing it or remove the relev
 rule, simply change its code and it will be updated on save.
 
 
-## Cookie Enrichments
-### Changing enrichment loaders on-the-fly
-Similarly to rules, the enrichment loaders, used to increase the knowledge of a cookie, can be changed during execution.
-Files containing enrichment loaders must have a name matching the format: ``*.loader.py``.
+### Cookie Enrichments
+If all the rules have been applied against a cookie and none of them indicated in their action that no further
+processing is required, cookie "enrichment" loaders can be used to load more information about a cookie.
+
+#### Changing enrichment loaders on-the-fly
+Similarly to [rules](#rules), the enrichment loaders can be changed during execution. Files containing enrichment
+loaders must have a name matching the format: ``*.loader.py``.
 ```python
 from cookiemonster import EnrichmentLoader, Cookie, Enrichment
 from hgicommon.mixable import Priority
@@ -71,6 +79,26 @@ following endpoints are defined:
 
 Note that *all* requests must include `application/json` in their
 `Accept` header.
+
+### Notification Receivers
+Rules can specify that a notification or set of notifications should be broadcast if a cookie matches the rule's
+criteria; notification receivers receive these notifications.
+
+#### Changing notification receivers on-the-fly
+Notification receivers can also be changed on the fly in the same way as [rules](#rules) and 
+[cookie enrichments](#cookie-enrichments). Files containing enrichment loaders must have a name matching the format:
+``*.notification_receiver.py``.
+```python
+from cookiemonster import Notification, NotificationReceiver
+from hgicommon.data_source import register
+
+def _retrieve(notification: Notification) -> bool:
+    if notification.about == "something_exciting":
+        print(notification)
+    
+_notification_receiver = NotificationReceiver(_retrieve)
+register(_notification_receiver)
+```
 
 ## How to develop
 ### Testing

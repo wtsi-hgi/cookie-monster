@@ -1,5 +1,5 @@
 from cookiemonster.retriever._models import RetrievalLog
-from cookiemonster.retriever.log._sqlalchemy_models import SQLAlchemyRetrievalLog
+from cookiemonster.retriever.log.sqlalchemy_models import SQLAlchemyRetrievalLog
 
 
 def convert_to_retrieval_log(sqlalchemy_retrieval_log: SQLAlchemyRetrievalLog) -> RetrievalLog:

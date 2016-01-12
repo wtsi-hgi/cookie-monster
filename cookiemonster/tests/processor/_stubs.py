@@ -1,9 +1,9 @@
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, Callable
 
 from cookiemonster.common.models import Notification, Enrichment, Cookie
 from cookiemonster.cookiejar import CookieJar
-from cookiemonster.notifier.notifier import Notifier
+from cookiemonster.notifications.notification_receiver import NotificationReceiver
 
 
 class StubCookieJar(CookieJar):
@@ -29,9 +29,12 @@ class StubCookieJar(CookieJar):
         pass
 
 
-class StubNotifier(Notifier):
+class StubNotificationReceiver(NotificationReceiver):
     """
-    Stub implementation of `Notifier`.
+    Stub implementation of `NotificationReceiver`.
     """
-    def do(self, notification: Notification):
+    def __init__(self):
+        super().__init__(lambda notification: None)
+
+    def receive(self, notification: Notification):
         pass

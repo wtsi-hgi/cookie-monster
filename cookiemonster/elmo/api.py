@@ -3,11 +3,13 @@ Cookie Monster HTTP API
 =======================
 The external HTTP-based API for interacting with Cookie Monster.
 
-Exportable classes: `HTTP_API`, APIDependency
+Exportable classes: `HTTP_API`, APIDependency (enum)
 
 APIDependency
 -------------
-Enumeration of Cookie Monster dependencies
+Enumeration of Cookie Monster dependencies, which is (ab)used to map to
+handler objects, which are in turn injected with their appropriate
+dependency.
 
 HTTP_API
 --------
@@ -48,10 +50,10 @@ Copyright (c) 2016 Genome Research Limited
 from enum import Enum
 from threading import Thread
 
-from cookiemonster.elmo._framework import API, HTTPMethod, HTTPSource
+from cookiemonster.elmo._framework import API, HTTPMethod
 
-# Data source handlers and models
-from cookiemonster.elmo._cookiejar_handlers import CookieJarHandlers, QueueLength, CookiePath
+# Data source handlers
+from cookiemonster.elmo._cookiejar_handlers import CookieJarHandlers
 
 
 class APIDependency(Enum):
@@ -93,10 +95,10 @@ class HTTP_API(object):
                 raise KeyError('Dependencies not fully satisfied; missing {}'.format(d.name))
 
         # Build service
-        api.create_route('/queue', QueueLength) \
+        api.create_route('/queue') \
            .set_method_handler(HTTPMethod.GET, dep[APIDependency.CookieJar].GET_queue_length)
 
-        api.create_route('/queue/reprocess', CookiePath) \
+        api.create_route('/queue/reprocess') \
            .set_method_handler(HTTPMethod.POST, dep[APIDependency.CookieJar].POST_mark_for_processing)
 
         # Start service

@@ -2,42 +2,54 @@
 HTTP API Framework
 ==================
 A minimal framework for building an HTTP-based API service, where
-parametrised routes can be associated with models and arbitrary method
-handlers
+parametrised routes can be associated with arbitrary method handlers
 
-Exportable classes: `API`, `HTTPMethod` (enum), `HTTPSource`
+Exportable classes: `API`, `Endpoint`, `HTTPMethod` (enum)
 
 API
 ---
 `API` provides the scaffolding to build an HTTP API source, defined by
 its routes and method handlers, using the following methods:
 
-* `create_route` Create a route, optionally parametrised and associated
-  with a data model (for automatic serialisation/deserialisation)
+* `create_route` Create a route, optionally parametrised, with automatic
+  serialisation to/deserialisation from JSON
 
 * `listen` Build the service defined by its routes and method handlers
   and start it, listening on the specified port
 
 * `stop` Stop the running service
 
-HTTPMethod
-----------
-Enumeration of supported HTTP methods
+Note that the HTTP service will run on localhost, on the specified port.
+It is intended to run behind a reverse proxy for external routing,
+rather than being given its own host address.
 
-HTTPSource
-----------
-An `HTTPSource` encapsulates an API route, with associated method
+Endpoint
+--------
+An `Endpoint` encapsulates an API route, with associated method
 handlers. The following methods are exposed:
 
 * `set_method_handler` Add/update a method handler function
 
+HTTPMethod
+----------
+Enumeration of supported HTTP methods:
+
+* GET
+* POST
+* PUT
+* DELETE
+
+OPTIONS is provided automatically by the underlying Flask/Werkzeug
+implementation. The other methods (with the possible exception of HEAD)
+are not relevant.
+
 Method Chaining
 ---------------
-Note that `API.create_route` and `HTTPSource.add_method_handler` both
-return an `HTTPSource` object, which self-references the route in
+Note that `API.create_route` and `Endpoint.add_method_handler` both
+return an `Endpoint` object, which self-references the route in
 question. As such, methods can be chained for convenience:
 
-    api.create_route('/api/<foo>', FooModel) \
+    api.create_route('/api/<foo>') \
        .set_method_handler(HTTPMethod.GET,  foo_get_handler) \
        .set_method_handler(HTTPMethod.POST, foo_post_handler)
 
@@ -55,19 +67,18 @@ import re
 import inspect
 import collections
 import json
-from typing import Callable, List, Iterable, Union, Tuple, Optional
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 from enum import Enum
 from uuid import uuid4
 from http.client import HTTPConnection
 
 from flask import Flask, request
-
-from hgicommon.models import Model
+from werkzeug.exceptions import BadRequest
 
 
 # Type aliases
 _ResponseT = Union[str, Tuple[str, int], Tuple[str, int, dict]]
-_HandlerT = Callable[..., Union[Model, Iterable[Model]]]
+_HandlerT = Callable[..., Union[Any, Iterable[Any]]]
 
 
 class HTTPMethod(Enum):
@@ -86,35 +97,33 @@ def _has_request_body(method:HTTPMethod) -> bool:
     return method in [HTTPMethod.POST, HTTPMethod.PUT]
 
 
-class HTTPSource(object):
+class Endpoint(object):
     ''' HTTP data source and method handlers '''
-    def __init__(self, route:str, model:Optional[type]=None):
+    def __init__(self, route:str):
         self._route   = route
-        self._model   = model
         self._methods = {}
 
-        # Extract any parameters from route
-        self._parameters = list(set(re.findall('(?<=<)\w+(?=>)', route)))
+        # Is the route parametrised?
+        self._parametrised = True if re.search('<\w+>', route) else False
 
-    def set_method_handler(self, method:HTTPMethod, handler:_HandlerT) -> 'HTTPSource':
+    def set_method_handler(self, method:HTTPMethod, handler:_HandlerT) -> 'Endpoint':
         '''
         Add/update an HTTP method handler for the data source
 
         @param  method   The HTTP method
         @param  handler  The method handling function
-        @return Itself (i.e., the HTTPSource object)
+        @return Itself (i.e., the Endpoint object)
         '''
         handler_args = inspect.getfullargspec(handler)
 
-        if len(self._parameters) and handler_args.varkw is None:
+        if self._parametrised and not handler_args.varkw:
             # The handlers for a parametrised route must have kwargs
             raise TypeError('A parametrised route handler must accept keyword arguments')
 
-        if _has_request_body(method) and len(handler_args.args) == 0:
-            print(handler_args.args)
-            # POST and PUT handlers *must* have one argument, as well as 
-            # kwargs, to pass in the deserialised request body
-            raise TypeError('A {} handler must have an argument'.format(method.value))
+        if _has_request_body(method) and len(handler_args.args) != 2 if inspect.ismethod(handler) else 1:
+            # POST and PUT handlers *must* also have one argument to
+            # pass in the deserialised request body
+            raise TypeError('A {} handler must have a single argument to accept the request data'.format(method.value))
 
         if method in self._methods:
             del self._methods[method]
@@ -127,15 +136,6 @@ class HTTPSource(object):
         @return A list of the defined method strings
         '''
         return [method.value for method in self._methods.keys()]
-
-    def _serialise(self, model:Model) -> str:
-        '''
-        Serialise the model to a JSON string
-
-        @param  model  Model object
-        @return JSON serialised string
-        '''
-        return json.dumps({k:v for k, v in vars(model).items()}, separators=(',', ':'))
 
     def _response(self, **kwargs) -> _ResponseT:
         '''
@@ -153,34 +153,22 @@ class HTTPSource(object):
 
         if _has_request_body(method):
             # Deserialise request body
-            # FIXME If the _model constructor doesn't match the below
-            #       (i.e., no arguments), then this will fail!
-            model = self._model()
-            data  = request.get_json(force=True)
-
             try:
-                for k, v in data.items():
-                    setattr(model, k, v)
+                data = request.get_json(force=True)
+                response = self._methods[method](data, **kwargs)
 
-            except:
-                return 'Couldn\'t deserialise request body', 400
-
-            response = self._methods[method](model, **kwargs)
+            except (BadRequest, ValueError):
+                # If the JSON cannot be decoded (BadRequest), or the
+                # handler can't make sense of the decoded data
+                # (ValueError), then (re)raise a Bad Request response
+                return 'Couldn\'t decode request body', 400
 
         else:
             response = self._methods[method](**kwargs)
 
-        # Serialise
-        if isinstance(response, collections.Iterable):
-            # Collection
-            items = [self._serialise(item) for item in response]
-            json  = '[{}]'.format(','.join(items))
-
-        else:
-            # Single item
-            json = self._serialise(response)
-
-        return json, 200, {'Content-Type': 'application/json'}
+        # Serialise and return
+        serialised = json.dumps(response, separators=(',', ':'))
+        return serialised, 200, {'Content-Type': 'application/json'}
 
 
 class API(object):
@@ -191,9 +179,11 @@ class API(object):
         '''
         self._service = Flask(name)
         self._routes = {}
+
+        # Secret shutdown route
         self._shutdown_route = '/{}'.format(uuid4().hex)
 
-    def _shutdown_handler(self):
+    def _shutdown_handler(self) -> str:
         '''
         Initiate server shutdown request
         Based on http://flask.pocoo.org/snippets/67/
@@ -203,31 +193,32 @@ class API(object):
             raise RuntimeError('Not running with the Werkzeug server')
         shutdown()
 
-    def create_route(self, route:str, model:Optional[type]=None) -> HTTPSource:
+        return 'API service shutting down...'
+
+    def create_route(self, route:str) -> Endpoint:
         '''
         Define a route; where routes may be parametrised, using tags
-        within angled brackets, and be associated with a specific model.
+        within angled brackets
        
-        @param  route  Route string for data source
-        @param  model  Model representing data
-        @return An HTTPSource object
+        @param  route  Route string for endpoint
+        @return An Endpoint object
 
         Route parametrisation example:
 
            /path/to/<foo>
 
         Here the value of `foo` would be mapped into the respective
-        keyword argument of the HTTPSource's method handlers.
+        keyword argument of the Endpoint's method handlers.
         '''
         if route in self._routes:
             del self._routes[route]
 
-        self._routes[route] = HTTPSource(route, model)
+        self._routes[route] = Endpoint(route)
         return self._routes[route]
 
     def listen(self, port:int=5000):
         '''
-        Build the API service, defined by its routes, and start it
+        Build the API service, defined by its endpoints, and start it
 
         @param  port  The port to listen for HTTP requests
         '''
@@ -239,7 +230,7 @@ class API(object):
                 methods=source._get_methods()
             )
 
-        # Shutdown route
+        # Secret shutdown route
         self._service.add_url_rule(
             rule=self._shutdown_route,
             endpoint=self._shutdown_route,

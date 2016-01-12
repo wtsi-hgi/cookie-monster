@@ -6,11 +6,11 @@ from hgicommon.data_source import DataSource
 
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
-from cookiemonster.notifier.notifier import Notifier
+from cookiemonster.notifications.notification_receiver import NotificationReceiver
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._rules import RuleQueue
-from cookiemonster.processor.models import Rule
-from cookiemonster.processor.processing import ProcessorManager, Processor
+from cookiemonster.processor.models import Rule, EnrichmentLoader
+from cookiemonster.processor.processing import ProcessorManager, Processor, ABOUT_NO_RULES_MATCH
 
 
 class BasicProcessor(Processor):
@@ -44,22 +44,24 @@ class BasicProcessorManager(ProcessorManager):
     Simple manager for the continuous processing of new data.
     """
     def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules_source: DataSource[Rule],
-                 enrichment_manager: EnrichmentManager, notifier: Notifier):
+                 enrichment_loader_source: DataSource[EnrichmentLoader],
+                 notification_receivers_source: DataSource[NotificationReceiver]):
         """
         Constructor.
         :param number_of_processors: the maximum number of processors to use. Must be at least 1
         :param cookie_jar: the cookie jar to get updates from
         :param rules_source: the source of the rules
-        :param enrichment_manager: the manager to use when loading more information about a cookie
-        :param notifier: the notifier
+        :param enrichment_loader_source: the source of enrichment loaders
+        :param notification_receivers_source: the source of notification receivers
         """
         if number_of_processors < 1:
             raise ValueError("Must be instantiated with at least one processor, not %d" % number_of_processors)
 
         self._cookie_jar = cookie_jar
         self._rules_source = rules_source
-        self._notifier = notifier
-        self._enrichment_manager = enrichment_manager
+        self._notification_receivers_source = notification_receivers_source
+        self._enrichment_loaders_source = enrichment_loader_source
+        self._enrichment_manager = EnrichmentManager(self._enrichment_loaders_source)
 
         self._idle_processors = set()
         self._busy_processors = set()
@@ -92,10 +94,9 @@ class BasicProcessorManager(ProcessorManager):
             logging.debug("Triggered to process cookies but no free processors")
 
     def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: Iterable[Notification]=()):
+        # TODO: Notifications could be done in parallel
         for notification in notifications:
-            logging.info("Notifying \"%s\" as a result of processing cookie with path \"%s\""
-                          % (notification.external_process_name, cookie.path))
-            self._notifier.do(notification)
+            self._notify_notification_receivers(notification)
 
         if stop_processing:
             logging.info("Stopping processing of cookie with path \"%s\"" % cookie.path)
@@ -105,14 +106,15 @@ class BasicProcessorManager(ProcessorManager):
 
             if enrichment is None:
                 logging.info("Cannot enrich cookie with path \"%s\" any further" % cookie.path)
-                # FIXME: No guarantee that such a notification can be given!
-                self._notifier.do(Notification("unknown", cookie.path))
+                unknown_notification = Notification(
+                        ABOUT_NO_RULES_MATCH, cookie.path, BasicProcessorManager.__qualname__)
+                self._notify_notification_receivers(unknown_notification)
+
                 self._cookie_jar.mark_as_complete(cookie.path)
             else:
-                logging.info("Appliyng enrichment from source \"%s\" to cookie with path \"%s\""
+                logging.info("Applying enrichment from source \"%s\" to cookie with path \"%s\""
                              % (cookie.path, enrichment.source))
                 self._cookie_jar.enrich_cookie(cookie.path, enrichment)
-                self._cookie_jar.mark_for_processing(cookie.path)
 
     def _claim_processor(self) -> Optional[Processor]:
         """
@@ -140,3 +142,14 @@ class BasicProcessorManager(ProcessorManager):
         with self._lists_lock:
             self._busy_processors.remove(processor)
             self._idle_processors.add(processor)
+
+    def _notify_notification_receivers(self, notification: Notification):
+        """
+        Notifies the notification receivers of the given notification.
+        :param notification: the notification to give to all notification receivers
+        """
+        notification_receivers = self._notification_receivers_source.get_all()
+        logging.info("Notifying %d notification receivers of notification about \"%s\""
+                     % (len(notification_receivers), notification.about))
+        for notification_receiver in notification_receivers:
+            notification_receiver.receive(notification)

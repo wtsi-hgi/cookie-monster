@@ -4,7 +4,7 @@ SELECT DISTINCT Collection.coll_name AS collectionName,
                 Data.data_repl_num AS dataReplicaNumber,
                 Data.data_checksum AS dataChecksum,
                 Data.modify_ts AS dataModifyTimestamp
-    FROM R_DATA_MAIN AS Data
-        INNER JOIN R_COLL_MAIN AS Collection
+    FROM R_DATA_MAIN Data
+        INNER JOIN R_COLL_MAIN Collection
             ON Data.coll_id = Collection.coll_id
-    WHERE Data.modify_ts >= ? AND Data.modify_ts <= ?
+    WHERE Data.modify_ts > ? AND Data.modify_ts <= ?

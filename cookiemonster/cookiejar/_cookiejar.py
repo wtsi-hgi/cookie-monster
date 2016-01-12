@@ -23,7 +23,8 @@ Jars. Such implementations must define the following methods:
 
 * `mark_as_failed` should mark a file as having failed processing. This
   should have the effect of requeueing the file after a specified grace
-  period
+  period, whereupon listeners should be notified of the updated queue
+  length
 
 * `mark_as_complete` should mark a file as having completed its
   processing successfully
@@ -50,7 +51,7 @@ Authors
 License
 -------
 GPLv3 or later
-Copyright (c) 2015 Genome Research Limited
+Copyright (c) 2015, 2016 Genome Research Limited
 '''
 
 from abc import ABCMeta, abstractmethod
@@ -83,7 +84,7 @@ class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def mark_as_failed(self, path: str, requeue_delay: timedelta):
+    def mark_as_failed(self, path: str, requeue_delay: Optional[timedelta]):
         '''
         Mark a file as having failed processing, thus returning it to
         the queue after a specified period
