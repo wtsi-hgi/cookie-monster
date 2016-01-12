@@ -38,9 +38,9 @@ class NotificationReceiverSource(RegisteringDataSource):
     def __init__(self, directory_location: str):
         """
         Constructor.
-        :param directory_location: the directory in which enrichment loaders can be sourced from
+        :param directory_location: the directory in which notification receivers can be sourced from
         """
-        super().__init__(directory_location, Notification)
+        super().__init__(directory_location, NotificationReceiver)
 
     def is_data_file(self, file_path: str) -> bool:
         return NotificationReceiverSource._COMPILED_FILE_PATH_MATCH_REGEX.search(file_path)
