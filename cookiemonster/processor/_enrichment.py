@@ -1,3 +1,4 @@
+import logging
 import re
 from queue import PriorityQueue
 from typing import Optional
@@ -36,7 +37,11 @@ class EnrichmentManager:
         while not enrichment_loaders_priority_queue.empty():
             enrichment_loader = enrichment_loaders_priority_queue.get()
             if enrichment_loader.can_enrich(cookie):
-                return enrichment_loader.load_enrichment(cookie)
+                try:
+                    return enrichment_loader.load_enrichment(cookie)
+                except Exception as e:
+                    logging.error("Error loading enrichment; Enrichment loader: %s; Target Cookie: %s; Error: %s"
+                                  % (enrichment_loader, cookie.path, e))
 
         return None
 

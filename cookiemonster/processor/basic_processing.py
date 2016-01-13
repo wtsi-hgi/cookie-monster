@@ -107,16 +107,16 @@ class BasicProcessorManager(ProcessorManager):
             enrichment = self._enrichment_manager.next_enrichment(cookie)
 
             if enrichment is None:
-                logging.info("Cannot enrich cookie with path \"%s\" any further" % cookie.path)
-                unknown_notification = Notification(
+                logging.info("Cannot enrich cookie with path \"%s\" any further - marking as complete" % cookie.path)
+                no_rules_match_notification = Notification(
                         ABOUT_NO_RULES_MATCH, cookie.path, BasicProcessorManager.__qualname__)
-                self._notify_notification_receivers(unknown_notification)
-
+                self._notify_notification_receivers(no_rules_match_notification)
                 self._cookie_jar.mark_as_complete(cookie.path)
             else:
                 logging.info("Applying enrichment from source \"%s\" to cookie with path \"%s\""
                              % (cookie.path, enrichment.source))
                 self._cookie_jar.enrich_cookie(cookie.path, enrichment)
+                # Enrichment method also sets cookie for reprocessing so no need to repeat that
 
     def _claim_processor(self) -> Optional[Processor]:
         """
