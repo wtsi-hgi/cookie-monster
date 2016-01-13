@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timezone
 from threading import Barrier, Semaphore, Thread
 from typing import Dict, Iterable
+from typing import Optional
 
 import pytz
 from baton._baton_mappers import BatonCustomObjectMapper
@@ -46,17 +47,25 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         aliases = [DATA_UPDATES_QUERY_ALIAS, METADATA_UPDATES_QUERY_ALIAS]
         all_updates = []
         semaphore = Semaphore(0)
+        error = None    # type: Optional(Exception)
 
         def run_threaded(alias: str):
             updates_query = PreparedSpecificQuery(alias, arguments)
-            updates = self._get_with_prepared_specific_query(updates_query)
-            all_updates.extend(list(updates))
-            semaphore.release()
+            try:
+                updates = self._get_with_prepared_specific_query(updates_query)
+                all_updates.extend(list(updates))
+            except Exception as e:
+                nonlocal error
+                error = e
+            finally:
+                semaphore.release()
 
         for alias in aliases:
             Thread(target=run_threaded, args=(alias, )).start()
         for _ in range(len(aliases)):
             semaphore.acquire()
+            if error is not None:
+                raise error
 
         return BatonUpdateMapper._combine_updates_for_same_entity(all_updates)
 
