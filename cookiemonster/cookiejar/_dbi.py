@@ -172,7 +172,7 @@ class _EnrichmentEncoder(JSONEncoder):
     ''' JSON encoder for Enrichment models '''
     def default(self, enrichment: Enrichment) -> dict:
         return {
-            'source':    enrichment.source.value if type(enrichment.source) is EnrichmentSource else enrichment.source,
+            'source':    enrichment.source.value if isinstance(enrichment.source, EnrichmentSource) else enrichment.source,
             'timestamp': int(mktime(enrichment.timestamp.timetuple())),
             'metadata':  enrichment.metadata._data
         }
@@ -476,7 +476,7 @@ class Bert(_Couch):
             latest    = results.rows[0]
             key, path = latest.id, latest.value
 
-            self.upsert('queue', 'set_processing', key, processing = True)
+            self.upsert('queue', 'set_processing', key, processing=True)
             return path
     
     def mark_finished(self, path: str):
@@ -489,7 +489,7 @@ class Bert(_Couch):
         doc_id = self._get_id(path)
 
         if doc_id:
-            self.upsert('queue', 'set_processing', doc_id, processing = False)
+            self.upsert('queue', 'set_processing', doc_id, processing=False)
 
     def _define_schema(self):
         ''' Define views and update handlers '''
