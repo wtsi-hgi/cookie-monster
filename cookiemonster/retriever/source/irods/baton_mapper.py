@@ -4,6 +4,7 @@ from threading import Barrier, Semaphore, Thread
 from typing import Dict, Iterable
 from typing import Optional
 
+import math
 import pytz
 from baton._baton_mappers import BatonCustomObjectMapper
 from baton.models import PreparedSpecificQuery
@@ -22,6 +23,7 @@ from cookiemonster.retriever.source.irods._constants import UPDATE_METADATA_ATTR
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 _HASH_METADATA_KEY = "hash"
+_MAX_IRODS_TIMESTAMP = int(math.pow(2, 31)) - 1
 
 
 class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
@@ -36,12 +38,12 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
             since = _EPOCH
 
         since_timestamp = str(int(since.timestamp()))
-        until_timestamp = str(int(datetime.max.timestamp()))
 
+        until_timestamp = str(_MAX_IRODS_TIMESTAMP)
         # "since" appears to need to comprise of 11 digits. Leading zeros can be used to pad the length. However, if it
         # has too many leading zeros, the number appears to be treated as "0". If it does not have enough, no entries
         # are returned
-        since_timestamp = since_timestamp.zfill(11)
+        # since_timestamp = since_timestamp.zfill(11)
 
         arguments = [since_timestamp, until_timestamp]
         aliases = [DATA_UPDATES_QUERY_ALIAS, METADATA_UPDATES_QUERY_ALIAS]

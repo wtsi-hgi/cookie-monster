@@ -39,7 +39,7 @@ class TestEnrichmentManager(unittest.TestCase):
         additional_enrichment_loaders = [
             EnrichmentLoader(lambda *args: True, lambda *args: faulty_load_enrichment(1), 0),
             EnrichmentLoader(
-                    lambda *args: faulty_can_enrich(), lambda *args: Enrichment("", datetime.min, Metadata()), 5),
+                    lambda *args: faulty_can_enrich(1), lambda *args: Enrichment("", datetime.min, Metadata()), 5),
             EnrichmentLoader(lambda *args: True, lambda *args: faulty_load_enrichment(2), 15)
         ]
         enrichment_manager = EnrichmentManager(ListDataSource(additional_enrichment_loaders + self.enrichment_loaders))

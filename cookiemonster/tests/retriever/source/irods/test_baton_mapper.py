@@ -2,6 +2,7 @@ import unittest
 from datetime import datetime
 from os.path import dirname, normpath, realpath, join
 
+import math
 from hgicommon.collections import Metadata
 from testwithbaton.api import TestWithBatonSetup
 from testwithbaton.helpers import SetupHelper
@@ -19,6 +20,8 @@ _DATA_OBJECT_NAMES = ["data_object_1", "data_object_2"]
 _METADATA_KEYS = ["key_1", "key_2"]
 _METADATA_VALUES = ["value_1", "value_2"]
 
+_MAX_IRODS_TIMESTAMP = int(math.pow(2, 31)) - 1
+
 
 class TestBatonUpdateMapper(unittest.TestCase):
     """
@@ -35,7 +38,7 @@ class TestBatonUpdateMapper(unittest.TestCase):
                 self.test_with_baton.baton_location, self.test_with_baton.irods_test_server.users[0])
 
     def test_get_all_since_with_date_in_future(self):
-        updates = self.mapper.get_all_since(datetime.max)
+        updates = self.mapper.get_all_since(datetime.fromtimestamp(_MAX_IRODS_TIMESTAMP))
         self.assertEquals(len(updates), 0)
 
     def test_get_all_since_with_date_in_past(self):

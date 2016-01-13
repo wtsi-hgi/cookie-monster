@@ -13,4 +13,5 @@ SELECT DISTINCT Collection.coll_name AS collectionName,
             ON Data.data_id = MetadataMap.object_id
         LEFT JOIN R_META_MAIN Metadata
             ON MetadataMap.meta_id = Metadata.meta_id
-    WHERE MetadataMap.modify_ts > ? AND MetadataMap.modify_ts <= ?
+    WHERE CAST(MetadataMap.modify_ts AS INT) > CAST(? AS INT)
+        AND CAST(MetadataMap.modify_ts AS INT) <= CAST(? AS INT)
