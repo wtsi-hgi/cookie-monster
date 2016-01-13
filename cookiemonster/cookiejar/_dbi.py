@@ -114,6 +114,7 @@ GPLv3 or later
 Copyright (c) 2015, 2016 Genome Research Limited
 '''
 
+from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
 from json import JSONEncoder
@@ -186,23 +187,18 @@ class _Couch(object):
         self._db      = None
         self._designs = {}
 
-        self._lock    = Lock()
-        self._doclox  = {}
+        # Thread locks for CouchDB documents
+        self._doclox = defaultdict(Lock)
 
-    def _acquire_doclock(self, key: str):
+    def _lockdoc(self, key: str):
         '''
         Acquire a lock on a CouchDB document
 
         @param  key  Document ID
         '''
-        self._lock.acquire()
-        if key not in self._doclox:
-            self._doclox[key] = Lock()
-        self._lock.release()
-
         self._doclox[key].acquire()
 
-    def _release_doclock(self, key: str):
+    def _unlockdoc(self, key: str):
         '''
         Release the lock on a CouchDB document
 
@@ -276,7 +272,7 @@ class _Couch(object):
         '''
         self._check_connection()
         new_data = deepcopy(data)
-        self._acquire_doclock(key)
+        self._lockdoc(key)
 
         if key in self._db:
             # Update
@@ -296,7 +292,7 @@ class _Couch(object):
             new_data['_id'] = key
             _, _rev = self._db.save(Document(new_data))
 
-        self._release_doclock(key)
+        self._unlockdoc(key)
 
         return _rev
 
@@ -321,10 +317,10 @@ class _Couch(object):
         if not key:
             key = uuid4().hex
 
-        self._acquire_doclock(key)
+        self._lockdoc(key)
         update_name = '{}/{}'.format(design, update)
         res_headers, res_body = self._db.update_doc(update_name, key, **options)
-        self._release_doclock(key)
+        self._unlockdoc(key)
 
         # Decode the response body
         charset = res_headers.get_content_charset() or 'UTF8'
