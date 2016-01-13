@@ -1,9 +1,12 @@
+import logging
 import unittest
 from datetime import datetime
+from queue import PriorityQueue
+from typing import Iterable
+from unittest.mock import MagicMock
 
 from hgicommon.collections import Metadata
 from hgicommon.data_source import ListDataSource
-from hgicommon.mixable import Priority
 
 from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.processor._enrichment import EnrichmentManager, EnrichmentLoaderSource
@@ -16,19 +19,57 @@ class TestEnrichmentManager(unittest.TestCase):
     """
     def setUp(self):
         self.enrichment_loaders = [
-            EnrichmentLoader(lambda *args: False, lambda *args: Enrichment("source_1", datetime.min, Metadata()),
-                             Priority.MIN_PRIORITY),
-            EnrichmentLoader(lambda *args: True, lambda *args: Enrichment("source_2", datetime.min, Metadata()),
-                             Priority.get_lower_priority_value(Priority.MAX_PRIORITY)),
-            EnrichmentLoader(lambda *args: True, lambda *args: Enrichment("source_3", datetime.min, Metadata()),
-                             Priority.MAX_PRIORITY)
+            EnrichmentLoader(lambda *args: False, lambda *args: Enrichment("source_1", datetime.min, Metadata()), 10),
+            EnrichmentLoader(lambda *args: True, lambda *args: Enrichment("source_2", datetime.min, Metadata()), 5),
+            EnrichmentLoader(lambda *args: True, lambda *args: Enrichment("source_3", datetime.min, Metadata()), 2),
+            EnrichmentLoader(lambda *args: False, lambda *args: Enrichment("source_4", datetime.min, Metadata()), 1)
         ]
-        self.cookie = Cookie("path")
 
     def test_next_enrichment(self):
         enrichment_manager = EnrichmentManager(ListDataSource(self.enrichment_loaders))
-        enrichment = enrichment_manager.next_enrichment(self.cookie)
-        self.assertEquals(enrichment, self.enrichment_loaders[2].load_enrichment(self.cookie))
+        self._test_loaded_in_correct_order(enrichment_manager, self.enrichment_loaders)
+
+    def test_resilience_to_broken_enrichment_loaders(self):
+        def faulty_load_enrichment(i: int) -> Enrichment:
+            raise RuntimeError()
+
+        def faulty_can_enrich(i: int) -> bool:
+            raise RuntimeError()
+
+        additional_enrichment_loaders = [
+            EnrichmentLoader(lambda *args: True, lambda *args: faulty_load_enrichment(1), 0),
+            EnrichmentLoader(
+                    lambda *args: faulty_can_enrich(), lambda *args: Enrichment("", datetime.min, Metadata()), 5),
+            EnrichmentLoader(lambda *args: True, lambda *args: faulty_load_enrichment(2), 15)
+        ]
+        enrichment_manager = EnrichmentManager(ListDataSource(additional_enrichment_loaders + self.enrichment_loaders))
+
+        self._test_loaded_in_correct_order(enrichment_manager, self.enrichment_loaders)
+
+    def _test_loaded_in_correct_order(
+            self, enrichment_manager: EnrichmentManager, enrichment_loaders: Iterable[EnrichmentLoader]):
+        """
+        Tests that the given enrichment manager applies enrichments defined be the given loaders in the correct order.
+        :param enrichment_manager: enrichment manager
+        :param enrichment_loaders: enrichment loaders
+        """
+        logging.root.setLevel(logging.CRITICAL)
+        cookie = Cookie("path")
+
+        enrichment_loaders_priority_queue = PriorityQueue()
+        for enrichment_loader in enrichment_loaders:
+            if enrichment_loader.can_enrich(cookie):
+                enrichment_loaders_priority_queue.put(enrichment_loader)
+
+        enrichment = enrichment_manager.next_enrichment(cookie)
+        while enrichment is not None:
+            expected_enrichment_loader = enrichment_loaders_priority_queue.get()    # type: EnrichmentLoader
+            expected_enrichment = expected_enrichment_loader.load_enrichment(cookie)
+            self.assertEqual(enrichment, expected_enrichment)
+            cookie.enrich(enrichment)
+            expected_enrichment_loader.can_enrich = MagicMock(return_value=False)
+            enrichment = enrichment_manager.next_enrichment(cookie)
+        self.assertTrue(enrichment_loaders_priority_queue.empty())
 
 
 class TestEnrichmentLoaderSource(unittest.TestCase):

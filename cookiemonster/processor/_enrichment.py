@@ -30,13 +30,20 @@ class EnrichmentManager:
         """
         enrichment_loaders = self.enrichment_loader_source.get_all()
         enrichment_loaders_priority_queue = PriorityQueue()
-
         for enrichment_loader in enrichment_loaders:
             enrichment_loaders_priority_queue.put(enrichment_loader)
 
         while not enrichment_loaders_priority_queue.empty():
             enrichment_loader = enrichment_loaders_priority_queue.get()
-            if enrichment_loader.can_enrich(cookie):
+
+            enrich = False
+            try:
+                enrich = enrichment_loader.can_enrich(cookie)
+            except Exception as e:
+                logging.error("Error checking if enrichment can be applied to cookie; Enrichment loader: %s;"
+                              "Target Cookie: %s; Error: %s" % (enrichment_loader, cookie.path, e))
+
+            if enrich:
                 try:
                     return enrichment_loader.load_enrichment(cookie)
                 except Exception as e:
