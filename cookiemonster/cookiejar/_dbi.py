@@ -190,25 +190,6 @@ class _Couch(object):
         # Thread locks for CouchDB documents
         self._doclox = defaultdict(Lock)
 
-    def _lockdoc(self, key: str):
-        '''
-        Acquire a lock on a CouchDB document
-
-        @param  key  Document ID
-        '''
-        self._doclox[key].acquire()
-
-    def _unlockdoc(self, key: str):
-        '''
-        Release the lock on a CouchDB document
-
-        @param  key  Document ID
-        '''
-        self._doclox[key].release()
-
-        # TODO? Delete lock once released?
-        # i.e., _doclox memory consumption vs. Lock instantiation time
-
     def connect(self, host: str, database: str):
         '''
         Acquire connection with the CouchDB host and use (and create)
@@ -272,27 +253,25 @@ class _Couch(object):
         '''
         self._check_connection()
         new_data = deepcopy(data)
-        self._lockdoc(key)
 
-        if key in self._db:
-            # Update
-            current_doc  = self.fetch(key)
-            current_data = _document_to_dictionary(current_doc)
-            if new_data != current_data:
-                # To avoid update conflicts, we must explicitly set the
-                # revision key to the latest
-                new_data['_id']  = key
-                new_data['_rev'] = current_doc.rev
-                _, _rev = self._db.save(Document(new_data))
+        with self._doclox[key]:
+            if key in self._db:
+                # Update
+                current_doc  = self.fetch(key)
+                current_data = _document_to_dictionary(current_doc)
+                if new_data != current_data:
+                    # To avoid update conflicts, we must explicitly set the
+                    # revision key to the latest
+                    new_data['_id']  = key
+                    new_data['_rev'] = current_doc.rev
+                    _, _rev = self._db.save(Document(new_data))
+                else:
+                    _rev = current_doc.rev
+
             else:
-                _rev = current_doc.rev
-
-        else:
-            # Insert
-            new_data['_id'] = key
-            _, _rev = self._db.save(Document(new_data))
-
-        self._unlockdoc(key)
+                # Insert
+                new_data['_id'] = key
+                _, _rev = self._db.save(Document(new_data))
 
         return _rev
 
@@ -317,10 +296,9 @@ class _Couch(object):
         if not key:
             key = uuid4().hex
 
-        self._lockdoc(key)
-        update_name = '{}/{}'.format(design, update)
-        res_headers, res_body = self._db.update_doc(update_name, key, **options)
-        self._unlockdoc(key)
+        with self._doclox[key]:
+            update_name = '{}/{}'.format(design, update)
+            res_headers, res_body = self._db.update_doc(update_name, key, **options)
 
         # Decode the response body
         charset = res_headers.get_content_charset() or 'UTF8'
