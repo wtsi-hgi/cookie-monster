@@ -111,7 +111,7 @@ Authors
 License
 -------
 GPLv3 or later
-Copyright (c) 2015 Genome Research Limited
+Copyright (c) 2015, 2016 Genome Research Limited
 '''
 
 from copy import deepcopy
