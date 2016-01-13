@@ -28,10 +28,13 @@ class BasicProcessor(Processor):
 
         while not terminate and rule_queue.has_unapplied_rules():
             rule = rule_queue.get_next()
-            if rule._matches(cookie):
-                rule_action = rule.generate_action(cookie)
-                notifications += rule_action.notifications
-                terminate = rule_action.terminate_processing
+            try:
+                if rule.matches(cookie):
+                    rule_action = rule.generate_action(cookie)
+                    notifications += rule_action.notifications
+                    terminate = rule_action.terminate_processing
+            except Exception as e:
+                logging.error("Error applying rule; Rule: %s; Error: %s" % (e, rule))
             rule_queue.mark_as_applied(rule)
 
         logging.info("Completed processing cookie with path \"%s\". Notifying %d external processes. "
