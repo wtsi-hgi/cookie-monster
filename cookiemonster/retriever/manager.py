@@ -3,6 +3,7 @@ import time
 from datetime import datetime, timedelta
 from math import ceil
 from multiprocessing import Lock
+from sched import scheduler
 from threading import Timer, Thread
 from typing import TypeVar
 
@@ -106,10 +107,10 @@ class PeriodicRetrievalManager(RetrievalManager):
         """
         super().__init__(update_mapper, retrieval_log_mapper)
         self._retrieval_period = retrieval_period
-        self._timer = None
         self._running = False
         self._state_lock = Lock()
         self._thread = None
+        self._scheduler = scheduler()
 
     def run(self, updates_since: datetime=datetime.min):
         updates_since = localise_to_utc(updates_since)
@@ -134,9 +135,9 @@ class PeriodicRetrievalManager(RetrievalManager):
         """
         with self._state_lock:
             if self._running:
-                if self._timer is not None:
-                    self._timer.cancel()
-                self._timer = None
+                for event in self._scheduler.queue:
+                    self._scheduler.cancel(event)
+                assert self._scheduler.empty()
                 self._running = False
                 logging.debug("Stopped periodic retrieval manger")
 
@@ -145,6 +146,7 @@ class PeriodicRetrievalManager(RetrievalManager):
         Do a retrieve and then schedule next cycle.
         :param retrieve: the retrieve to do
         """
+        assert self._scheduler.empty()
         logging.debug("Doing retrieval scheduled for %s" % retrieve.scheduled_for)
 
         started_computation_at = RetrievalManager._get_current_time()
@@ -181,10 +183,9 @@ class PeriodicRetrievalManager(RetrievalManager):
                 # Next cycle should begin straight away
                 self._do_retrieve_periodically(retrieve)
             else:
-                interval = retrieve.scheduled_for - RetrievalManager._get_current_time()
-                # Run timer in same thread
-                self._timer = Timer(interval.total_seconds(), self._do_retrieve_periodically, args=(retrieve, ))
-                self._timer.run()
+                # Schedule next period
+                self._scheduler.enterabs(
+                        retrieve.scheduled_for, 0, self._do_retrieve_periodically, argument=(retrieve, ))
 
     def _calculate_next_scheduled_time(
             self, previous_scheduled_time: _TimeT, previous_computation_time: _TimeDeltaT) -> _TimeT:
