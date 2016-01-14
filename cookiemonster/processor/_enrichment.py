@@ -24,7 +24,7 @@ class EnrichmentManager:
         """
         Loads the next set of data not present in the known data given (the "enrichment").
 
-        Returns `None``if all enrichements have already been applied to the cookie.
+        Returns `None``if all enrichments have already been applied to the cookie.
         :param cookie: the data already known
         :return: the loaded enrichment
         """

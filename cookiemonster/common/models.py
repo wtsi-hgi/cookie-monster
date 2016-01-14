@@ -15,6 +15,7 @@ Copyright (c) 2015 Genome Research Limited
 from datetime import datetime
 from functools import total_ordering
 from typing import Any, Union, Set, Optional
+from typing import Iterable
 
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
@@ -53,7 +54,7 @@ class Cookie(Model):
     """
     def __init__(self, path: str):
         self.path = path
-        self.enrichments = []
+        self.enrichments = []   # type: Iterable(Enrichment)
 
     def enrich(self, enrichment: Enrichment):
         """

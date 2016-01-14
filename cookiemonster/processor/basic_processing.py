@@ -104,6 +104,9 @@ class BasicProcessorManager(ProcessorManager):
             logging.info("Stopping processing of cookie with path \"%s\"" % cookie.path)
             self._cookie_jar.mark_as_complete(cookie.path)
         else:
+            logging.info(
+                    "Checking if any of the %d enrichment loader(s) can load enrichment for cookie with path \"%s\""
+                    % (len(self._enrichment_loaders_source.get_all()), cookie.path))
             enrichment = self._enrichment_manager.next_enrichment(cookie)
 
             if enrichment is None:
