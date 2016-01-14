@@ -1,12 +1,11 @@
 import logging
 import time
-from datetime import datetime, timedelta
-from math import ceil
+from datetime import datetime
 from multiprocessing import Lock
-from sched import scheduler
-from threading import Timer, Thread
+from threading import Thread
 from typing import TypeVar
 
+from apscheduler.schedulers.blocking import BlockingScheduler
 from hgicommon.mixable import Listenable
 
 from cookiemonster.common.collections import UpdateCollection
@@ -14,7 +13,7 @@ from cookiemonster.common.helpers import localise_to_utc
 from cookiemonster.retriever._models import RetrievalLog
 from cookiemonster.retriever.mappers import RetrievalLogMapper, UpdateMapper
 
-_TimeDeltaT = TypeVar("TimeDelta")
+TimeDeltaInSecondsT = TypeVar("TimeDelta")
 _TimeT = TypeVar("Time")
 
 
@@ -38,14 +37,14 @@ class RetrievalManager(Listenable[UpdateCollection]):
         :param updates_since: the time from which to get updates from (defaults to getting all updates).
         """
         updates_since = localise_to_utc(updates_since)
-        self._do_retrieve(updates_since)
+        self._do_retrieval(updates_since)
 
-    def _do_retrieve(self, updates_since: datetime) -> UpdateCollection:
+    def _do_retrieval(self, updates_since: datetime):
         """
         Handles the retrieval of updates by getting the data using the retriever, notifying the listeners and then
         logging the retrieval.
         :param updates_since: the time from which to retrieve updates since
-        :return: the query result that was retrieved
+        :return: the result of the retrieval
         """
         logging.debug("Starting update retrieval...")
 
@@ -67,37 +66,20 @@ class RetrievalManager(Listenable[UpdateCollection]):
         logging.debug("Logging update query: %s" % retrieval_log)
         self._retrieval_log_mapper.add(retrieval_log)
 
-        return updates
-
     @staticmethod
-    def _get_current_time() -> _TimeDeltaT:
+    def _get_current_time() -> TimeDeltaInSecondsT:
         """
-        Gets the current time.
+        Gets the time in seconds according to a monotonic time source.
         :return: the current time
         """
         return time.monotonic()
-
-
-class _Retrieve:
-        """
-        Model of a retrieve.
-        """
-        def __init__(self, updates_since: datetime=None, scheduled_for: _TimeDeltaT=None):
-            """
-            Constructor.
-            :param updates_since: when to retrieve updates since
-            :param scheduled_for: when the retrieval was scheduled for
-            """
-            self.updates_since = updates_since
-            self.scheduled_for = scheduled_for
-            self.computation_time = None
 
 
 class PeriodicRetrievalManager(RetrievalManager):
     """
     Manages the periodic retrieval of updates.
     """
-    def __init__(self, retrieval_period: _TimeDeltaT, update_mapper: UpdateMapper,
+    def __init__(self, retrieval_period: TimeDeltaInSecondsT, update_mapper: UpdateMapper,
                  retrieval_log_mapper: RetrievalLogMapper):
         """
         Constructor.
@@ -109,18 +91,20 @@ class PeriodicRetrievalManager(RetrievalManager):
         self._retrieval_period = retrieval_period
         self._running = False
         self._state_lock = Lock()
-        self._thread = None
-        self._scheduler = scheduler()
+        self._updates_since = None
+
+        self._scheduler = BlockingScheduler()
+        self._scheduler.add_job(self._do_retrieval, "interval", seconds=self._retrieval_period,
+                                args=(self._updates_since, ), coalesce=True, max_instances=1)
 
     def run(self, updates_since: datetime=datetime.min):
-        updates_since = localise_to_utc(updates_since)
+        self._updates_since = localise_to_utc(updates_since)
 
         with self._state_lock:
             if self._running:
                 raise RuntimeError("Already running")
             self._running = True
-        retrieve = _Retrieve(updates_since, RetrievalManager._get_current_time())
-        self._do_retrieve_periodically(retrieve)
+        self._scheduler.start()
 
     def start(self, updates_since: datetime=datetime.min):
         """
@@ -135,75 +119,6 @@ class PeriodicRetrievalManager(RetrievalManager):
         """
         with self._state_lock:
             if self._running:
-                for event in self._scheduler.queue:
-                    self._scheduler.cancel(event)
-                assert self._scheduler.empty()
+                self._scheduler.shutdown(wait=False)
                 self._running = False
                 logging.debug("Stopped periodic retrieval manger")
-
-    def _do_retrieve_periodically(self, retrieve: _Retrieve):
-        """
-        Do a retrieve and then schedule next cycle.
-        :param retrieve: the retrieve to do
-        """
-        assert self._scheduler.empty()
-        logging.debug("Doing retrieval scheduled for %s" % retrieve.scheduled_for)
-
-        started_computation_at = RetrievalManager._get_current_time()
-        updates = self._do_retrieve(retrieve.updates_since)
-        computation_time = RetrievalManager._get_current_time() - started_computation_at
-
-        next_retrieve = _Retrieve()
-        next_retrieve.scheduled_for = self._calculate_next_scheduled_time(retrieve.scheduled_for, computation_time)
-
-        if computation_time > self._retrieval_period:
-            logging.warning("Query took longer than the period - currently not scheduable!")
-        if next_retrieve.scheduled_for >= retrieve.scheduled_for + (2 * self._retrieval_period):
-            logging.warning("Query took so long a cycle has been skipped to ensure the period is enforced")
-
-        if len(updates) > 0:
-            # Next time, get all updates since the most recent that was received last time
-            next_retrieve.updates_since = localise_to_utc(updates.get_most_recent()[0].timestamp)
-        else:
-            # Get all updates since same time in future (not going to move since time forward to simplify things - there
-            # is no risk of getting duplicates as no updates in range queried previously)
-            next_retrieve.updates_since = retrieve.updates_since
-
-        self._schedule_next_retrieve(next_retrieve)
-
-    def _schedule_next_retrieve(self, retrieve: _Retrieve):
-        """
-        Schedules the next retrieve.
-        :param retrieve: model of the scheduled retrieve
-        """
-        if self._running:
-            logging.debug("Scheduling next file update retrieval for: %s" % retrieve.scheduled_for)
-
-            if RetrievalManager._get_current_time() >= retrieve.scheduled_for:
-                # Next cycle should begin straight away
-                self._do_retrieve_periodically(retrieve)
-            else:
-                # Schedule next period
-                self._scheduler.enterabs(
-                        retrieve.scheduled_for, 0, self._do_retrieve_periodically, argument=(retrieve, ))
-
-    def _calculate_next_scheduled_time(
-            self, previous_scheduled_time: _TimeT, previous_computation_time: _TimeDeltaT) -> _TimeT:
-        """
-        Given the time at which a job was previous scheduled to start at and the computation time of that job,
-        calculates when the next period should be scheduled for.
-
-        Periodic drift is avoided by not scheduling based on current time. However, given that the computation time
-        is unbounded (the query could take a very long time!), measures have to be taken to guarantee a cycle is never
-        completed early (R_{x+1} >= R_{x} + SourceDataType) particularly in the case where c >= 2T (i.e. retrieval
-        should be "skipped" as it is time for the next retrieval).
-        :param previous_scheduled_time: the time at which the previous job was scheduled for
-        :param previous_computation_time: the computation time of the previous job
-        """
-        c = previous_computation_time
-        T = self._retrieval_period
-        R_0 = previous_scheduled_time
-
-        R_1 = R_0 + max(1, ceil(c / T) - 1) * T
-        assert R_1 >= R_0 + self._retrieval_period
-        return R_1

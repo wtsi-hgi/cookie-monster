@@ -21,4 +21,4 @@ class StubUpdateMapper(UpdateMapper):
     Stub of `UpdateMapper`.
     """
     def get_all_since(self, since: datetime) -> UpdateCollection:
-        pass
+        return []

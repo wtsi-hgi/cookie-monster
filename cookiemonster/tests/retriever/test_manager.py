@@ -1,10 +1,13 @@
 import logging
 import unittest
 from datetime import timedelta, datetime
-from threading import Thread
+from threading import Thread, Semaphore, Lock
 from typing import Any
 from unittest.mock import MagicMock, call
 
+import sys
+
+from apscheduler.triggers.interval import IntervalTrigger
 from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import UpdateCollection
@@ -23,7 +26,7 @@ class _BaseRetrievalManagerTest(unittest.TestCase):
     TIME_TAKEN_TO_DO_RETRIEVE = 1.0
 
     def setUp(self):
-        self.update_retriever = StubUpdateMapper()
+        self.update_mapper = StubUpdateMapper()
         self.retrieval_log_mapper = StubRetrievalLogMapper()
 
         self.updates = UpdateCollection([
@@ -36,7 +39,7 @@ class _BaseRetrievalManagerTest(unittest.TestCase):
                              + _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE)
             return self.updates
 
-        self.update_retriever.get_all_since = MagicMock(side_effect=do_query)
+        self.update_mapper.get_all_since = MagicMock(side_effect=do_query)
 
         logging.root.setLevel(level=logging.ERROR)
 
@@ -49,7 +52,7 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         super().setUp()
 
         # Create retrieval manager
-        self.retrieval_manager = RetrievalManager(self.update_retriever, self.retrieval_log_mapper)
+        self.retrieval_manager = RetrievalManager(self.update_mapper, self.retrieval_log_mapper)
 
     def test_run_with_updates(self):
         # Setup
@@ -61,7 +64,7 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         self.retrieval_manager.run(_BaseRetrievalManagerTest.SINCE)
 
         # Assert that retrieves updates from source
-        self.update_retriever.get_all_since.assert_called_once_with(_BaseRetrievalManagerTest.SINCE)
+        self.update_mapper.get_all_since.assert_called_once_with(_BaseRetrievalManagerTest.SINCE)
         # Assert that updates listener
         listener.assert_called_once_with(self.updates)
         # Assert that retrieval is logged
@@ -84,7 +87,7 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         self.retrieval_manager.run(_BaseRetrievalManagerTest.SINCE)
 
         # Assert that retrieves updates from source
-        self.update_retriever.get_all_since.assert_called_once_with(_BaseRetrievalManagerTest.SINCE)
+        self.update_mapper.get_all_since.assert_called_once_with(_BaseRetrievalManagerTest.SINCE)
         # Assert that updates listener has not been called given that there are no updates
         listener.assert_not_called()
         # Assert that retrieval is logged but that latest retrieved timestamp has not changed
@@ -100,7 +103,7 @@ class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
     """
     Test cases for `PeriodicRetrievalManager`.
     """
-    RETRIEVAL_PERIOD = 2.0
+    RETRIEVAL_PERIOD = 0.0001
     CURRENT_TIME = 0
 
     def setUp(self):
@@ -108,49 +111,61 @@ class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
 
         # Create retrieval manager
         self.retrieval_manager = PeriodicRetrievalManager(
-            TestPeriodicRetrievalManager.RETRIEVAL_PERIOD, self.update_retriever, self.retrieval_log_mapper)
+            TestPeriodicRetrievalManager.RETRIEVAL_PERIOD, self.update_mapper, self.retrieval_log_mapper)
 
     def test_run(self):
-        max_cycles = 10
-        self._setup_to_do_only_n_cycles(max_cycles)
+        cycles = 10
+        listener = MagicMock()
 
         self.retrieval_log_mapper.add = MagicMock()
-
-        listener = MagicMock()
         self.retrieval_manager.add_listener(listener)
 
-        self.retrieval_manager.run(_BaseRetrievalManagerTest.SINCE)
+        self._setup_to_do_n_cycles(cycles, self.updates)
 
-        self.assertEquals(self.retrieval_log_mapper.add.call_count, max_cycles)
-        listener.assert_has_calls([call(self.updates) for _ in range(max_cycles)])
+        self.assertEquals(self.retrieval_log_mapper.add.call_count, cycles)
+        listener.assert_has_calls([call(self.updates) for _ in range(cycles)])
 
     def test_run_if_running(self):
         Thread(target=self.retrieval_manager.run).start()
         self.assertRaises(RuntimeError, self.retrieval_manager.run)
-        self.retrieval_manager.stop()
 
-    def _setup_to_do_only_n_cycles(self, number_of_cycles: int):
+    def test_stop_and_then_restart(self):
+        self.retrieval_manager.start()
+        self.retrieval_manager.stop()
+        self.retrieval_manager.start()
+
+    def _setup_to_do_n_cycles(self, number_of_cycles: int, updates_each_cycle: UpdateCollection=None):
         """
         Sets up the test so that the retriever will only do n cycles.
         :param number_of_cycles: the number of cycles to do
         """
-        counter = 0
-        original_schedule_next_periodic_retrieve = self.retrieval_manager._schedule_next_retrieve
+        if updates_each_cycle is None:
+            updates_each_cycle = UpdateCollection([])
 
-        def limit_cycles(*args, **kargs):
-            nonlocal counter, original_schedule_next_periodic_retrieve
-            counter += 1
-            if counter >= number_of_cycles:
-                self.retrieval_manager._schedule_next_retrieve = MagicMock()
-                original_schedule_next_periodic_retrieve = MagicMock()
+        semaphore = Semaphore(0)
+        lock_until_counted = Lock()
+        lock_until_counted.acquire()
+
+        def increase_counter(*args) -> UpdateCollection:
+            semaphore.release()
+            lock_until_counted.acquire()
+            return updates_each_cycle
+
+        self.retrieval_manager.update_mapper.get_all_since.side_effect = increase_counter
+        self.retrieval_manager.start()
+
+        run_counter = 0
+        while run_counter < number_of_cycles:
+            semaphore.acquire()
+            run_counter += 1
+            lock_until_counted.release()
+            if run_counter == number_of_cycles:
                 self.retrieval_manager.stop()
 
-        def extended_schedule_next_periodic_retrieve(*args, **kargs) -> Any:
-            nonlocal original_schedule_next_periodic_retrieve
-            limit_cycles(*args, **kargs)
-            original_schedule_next_periodic_retrieve(*args, **kargs)
+        self.retrieval_manager.update_mapper.get_all_since.side_effect = None
 
-        self.retrieval_manager._schedule_next_retrieve = extended_schedule_next_periodic_retrieve
+    def tearDown(self):
+        self.retrieval_manager.stop()
 
 
 if __name__ == "__main__":
