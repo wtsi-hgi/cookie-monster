@@ -11,7 +11,7 @@ def convert_to_retrieval_log(sqlalchemy_retrieval_log: SQLAlchemyRetrievalLog) -
     return RetrievalLog(
         sqlalchemy_retrieval_log.latest_retrieved_timestamp,
         sqlalchemy_retrieval_log.number_of_file_updates,
-        sqlalchemy_retrieval_log.time_taken_to_complete_query)
+        sqlalchemy_retrieval_log.seconds_taken_to_complete_query)
 
 
 def convert_to_sqlalchemy_retrieval_log(retrieval_log: RetrievalLog) -> SQLAlchemyRetrievalLog:
@@ -22,6 +22,6 @@ def convert_to_sqlalchemy_retrieval_log(retrieval_log: RetrievalLog) -> SQLAlche
     """
     sqlalchemy_retrieval_log = SQLAlchemyRetrievalLog()
     sqlalchemy_retrieval_log.number_of_file_updates = retrieval_log.number_of_updates
-    sqlalchemy_retrieval_log.time_taken_to_complete_query = retrieval_log.time_taken_to_complete_query
+    sqlalchemy_retrieval_log.seconds_taken_to_complete_query = retrieval_log.seconds_taken_to_complete_query
     sqlalchemy_retrieval_log.latest_retrieved_timestamp = retrieval_log.retrieved_updates_since
     return sqlalchemy_retrieval_log

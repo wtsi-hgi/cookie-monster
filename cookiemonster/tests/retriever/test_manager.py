@@ -20,7 +20,7 @@ class _BaseRetrievalManagerTest(unittest.TestCase):
     Base class for unit tests on `RetrievalManager` instances.
     """
     SINCE = localise_to_utc(datetime.min)
-    TIME_TAKEN_TO_DO_RETRIEVE = timedelta(milliseconds=1)
+    TIME_TAKEN_TO_DO_RETRIEVE = 1.0
 
     def setUp(self):
         self.update_retriever = StubUpdateMapper()
@@ -70,7 +70,7 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         self.assertEquals(retrieval_log.retrieved_updates_since, _BaseRetrievalManagerTest.SINCE)
         self.assertEquals(retrieval_log.number_of_updates, len(self.updates))
         self.assertGreaterEqual(
-                retrieval_log.time_taken_to_complete_query, _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE)
+                retrieval_log.seconds_taken_to_complete_query, _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE)
 
     def test_run_without_updates(self):
         # Setup
@@ -78,7 +78,7 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         self.retrieval_manager.add_listener(listener)
         self.retrieval_log_mapper.add = MagicMock()
         self.updates.clear()
-        self.retrieval_manager._retrieved_updates_since = TestPeriodicRetrievalManager.CURRENT_TIME - timedelta(days=1)
+        self.retrieval_manager._retrieved_updates_since = TestPeriodicRetrievalManager.CURRENT_TIME - (24 * 60 * 60)
 
         # Call SUT method
         self.retrieval_manager.run(_BaseRetrievalManagerTest.SINCE)
@@ -93,15 +93,15 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         self.assertEquals(retrieval_log.retrieved_updates_since, _BaseRetrievalManagerTest.SINCE)
         self.assertEquals(retrieval_log.number_of_updates, len(self.updates))
         self.assertGreaterEqual(
-                retrieval_log.time_taken_to_complete_query, _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE)
+                retrieval_log.seconds_taken_to_complete_query, _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE)
 
 
 class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
     """
     Test cases for `PeriodicRetrievalManager`.
     """
-    RETRIEVAL_PERIOD = timedelta(milliseconds=2)
-    CURRENT_TIME = datetime(year=2000, month=2, day=1)
+    RETRIEVAL_PERIOD = 2.0
+    CURRENT_TIME = 0
 
     def setUp(self):
         super().setUp()

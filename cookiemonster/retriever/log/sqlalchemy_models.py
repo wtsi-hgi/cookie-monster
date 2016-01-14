@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, Interval
+from sqlalchemy import Column, Integer, DateTime, Float
 from sqlalchemy.ext.declarative import declarative_base
 
 
@@ -12,6 +12,6 @@ class SQLAlchemyRetrievalLog(SQLAlchemyModel):
     __tablename__ = "retrieve_log"
 
     number_of_file_updates = Column(Integer)
-    time_taken_to_complete_query = Column(Interval)
+    seconds_taken_to_complete_query = Column(Float)
     latest_retrieved_timestamp = Column(DateTime)
     id = Column(Integer, autoincrement=True, primary_key=True)

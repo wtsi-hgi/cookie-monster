@@ -38,12 +38,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
             since = _EPOCH
 
         since_timestamp = str(int(since.timestamp()))
-
         until_timestamp = str(_MAX_IRODS_TIMESTAMP)
-        # "since" appears to need to comprise of 11 digits. Leading zeros can be used to pad the length. However, if it
-        # has too many leading zeros, the number appears to be treated as "0". If it does not have enough, no entries
-        # are returned
-        # since_timestamp = since_timestamp.zfill(11)
 
         arguments = [since_timestamp, until_timestamp]
         aliases = [DATA_UPDATES_QUERY_ALIAS, METADATA_UPDATES_QUERY_ALIAS]

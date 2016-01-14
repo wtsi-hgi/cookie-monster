@@ -1,8 +1,10 @@
 import logging
+import time
 from datetime import datetime, timedelta
 from math import ceil
 from multiprocessing import Lock
 from threading import Timer, Thread
+from typing import TypeVar
 
 from hgicommon.mixable import Listenable
 
@@ -10,6 +12,9 @@ from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.helpers import localise_to_utc
 from cookiemonster.retriever._models import RetrievalLog
 from cookiemonster.retriever.mappers import RetrievalLogMapper, UpdateMapper
+
+_TimeDeltaT = TypeVar("TimeDelta")
+_TimeT = TypeVar("Time")
 
 
 class RetrievalManager(Listenable[UpdateCollection]):
@@ -46,10 +51,10 @@ class RetrievalManager(Listenable[UpdateCollection]):
         # Do retrieve
         started_at = RetrievalManager._get_current_time()
         updates = self.update_mapper.get_all_since(updates_since)
-        time_taken_to_complete_query = RetrievalManager._get_current_time() - started_at
+        seconds_taken_to_complete_query = RetrievalManager._get_current_time() - started_at
         assert updates is not None
         logging.debug("Retrieved %d updates since %s (query took: %s)"
-                      % (len(updates), updates_since, time_taken_to_complete_query))
+                      % (len(updates), updates_since, seconds_taken_to_complete_query))
 
         # Notify listeners of retrieval
         if len(updates) > 0:
@@ -57,30 +62,26 @@ class RetrievalManager(Listenable[UpdateCollection]):
             self.notify_listeners(updates)
 
         # Log retrieval
-        retrieval_log = RetrievalLog(updates_since, len(updates), time_taken_to_complete_query)
+        retrieval_log = RetrievalLog(updates_since, len(updates), seconds_taken_to_complete_query)
         logging.debug("Logging update query: %s" % retrieval_log)
         self._retrieval_log_mapper.add(retrieval_log)
 
         return updates
 
     @staticmethod
-    def _get_current_time() -> datetime:
+    def _get_current_time() -> _TimeDeltaT:
         """
-        Gets the current time. Can be overriden to control environment for testing.
+        Gets the current time.
         :return: the current time
         """
-        return localise_to_utc(datetime.now())
+        return time.monotonic()
 
 
-class PeriodicRetrievalManager(RetrievalManager):
-    """
-    Manages the periodic retrieval of updates.
-    """
-    class _Retrieve:
+class _Retrieve:
         """
         Model of a retrieve.
         """
-        def __init__(self, updates_since: datetime=None, scheduled_for: datetime=None):
+        def __init__(self, updates_since: datetime=None, scheduled_for: _TimeDeltaT=None):
             """
             Constructor.
             :param updates_since: when to retrieve updates since
@@ -90,7 +91,12 @@ class PeriodicRetrievalManager(RetrievalManager):
             self.scheduled_for = scheduled_for
             self.computation_time = None
 
-    def __init__(self, retrieval_period: timedelta, update_mapper: UpdateMapper,
+
+class PeriodicRetrievalManager(RetrievalManager):
+    """
+    Manages the periodic retrieval of updates.
+    """
+    def __init__(self, retrieval_period: _TimeDeltaT, update_mapper: UpdateMapper,
                  retrieval_log_mapper: RetrievalLogMapper):
         """
         Constructor.
@@ -112,7 +118,7 @@ class PeriodicRetrievalManager(RetrievalManager):
             if self._running:
                 raise RuntimeError("Already running")
             self._running = True
-        retrieve = PeriodicRetrievalManager._Retrieve(updates_since, RetrievalManager._get_current_time())
+        retrieve = _Retrieve(updates_since, RetrievalManager._get_current_time())
         self._do_retrieve_periodically(retrieve)
 
     def start(self, updates_since: datetime=datetime.min):
@@ -120,7 +126,7 @@ class PeriodicRetrievalManager(RetrievalManager):
         Starts the periodic retriever in a new thread. Cannot start if already running.
         :param updates_since: the time from which to get updates from (defaults to getting all updates).
         """
-        Thread(target=self.run, args=(updates_since,)).start()
+        Thread(target=self.run, args=(updates_since, )).start()
 
     def stop(self):
         """
@@ -145,7 +151,7 @@ class PeriodicRetrievalManager(RetrievalManager):
         updates = self._do_retrieve(retrieve.updates_since)
         computation_time = RetrievalManager._get_current_time() - started_computation_at
 
-        next_retrieve = PeriodicRetrievalManager._Retrieve()
+        next_retrieve = _Retrieve()
         next_retrieve.scheduled_for = self._calculate_next_scheduled_time(retrieve.scheduled_for, computation_time)
 
         if computation_time > self._retrieval_period:
@@ -180,7 +186,8 @@ class PeriodicRetrievalManager(RetrievalManager):
                 self._timer = Timer(interval.total_seconds(), self._do_retrieve_periodically, args=(retrieve, ))
                 self._timer.run()
 
-    def _calculate_next_scheduled_time(self, previous_scheduled_time: datetime, previous_computation_time: timedelta):
+    def _calculate_next_scheduled_time(
+            self, previous_scheduled_time: _TimeT, previous_computation_time: _TimeDeltaT) -> _TimeT:
         """
         Given the time at which a job was previous scheduled to start at and the computation time of that job,
         calculates when the next period should be scheduled for.
@@ -194,9 +201,8 @@ class PeriodicRetrievalManager(RetrievalManager):
         """
         c = previous_computation_time
         T = self._retrieval_period
-        delta = timedelta.resolution
         R_0 = previous_scheduled_time
 
-        R_1 = R_0 + max(1, ceil(c / (T - delta)) - 1) * T
+        R_1 = R_0 + max(1, ceil(c / T) - 1) * T
         assert R_1 >= R_0 + self._retrieval_period
         return R_1

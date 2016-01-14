@@ -9,6 +9,7 @@ from cookiemonster.retriever._models import RetrievalLog
 from cookiemonster.retriever.log.sqlalchemy_mapper import SQLAlchemyRetrievalLogMapper
 from cookiemonster.retriever.log.sqlalchemy_models import SQLAlchemyModel
 
+_SECONDS_TAKEN_TO_COMPLETE_QUERY = 0.1
 
 class TestSQLAlchemyRetrievalLogMapper(unittest.TestCase):
     """
@@ -23,15 +24,15 @@ class TestSQLAlchemyRetrievalLogMapper(unittest.TestCase):
         self._mapper = SQLAlchemyRetrievalLogMapper(database_connector)
 
     def test_add(self):
-        retrieve_log = RetrievalLog(datetime(10, 10, 10), 1, timedelta.resolution)
+        retrieve_log = RetrievalLog(datetime(10, 10, 10), 1, _SECONDS_TAKEN_TO_COMPLETE_QUERY)
         self._mapper.add(retrieve_log)
         self.assertEqual(self._mapper.get_most_recent(), retrieve_log)
 
     def test_get_most_recent(self):
         retrieve_logs = [
-            RetrievalLog(datetime(10, 10, 10), 1, timedelta.resolution),
-            RetrievalLog(datetime(20, 10, 10), 1, timedelta.resolution),
-            RetrievalLog(datetime(5, 10, 10), 1, timedelta.resolution)]
+            RetrievalLog(datetime(10, 10, 10), 1, _SECONDS_TAKEN_TO_COMPLETE_QUERY),
+            RetrievalLog(datetime(20, 10, 10), 1, _SECONDS_TAKEN_TO_COMPLETE_QUERY),
+            RetrievalLog(datetime(5, 10, 10), 1, _SECONDS_TAKEN_TO_COMPLETE_QUERY)]
         for retrieve_log in retrieve_logs:
             self._mapper.add(retrieve_log)
         self.assertEqual(self._mapper.get_most_recent(), retrieve_logs[-1])

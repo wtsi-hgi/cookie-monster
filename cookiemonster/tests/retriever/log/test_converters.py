@@ -9,7 +9,7 @@ from cookiemonster.retriever.log.sqlalchemy_models import SQLAlchemyRetrievalLog
 
 _LATEST_RETRIEVED_TIMESTAMP = date.max
 _NUMBER_OF_FILE_UPDATES = 74
-_TIME_TAKEN_TO_COMPLETE_QUERY = timedelta(seconds=3)
+_SECONDS_TAKEN_TO_COMPLETE_QUERY = 3.0
 
 
 class TestConvertToRetrievalLog(unittest.TestCase):
@@ -20,14 +20,14 @@ class TestConvertToRetrievalLog(unittest.TestCase):
         sqlalchemy_retrieve_log = SQLAlchemyRetrievalLog()
         sqlalchemy_retrieve_log.latest_retrieved_timestamp = _LATEST_RETRIEVED_TIMESTAMP
         sqlalchemy_retrieve_log.number_of_file_updates = _NUMBER_OF_FILE_UPDATES
-        sqlalchemy_retrieve_log.time_taken_to_complete_query = _TIME_TAKEN_TO_COMPLETE_QUERY
+        sqlalchemy_retrieve_log.seconds_taken_to_complete_query = _SECONDS_TAKEN_TO_COMPLETE_QUERY
         self._sqlalchemy_retrieve_log = sqlalchemy_retrieve_log
 
     def test_with_valid(self):
         retrieve_log = convert_to_retrieval_log(self._sqlalchemy_retrieve_log)
         self.assertEquals(retrieve_log.retrieved_updates_since, _LATEST_RETRIEVED_TIMESTAMP)
         self.assertEquals(retrieve_log.number_of_updates, _NUMBER_OF_FILE_UPDATES)
-        self.assertEquals(retrieve_log.time_taken_to_complete_query, _TIME_TAKEN_TO_COMPLETE_QUERY)
+        self.assertEquals(retrieve_log.seconds_taken_to_complete_query, _SECONDS_TAKEN_TO_COMPLETE_QUERY)
 
 
 class TestConvertToSqlalchemyRetrievalLog(unittest.TestCase):
@@ -36,13 +36,13 @@ class TestConvertToSqlalchemyRetrievalLog(unittest.TestCase):
     """
     def setUp(self):
         self._retrieve_log = RetrievalLog(
-                _LATEST_RETRIEVED_TIMESTAMP, _NUMBER_OF_FILE_UPDATES, _TIME_TAKEN_TO_COMPLETE_QUERY)
+                _LATEST_RETRIEVED_TIMESTAMP, _NUMBER_OF_FILE_UPDATES, _SECONDS_TAKEN_TO_COMPLETE_QUERY)
 
     def test_with_valid(self):
         sqlalchemy_retrieve_log = convert_to_sqlalchemy_retrieval_log(self._retrieve_log)
         self.assertEquals(sqlalchemy_retrieve_log.latest_retrieved_timestamp, _LATEST_RETRIEVED_TIMESTAMP)
         self.assertEquals(sqlalchemy_retrieve_log.number_of_file_updates, _NUMBER_OF_FILE_UPDATES)
-        self.assertEquals(sqlalchemy_retrieve_log.time_taken_to_complete_query, _TIME_TAKEN_TO_COMPLETE_QUERY)
+        self.assertEquals(sqlalchemy_retrieve_log.seconds_taken_to_complete_query, _SECONDS_TAKEN_TO_COMPLETE_QUERY)
 
 
 if __name__ == "__main__":
