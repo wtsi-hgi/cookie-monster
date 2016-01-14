@@ -28,7 +28,7 @@ _PROJECT_ROOT = join(dirname(realpath(__file__)))
 
 def main():
     retrieval_log_database_location = "sqlite:///%s" % tempfile.mkstemp()[1]
-    retrieval_period = 5.0
+    retrieval_period = 10.0
     updates_since = datetime.fromtimestamp(0)
 
     number_of_processors = 5

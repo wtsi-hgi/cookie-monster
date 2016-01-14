@@ -39,12 +39,12 @@ class RetrievalManager(Listenable[UpdateCollection]):
         updates_since = localise_to_utc(updates_since)
         self._do_retrieval(updates_since)
 
-    def _do_retrieval(self, updates_since: datetime):
+    def _do_retrieval(self, updates_since: datetime) -> UpdateCollection:
         """
         Handles the retrieval of updates by getting the data using the retriever, notifying the listeners and then
         logging the retrieval.
         :param updates_since: the time from which to retrieve updates since
-        :return: the result of the retrieval
+        :return: the updates retrieved
         """
         logging.debug("Starting update retrieval...")
 
@@ -65,6 +65,8 @@ class RetrievalManager(Listenable[UpdateCollection]):
         retrieval_log = RetrievalLog(updates_since, len(updates), seconds_taken_to_complete_query)
         logging.debug("Logging update query: %s" % retrieval_log)
         self._retrieval_log_mapper.add(retrieval_log)
+
+        return updates
 
     @staticmethod
     def _get_current_time() -> TimeDeltaInSecondsT:
@@ -91,11 +93,11 @@ class PeriodicRetrievalManager(RetrievalManager):
         self._retrieval_period = retrieval_period
         self._running = False
         self._state_lock = Lock()
-        self._updates_since = None
+        self._updates_since = None  # type: datetime
 
         self._scheduler = BlockingScheduler()
-        self._scheduler.add_job(self._do_retrieval, "interval", seconds=self._retrieval_period,
-                                args=(self._updates_since, ), coalesce=True, max_instances=1)
+        self._scheduler.add_job(self._do_periodic_retrieval, "interval", seconds=self._retrieval_period, coalesce=True,
+                                max_instances=1, next_run_time=datetime.now())
 
     def run(self, updates_since: datetime=datetime.min):
         self._updates_since = localise_to_utc(updates_since)
@@ -122,3 +124,16 @@ class PeriodicRetrievalManager(RetrievalManager):
                 self._scheduler.shutdown(wait=False)
                 self._running = False
                 logging.debug("Stopped periodic retrieval manger")
+
+    def _do_periodic_retrieval(self):
+        assert self._updates_since is not None
+        updates = self._do_retrieval(self._updates_since)
+
+        if len(updates) > 0:
+            # Next time, get all updates since the most recent that was received last time
+            self._updates_since = updates.get_most_recent()[0].timestamp
+        else:
+            # Get all updates since same time in future (not going to move since time forward to simplify things - there
+            # is no risk of getting duplicates as no updates in range queried previously). Therefore not changing
+            # `self._updates_since`.
+            pass
