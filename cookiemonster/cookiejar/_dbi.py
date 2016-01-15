@@ -176,7 +176,7 @@ class _EnrichmentEncoder(JSONEncoder):
         return {
             'source':    enrichment.source.value if isinstance(enrichment.source, EnrichmentSource) else enrichment.source,
             'timestamp': int(mktime(enrichment.timestamp.timetuple())),
-            'metadata':  enrichment.metadata._data
+            'metadata':  enrichment.metadata
         }
 
 
