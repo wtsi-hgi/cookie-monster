@@ -3,10 +3,14 @@ import tempfile
 from datetime import timedelta, datetime
 from os.path import dirname, join
 from os.path import realpath
+from threading import Thread
+from unittest.mock import MagicMock
+
+from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.enums import EnrichmentSource
-from cookiemonster.common.models import Enrichment
+from cookiemonster.common.models import Enrichment, Update
 from cookiemonster.common.sqlalchemy import SQLAlchemyDatabaseConnector
 from cookiemonster.cookiejar import BiscuitTin
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
@@ -31,7 +35,7 @@ def main():
     retrieval_period = 10.0
     updates_since = datetime.fromtimestamp(0)
 
-    number_of_processors = 5
+    number_of_processors = 1
 
     rules_directory = "%s/" % _PROJECT_ROOT
     enrichment_loaders_directory = "%s/" % _PROJECT_ROOT
@@ -73,7 +77,7 @@ def main():
         for update in update_collection:
             enrichment = Enrichment(EnrichmentSource.IRODS_UPDATE, datetime.now(), update.metadata)
             logging.debug("Enriching \"%s\" with: %s" % (update.target, enrichment))
-            cookie_jar.enrich_cookie(update.target, enrichment)
+            Thread(target=cookie_jar.enrich_cookie, args=(update.target, enrichment)).start()
     retrieval_manager.add_listener(put_update_in_cookie_jar)
 
     # Connect the data processor manager to the cookie jar
@@ -88,6 +92,10 @@ def main():
 
     # Start the retrieval manager
     retrieval_manager.start(updates_since)
+
+    update_mapper.get_all_since = MagicMock(return_value=UpdateCollection([
+        Update("hash_loader", datetime.now(), Metadata())
+    ]))
 
 
 if __name__ == "__main__":

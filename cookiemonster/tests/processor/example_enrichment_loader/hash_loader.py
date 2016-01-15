@@ -12,7 +12,7 @@ KEY = "hash"
 
 
 def _can_enrich(cookie: Cookie) -> bool:
-    return SOURCE_NAME in [enrichment.source for enrichment in cookie.enrichments]
+    return SOURCE_NAME not in [enrichment.source for enrichment in cookie.enrichments]
 
 
 def _load_enrichment(cookie: Cookie) -> Enrichment:

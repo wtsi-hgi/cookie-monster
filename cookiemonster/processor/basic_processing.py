@@ -19,8 +19,8 @@ class BasicProcessor(Processor):
     """
     def process(self, cookie: Cookie, rules: Sequence[Rule],
                 on_complete: Callable[[bool, Optional[Iterable[Notification]]], None]):
-        logging.info("Processing cookie with path \"%s\", which has %d enrichment(s). Using %d rule(s)"
-                     % (cookie.path, len(cookie.enrichments), len(rules)))
+        logging.info("Processor \"%s\" processing cookie with path \"%s\", which has %d enrichment(s). Using %d rule(s)"
+                     % (id(self), cookie.path, len(cookie.enrichments), len(rules)))
         rule_queue = RuleQueue(rules)
 
         notifications = []
@@ -87,8 +87,8 @@ class BasicProcessorManager(ProcessorManager):
                     # One last task before the thread that ran the processor can end...
                     self.process_any_cookies()
 
-                logging.debug("Starting processor for cookie with path \"%s\". %d free processors remaining"
-                              % (cookie.path, len(self._idle_processors)))
+                logging.debug("Starting processor \"%s\" for cookie with path \"%s\". %d free processors remaining"
+                              % (id(processor), cookie.path, len(self._idle_processors)))
                 Thread(target=processor.process, args=(cookie, self._rules_source.get_all(), on_complete)).start()
             else:
                 self._release_processor(processor)
@@ -117,7 +117,7 @@ class BasicProcessorManager(ProcessorManager):
                 self._cookie_jar.mark_as_complete(cookie.path)
             else:
                 logging.info("Applying enrichment from source \"%s\" to cookie with path \"%s\""
-                             % (cookie.path, enrichment.source))
+                             % (enrichment.source, cookie.path))
                 self._cookie_jar.enrich_cookie(cookie.path, enrichment)
                 # Enrichment method also sets cookie for reprocessing so no need to repeat that
 
@@ -156,7 +156,7 @@ class BasicProcessorManager(ProcessorManager):
         :param notification: the notification to give to all notification receivers
         """
         notification_receivers = self._notification_receivers_source.get_all()
-        logging.info("Notifying %d notification receivers of notification about \"%s\""
+        logging.info("Notifying %d notification receiver(s) of notification about \"%s\""
                      % (len(notification_receivers), notification.about))
 
         for notification_receiver in notification_receivers:
