@@ -29,7 +29,7 @@ Copyright (c) 2015, 2016 Genome Research Limited
 from datetime import timedelta
 from typing import Optional
 from time import sleep
-from threading import Thread
+from threading import Thread, Lock
 
 from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.cookiejar._cookiejar import CookieJar
@@ -56,6 +56,9 @@ class BiscuitTin(CookieJar):
         self._last_length = 0
         self._watcher = Thread(target=self._broadcast_length_on_change, daemon=True)
         self._watcher.start()
+
+        # Queue lock
+        self._qlock = Lock()
 
     def _broadcast_length_on_change(self):
         # NOTE Because delayed reprocessing requests appear in the queue
@@ -93,7 +96,8 @@ class BiscuitTin(CookieJar):
         self._broadcast_length()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
-        to_process = self._queue.dequeue()
+        with self._qlock:
+            to_process = self._queue.dequeue()
 
         if to_process is None:
             return None
