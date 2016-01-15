@@ -32,14 +32,14 @@ class TestBasicProcessor(unittest.TestCase):
     def test_process_when_no_rules(self):
         def assertions(terminate_processing: bool, notifications: List[Notification]):
             self.assertFalse(terminate_processing)
-            self.assertEquals(len(notifications), 0)
+            self.assertEqual(len(notifications), 0)
 
         self.processor.process(self.cookie, [], TestBasicProcessor._create_assert_on_complete(assertions))
 
     def test_process_when_no_matched_rules(self):
         def assertions(terminate_processing: bool, notifications: List[Notification]):
             self.assertFalse(terminate_processing)
-            self.assertEquals(len(notifications), 0)
+            self.assertEqual(len(notifications), 0)
 
         self.processor.process(self.cookie, self.rules, TestBasicProcessor._create_assert_on_complete(assertions))
 
@@ -70,7 +70,7 @@ class TestBasicProcessor(unittest.TestCase):
 
         def assertions(terminate_processing: bool, selected_notifications: List[Notification]):
             self.assertTrue(terminate_processing)
-            self.assertEquals(selected_notifications, [notifications[1]])
+            self.assertEqual(selected_notifications, [notifications[1]])
 
         self.processor.process(self.cookie, self.rules, TestBasicProcessor._create_assert_on_complete(assertions))
 

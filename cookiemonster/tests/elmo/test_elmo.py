@@ -144,8 +144,8 @@ class TestElmo(unittest.TestCase):
         self.http.close()
 
         # Check queue has been updated
-        self.assertEquals(self.jar.queue_length(), 1)
-        self.assertEquals(dirty_cookie_listener.call_count, 1)
+        self.assertEqual(self.jar.queue_length(), 1)
+        self.assertEqual(dirty_cookie_listener.call_count, 1)
 
 
 if __name__ == '__main__':

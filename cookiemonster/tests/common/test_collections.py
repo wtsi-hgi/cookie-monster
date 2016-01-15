@@ -17,7 +17,7 @@ class TestUpdateCollection(unittest.TestCase):
         self.metadata = Metadata()
 
     def test_empty_as_default(self):
-        self.assertEquals(len(UpdateCollection()), 0)
+        self.assertEqual(len(UpdateCollection()), 0)
 
     def test_can_instantiate_with_list(self):
         updates_list = [

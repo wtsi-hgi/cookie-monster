@@ -68,10 +68,10 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         # Assert that updates listener
         listener.assert_called_once_with(self.updates)
         # Assert that retrieval is logged
-        self.assertEquals(self.retrieval_log_mapper.add.call_count, 1)
+        self.assertEqual(self.retrieval_log_mapper.add.call_count, 1)
         retrieval_log = self.retrieval_log_mapper.add.call_args[0][0]  # type: RetrievalLog
-        self.assertEquals(retrieval_log.retrieved_updates_since, _BaseRetrievalManagerTest.SINCE)
-        self.assertEquals(retrieval_log.number_of_updates, len(self.updates))
+        self.assertEqual(retrieval_log.retrieved_updates_since, _BaseRetrievalManagerTest.SINCE)
+        self.assertEqual(retrieval_log.number_of_updates, len(self.updates))
         self.assertGreaterEqual(
                 retrieval_log.seconds_taken_to_complete_query, _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE)
 
@@ -91,10 +91,10 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         # Assert that updates listener has not been called given that there are no updates
         listener.assert_not_called()
         # Assert that retrieval is logged but that latest retrieved timestamp has not changed
-        self.assertEquals(self.retrieval_log_mapper.add.call_count, 1)
+        self.assertEqual(self.retrieval_log_mapper.add.call_count, 1)
         retrieval_log = self.retrieval_log_mapper.add.call_args[0][0]  # type: RetrievalLog
-        self.assertEquals(retrieval_log.retrieved_updates_since, _BaseRetrievalManagerTest.SINCE)
-        self.assertEquals(retrieval_log.number_of_updates, len(self.updates))
+        self.assertEqual(retrieval_log.retrieved_updates_since, _BaseRetrievalManagerTest.SINCE)
+        self.assertEqual(retrieval_log.number_of_updates, len(self.updates))
         self.assertGreaterEqual(
                 retrieval_log.seconds_taken_to_complete_query, _BaseRetrievalManagerTest.TIME_TAKEN_TO_DO_RETRIEVE)
 
@@ -122,7 +122,7 @@ class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
 
         self._setup_to_do_n_cycles(cycles, self.updates)
 
-        self.assertEquals(self.retrieval_log_mapper.add.call_count, cycles)
+        self.assertEqual(self.retrieval_log_mapper.add.call_count, cycles)
         listener.assert_has_calls([call(self.updates) for _ in range(cycles)])
 
     def test_run_if_running(self):

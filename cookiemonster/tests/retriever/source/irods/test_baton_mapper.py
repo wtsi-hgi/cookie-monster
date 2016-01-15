@@ -39,13 +39,13 @@ class TestBatonUpdateMapper(unittest.TestCase):
 
     def test_get_all_since_with_date_in_future(self):
         updates = self.mapper.get_all_since(datetime.fromtimestamp(_MAX_IRODS_TIMESTAMP))
-        self.assertEquals(len(updates), 0)
+        self.assertEqual(len(updates), 0)
 
     def test_get_all_since_with_date_in_past(self):
         inital_updates = self.mapper.get_all_since(datetime.min)
 
         updates = self.mapper.get_all_since(inital_updates.get_most_recent()[0].timestamp)
-        self.assertEquals(len(updates), 0)
+        self.assertEqual(len(updates), 0)
 
     def test_get_all_since_with_data_object_updates(self):
         inital_updates = self.mapper.get_all_since(datetime.min)
@@ -53,9 +53,9 @@ class TestBatonUpdateMapper(unittest.TestCase):
         location_2 = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[1])
 
         updates = self.mapper.get_all_since(inital_updates.get_most_recent()[0].timestamp)
-        self.assertEquals(len(updates), 2)
-        self.assertEquals(len(updates.get_entity_updates(location_1)), 1)
-        self.assertEquals(len(updates.get_entity_updates(location_2)), 1)
+        self.assertEqual(len(updates), 2)
+        self.assertEqual(len(updates.get_entity_updates(location_1)), 1)
+        self.assertEqual(len(updates.get_entity_updates(location_2)), 1)
 
     # XXX: No `test_get_all_since_with_collection_updates` as SQL query does not support collections
 
@@ -70,13 +70,13 @@ class TestBatonUpdateMapper(unittest.TestCase):
         self.setup_helper.add_metadata_to(location, metadata)
 
         updates = self.mapper.get_all_since(updates_before_metadata_added.get_most_recent()[0].timestamp)
-        self.assertEquals(len(updates), 1)
+        self.assertEqual(len(updates), 1)
         relevant_updates = updates.get_entity_updates(location)
         # Expect the mapper to have combined all updates into one
         # (see discussion: https://github.com/wtsi-hgi/cookie-monster/issues/3)
-        self.assertEquals(len(relevant_updates), 1)
-        self.assertEquals(relevant_updates[0].target, location)
-        self.assertEquals(relevant_updates[0].metadata, metadata)
+        self.assertEqual(len(relevant_updates), 1)
+        self.assertEqual(relevant_updates[0].target, location)
+        self.assertEqual(relevant_updates[0].metadata, metadata)
 
     def tearDown(self):
         self.test_with_baton.tear_down()

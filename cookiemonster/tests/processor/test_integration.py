@@ -74,8 +74,8 @@ class TestIntegration(unittest.TestCase):
         cookie_paths = TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS)
         block_until_processed(self.cookie_jar, cookie_paths)
 
-        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
-        self.assertEquals(self.notification_receiver.receive.call_count, len(cookie_paths))
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
+        self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
 
     def test_with_enrichments_no_rules(self):
@@ -84,8 +84,8 @@ class TestIntegration(unittest.TestCase):
         cookie_paths = TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS)
         block_until_processed(self.cookie_jar, cookie_paths)
 
-        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
-        self.assertEquals(self.notification_receiver.receive.call_count, len(cookie_paths))
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
+        self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
 
     def test_with_rules_no_enrichments(self):
@@ -95,8 +95,8 @@ class TestIntegration(unittest.TestCase):
         cookie_paths.append(MATCHES_COOKIES_WITH_PATH)
         block_until_processed(self.cookie_jar, cookie_paths)
 
-        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
-        self.assertEquals(self.notification_receiver.receive.call_count, len(cookie_paths))
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
+        self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
         self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notification_receiver.receive.call_args_list)
 
@@ -108,8 +108,8 @@ class TestIntegration(unittest.TestCase):
         cookie_paths.append(MATCHES_ENIRCHED_COOKIE_WITH_PATH)
         block_until_processed(self.cookie_jar, cookie_paths)
 
-        self.assertEquals(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
-        self.assertEquals(self.notification_receiver.receive.call_count, len(cookie_paths))
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
+        self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
         self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notification_receiver.receive.call_args_list)
 

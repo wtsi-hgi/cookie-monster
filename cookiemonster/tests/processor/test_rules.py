@@ -91,7 +91,7 @@ class TestRuleQueue(unittest.TestCase):
             rule = rule_queue.get_next()
             rule_queue.mark_as_applied(rule)
             unapplied_counter += 1
-        self.assertEquals(unapplied_counter, len(self.rules))
+        self.assertEqual(unapplied_counter, len(self.rules))
 
 
 class TestRuleSource(unittest.TestCase):

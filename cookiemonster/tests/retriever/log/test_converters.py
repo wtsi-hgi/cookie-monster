@@ -25,9 +25,9 @@ class TestConvertToRetrievalLog(unittest.TestCase):
 
     def test_with_valid(self):
         retrieve_log = convert_to_retrieval_log(self._sqlalchemy_retrieve_log)
-        self.assertEquals(retrieve_log.retrieved_updates_since, _LATEST_RETRIEVED_TIMESTAMP)
-        self.assertEquals(retrieve_log.number_of_updates, _NUMBER_OF_FILE_UPDATES)
-        self.assertEquals(retrieve_log.seconds_taken_to_complete_query, _SECONDS_TAKEN_TO_COMPLETE_QUERY)
+        self.assertEqual(retrieve_log.retrieved_updates_since, _LATEST_RETRIEVED_TIMESTAMP)
+        self.assertEqual(retrieve_log.number_of_updates, _NUMBER_OF_FILE_UPDATES)
+        self.assertEqual(retrieve_log.seconds_taken_to_complete_query, _SECONDS_TAKEN_TO_COMPLETE_QUERY)
 
 
 class TestConvertToSqlalchemyRetrievalLog(unittest.TestCase):
@@ -40,9 +40,9 @@ class TestConvertToSqlalchemyRetrievalLog(unittest.TestCase):
 
     def test_with_valid(self):
         sqlalchemy_retrieve_log = convert_to_sqlalchemy_retrieval_log(self._retrieve_log)
-        self.assertEquals(sqlalchemy_retrieve_log.latest_retrieved_timestamp, _LATEST_RETRIEVED_TIMESTAMP)
-        self.assertEquals(sqlalchemy_retrieve_log.number_of_file_updates, _NUMBER_OF_FILE_UPDATES)
-        self.assertEquals(sqlalchemy_retrieve_log.seconds_taken_to_complete_query, _SECONDS_TAKEN_TO_COMPLETE_QUERY)
+        self.assertEqual(sqlalchemy_retrieve_log.latest_retrieved_timestamp, _LATEST_RETRIEVED_TIMESTAMP)
+        self.assertEqual(sqlalchemy_retrieve_log.number_of_file_updates, _NUMBER_OF_FILE_UPDATES)
+        self.assertEqual(sqlalchemy_retrieve_log.seconds_taken_to_complete_query, _SECONDS_TAKEN_TO_COMPLETE_QUERY)
 
 
 if __name__ == "__main__":
