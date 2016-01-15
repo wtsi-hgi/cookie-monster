@@ -16,13 +16,15 @@ from cookiemonster.common.helpers import localise_to_utc
 from cookiemonster.common.models import Update
 from cookiemonster.retriever.mappers import UpdateMapper
 from cookiemonster.retriever.source.irods._constants import UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY, \
-    UPDATE_COLLECTION_NAME_PROPERTY, UPDATE_DATA_OBJECT_NAME_PROPERTY, UPDATE_HASH_PROPERTY, \
+    UPDATE_COLLECTION_NAME_PROPERTY, UPDATE_DATA_OBJECT_NAME_PROPERTY, UPDATE_DATA_HASH_PROPERTY, \
     UPDATE_DATA_TIMESTAMP_PROPERTY, UPDATE_METADATA_TIMESTAMP_PROPERTY, DATA_UPDATES_QUERY_ALIAS, \
-    UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY, METADATA_UPDATES_QUERY_ALIAS
+    UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY, METADATA_UPDATES_QUERY_ALIAS, UPDATE_DATA_REPLICA_NUMBER, \
+    UPDATE_DATA_REPLICA_STATUS
+
+HASH_METADATA_KEY = "hash"
+REPLICAS_KEY = "replicas"
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
-
-_HASH_METADATA_KEY = "hash"
 _MAX_IRODS_TIMESTAMP = int(math.pow(2, 31)) - 1
 
 
@@ -69,17 +71,19 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
     def _object_serialiser(self, object_as_json: dict) -> CustomObjectType:
         metadata = Metadata()
         metadata_update = UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY in object_as_json
+        replica_number = object_as_json[UPDATE_DATA_REPLICA_NUMBER]
+
         if metadata_update:
             key = object_as_json[UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY]
             value = object_as_json[UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY]
             metadata[key] = value
         else:
-            hash = object_as_json[UPDATE_HASH_PROPERTY] if UPDATE_HASH_PROPERTY in object_as_json else ""
-            metadata[_HASH_METADATA_KEY] = hash
+            hash = object_as_json[UPDATE_DATA_HASH_PROPERTY] if UPDATE_DATA_HASH_PROPERTY in object_as_json else ""
+            metadata["replica_%s_%s" % (replica_number, HASH_METADATA_KEY)] = hash
+            metadata[REPLICAS_KEY] = [replica_number]
 
         path = "%s/%s" % (object_as_json[UPDATE_COLLECTION_NAME_PROPERTY],
                        object_as_json[UPDATE_DATA_OBJECT_NAME_PROPERTY])
-
         modified_at_as_string = object_as_json[UPDATE_DATA_TIMESTAMP_PROPERTY] if not metadata_update \
             else object_as_json[UPDATE_METADATA_TIMESTAMP_PROPERTY]
         modified_at = datetime.fromtimestamp(int(modified_at_as_string), tz=timezone.utc)
@@ -112,8 +116,14 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
 
                 # Merge metadata together
                 for key, value in update.metadata.items():
-                    # Assumed iRODS always merges multiple updates to the same thing
-                    assert key not in existing_update.metadata
-                    existing_update.metadata[key] = value
+                    if key == REPLICAS_KEY:
+                        # Merge replica numbers to create a list of replicas that have been modified
+                        if REPLICAS_KEY not in existing_update.metadata:
+                            existing_update.metadata[REPLICAS_KEY] = []
+                        existing_update.metadata[REPLICAS_KEY].extend(value)
+                    else:
+                        # Assumed iRODS always merges multiple updates to the same thing
+                        assert key not in existing_update.metadata
+                        existing_update.metadata[key] = value
 
         return UpdateCollection(combined_updates_map.values())

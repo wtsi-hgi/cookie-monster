@@ -8,7 +8,7 @@ from testwithbaton.api import TestWithBatonSetup
 from testwithbaton.helpers import SetupHelper
 
 from cookiemonster.retriever.source.irods._constants import METADATA_UPDATES_QUERY_ALIAS
-from cookiemonster.retriever.source.irods.baton_mapper import BatonUpdateMapper, DATA_UPDATES_QUERY_ALIAS
+from cookiemonster.retriever.source.irods.baton_mapper import BatonUpdateMapper, DATA_UPDATES_QUERY_ALIAS, REPLICAS_KEY
 from cookiemonster.tests.retriever.source.irods._settings import BATON_DOCKER_BUILD
 
 REQUIRED_SPECIFIC_QUERIES = {
@@ -67,7 +67,8 @@ class TestBatonUpdateMapper(unittest.TestCase):
         updates = self.mapper.get_all_since(inital_updates.get_most_recent()[0].timestamp)
 
         self.assertEquals(len(updates), 1)
-        self.assertEquals(len(updates.get_entity_updates(location)), 1)
+        self.assertIn(updates[0].target, location)
+        self.assertCountEqual(updates[0].metadata[REPLICAS_KEY], ["0", "1"])
 
     def test_get_all_since_with_metadata_update(self):
         location = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[0])
