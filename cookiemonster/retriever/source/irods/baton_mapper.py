@@ -1,11 +1,8 @@
-import asyncio
-from datetime import datetime, timezone
-from threading import Barrier, Semaphore, Thread
-from typing import Dict, Iterable
-from typing import Optional
-
 import math
-import pytz
+from datetime import datetime, timezone
+from threading import Semaphore, Thread
+from typing import Dict, Iterable, Optional
+
 from baton._baton_mappers import BatonCustomObjectMapper
 from baton.models import PreparedSpecificQuery
 from baton.types import CustomObjectType
@@ -18,8 +15,7 @@ from cookiemonster.retriever.mappers import UpdateMapper
 from cookiemonster.retriever.source.irods._constants import UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY, \
     UPDATE_COLLECTION_NAME_PROPERTY, UPDATE_DATA_OBJECT_NAME_PROPERTY, UPDATE_DATA_HASH_PROPERTY, \
     UPDATE_DATA_TIMESTAMP_PROPERTY, UPDATE_METADATA_TIMESTAMP_PROPERTY, DATA_UPDATES_QUERY_ALIAS, \
-    UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY, METADATA_UPDATES_QUERY_ALIAS, UPDATE_DATA_REPLICA_NUMBER, \
-    UPDATE_DATA_REPLICA_STATUS
+    UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY, METADATA_UPDATES_QUERY_ALIAS, UPDATE_DATA_REPLICA_NUMBER
 
 HASH_METADATA_KEY = "hash"
 REPLICAS_KEY = "replicas"

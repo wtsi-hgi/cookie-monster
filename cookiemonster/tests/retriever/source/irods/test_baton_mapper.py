@@ -1,8 +1,8 @@
+import math
 import unittest
 from datetime import datetime
 from os.path import dirname, normpath, realpath, join
 
-import math
 from hgicommon.collections import Metadata
 from testwithbaton.api import TestWithBatonSetup
 from testwithbaton.helpers import SetupHelper
@@ -12,8 +12,8 @@ from cookiemonster.retriever.source.irods.baton_mapper import BatonUpdateMapper,
 from cookiemonster.tests.retriever.source.irods._settings import BATON_DOCKER_BUILD
 
 REQUIRED_SPECIFIC_QUERIES = {
-    DATA_UPDATES_QUERY_ALIAS: join("resources", "specific-queries", "data-updates.sql"),
-    METADATA_UPDATES_QUERY_ALIAS: join("resources", "specific-queries", "metadata-updates.sql")
+    DATA_UPDATES_QUERY_ALIAS: join("resources", "specific-queries", "data-modified-partial.sql"),
+    METADATA_UPDATES_QUERY_ALIAS: join("resources", "specific-queries", "metadata-modified-partial.sql")
 }
 
 _DATA_OBJECT_NAMES = ["data_object_1", "data_object_2"]
