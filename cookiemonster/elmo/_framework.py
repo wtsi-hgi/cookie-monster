@@ -39,9 +39,8 @@ Enumeration of supported HTTP methods:
 * PUT
 * DELETE
 
-OPTIONS is provided automatically by the underlying Flask/Werkzeug
-implementation. The other methods (with the possible exception of HEAD)
-are not relevant.
+OPTIONS and HEAD are provided automatically by the underlying
+Flask/Werkzeug implementation. The other methods are not relevant.
 
 Method Chaining
 ---------------
@@ -169,7 +168,6 @@ class Endpoint(object):
         # Serialise and return
         serialised = json.dumps(response, separators=(',', ':'))
         return serialised, 200, {'Content-Type': 'application/json'}
-
 
 class API(object):
     ''' HTTP API building framework '''
