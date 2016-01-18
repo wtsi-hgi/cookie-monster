@@ -71,13 +71,13 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
     def _object_serialiser(self, object_as_json: dict) -> CustomObjectType:
         metadata = Metadata()
         metadata_update = UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY in object_as_json
-        replica_number = object_as_json[UPDATE_DATA_REPLICA_NUMBER]
 
         if metadata_update:
             key = object_as_json[UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY]
             value = object_as_json[UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY]
             metadata[key] = value
         else:
+            replica_number = object_as_json[UPDATE_DATA_REPLICA_NUMBER]
             hash = object_as_json[UPDATE_DATA_HASH_PROPERTY] if UPDATE_DATA_HASH_PROPERTY in object_as_json else ""
             metadata["replica_%s_%s" % (replica_number, HASH_METADATA_KEY)] = hash
             metadata[REPLICAS_KEY] = [replica_number]
