@@ -78,7 +78,7 @@ class BiscuitTin(CookieJar):
         self.notify_listeners(self._last_length)
 
     def enrich_cookie(self, path: str, enrichment: Enrichment):
-        self._metadata.add_metadata(path, enrichment)
+        self._metadata.enrich(path, enrichment)
         self._queue.mark_dirty(path)
         self._broadcast_length()
 

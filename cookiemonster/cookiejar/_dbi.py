@@ -86,9 +86,10 @@ database and should be instantiated with the database host and name.
 
 Methods:
 
-* `add_metadata` Add a metadata document for a file to the repository
+* `enrich` Add a metadata enrichment document for a file to the
+  repository
 
-* `get_metadata` Fetch all the metadata documents for a file, in
+* `get_metadata` Fetch all the metadata enrichments for a file, in
   chronological order
 
 Document schema:
@@ -615,9 +616,9 @@ class Ernie(_Couch):
         self._define_schema()
         self.connect(host, database)
 
-    def add_metadata(self, path: str, metadata: Enrichment):
+    def enrich(self, path: str, metadata: Enrichment):
         '''
-        Add a metadata document to the repository for a file
+        Add a metadata enrichment document to the repository for a file
 
         @param  path      File path
         @param  metadata  Metadata model
@@ -627,7 +628,7 @@ class Ernie(_Couch):
 
     def get_metadata(self, path: str) -> Iterable[Enrichment]:
         '''
-        Get all the collected metadata for a file
+        Get all the collected enrichments for a file
 
         @param  path  File path
         @return Iterable[Enrichment]
