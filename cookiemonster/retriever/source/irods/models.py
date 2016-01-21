@@ -1,20 +1,21 @@
+from baton import DataObject
 from baton.collections import DataObjectReplicaCollection, IrodsMetadata
 from hgicommon.models import Model
 
 
-class ModificationDescription(Model):
+class IrodsEntityModificationDescription(Model):
     """
-    TODO
+    Description of modifications to an `IrodsEntity`.
     """
     def __init__(self, path: str):
         self.path = path
+        self.modified_metadata = IrodsMetadata()
 
 
-class DataObjectModificationDescription(ModificationDescription):
+class DataObjectModificationDescription(IrodsEntityModificationDescription):
     """
-    TODO
+    Description of modifications to a `DataObject`.
     """
     def __init__(self, path: str):
         super().__init__(path)
-        self.modified_metadata = IrodsMetadata()
         self.modified_replicas = DataObjectReplicaCollection()

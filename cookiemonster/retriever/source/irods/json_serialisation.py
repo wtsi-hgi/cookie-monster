@@ -1,15 +1,31 @@
-from baton.collections import DataObjectReplicaCollection
+from json import JSONEncoder
+
 from baton.json_serialisation import DataObjectReplicaCollectionJSONEncoder
-from hgicommon.collections import Metadata
-from hgicommon.json import JSONEncoderClassBuilder
-from hgicommon.json_conversion import ModelJSONEncoder, MetadataJSONEncoder
-from hgicommon.models import Model
+from hgicommon.json import DefaultSupportedReturnType
+from hgicommon.json_conversion import MetadataJSONEncoder
+
+from cookiemonster.retriever.source.irods.models import DataObjectModificationDescription
 
 
-# `DataObjectModificationDescription` JSON encoder constructed from encoders that can handle
-_encoder_builder = JSONEncoderClassBuilder()
-_encoder_builder.register_json_encoder(Model, ModelJSONEncoder)
-_encoder_builder.register_json_encoder(Metadata, MetadataJSONEncoder)
-_encoder_builder.register_json_encoder(DataObjectReplicaCollection, DataObjectReplicaCollectionJSONEncoder)
-DataObjectModificationDescriptionJSONEncoder = _encoder_builder.build()
-del _encoder_builder
+class DataObjectModificationDescriptionJSONEncoder(JSONEncoder):
+    """
+    JSON encoder for `DataObjectModificationDescription`.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._metadata_encoder = MetadataJSONEncoder(**kwargs)
+        self._replicas_encoder = DataObjectReplicaCollectionJSONEncoder(**kwargs)
+
+    def default(self, to_encode: DataObjectModificationDescription) -> DefaultSupportedReturnType:
+        print(to_encode)
+        print(isinstance(to_encode, DataObjectModificationDescription))
+        print(id(self))
+
+        if not isinstance(to_encode, DataObjectModificationDescription):
+            super().default(to_encode)
+
+        # TODO: Make dynamic to allow for changes in properties?
+        return {
+            "modified_metadata": self._metadata_encoder.default(to_encode.modified_metadata),
+            "modified_replicas": self._replicas_encoder.default(to_encode.modified_replicas)
+        }

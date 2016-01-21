@@ -89,6 +89,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
             replica = DataObjectReplica(replica_number, checksum)
             modification_description.modified_replicas.add(replica)
 
+        print(modification_description)
         modification_description_as_metadata = json.dumps(
                 modification_description, cls=DataObjectModificationDescriptionJSONEncoder)
 
