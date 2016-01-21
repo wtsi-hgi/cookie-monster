@@ -94,7 +94,7 @@ class Notification(Model):
     """
     A model of a notification that should be sent to a receiver.
     """
-    def __init__(self, about: str, data: Optional[Any]=None, sender: str=None):
+    def __init__(self, about: str, data: Any=None, sender: str=None):
         """
         Constructor.
         :param about: what the notification is about

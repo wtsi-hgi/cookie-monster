@@ -102,7 +102,7 @@ class TestBatonUpdateMapper(unittest.TestCase):
             with open(query_location) as file:
                 query = file.read().replace('\n', ' ')
 
-            self.setup_helper.run_icommand("iadmin", ["asq", "\"%s\"" % query, alias])
+            self.setup_helper.run_icommand(["iadmin", "asq", "\"%s\"" % query, alias])
 
 
 if __name__ == "__main__":

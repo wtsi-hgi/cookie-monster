@@ -1,0 +1,15 @@
+from baton.collections import DataObjectReplicaCollection
+from baton.json_serialisation import DataObjectReplicaCollectionJSONEncoder
+from hgicommon.collections import Metadata
+from hgicommon.json import JSONEncoderClassBuilder
+from hgicommon.json_conversion import ModelJSONEncoder, MetadataJSONEncoder
+from hgicommon.models import Model
+
+
+# `DataObjectModificationDescription` JSON encoder constructed from encoders that can handle
+_encoder_builder = JSONEncoderClassBuilder()
+_encoder_builder.register_json_encoder(Model, ModelJSONEncoder)
+_encoder_builder.register_json_encoder(Metadata, MetadataJSONEncoder)
+_encoder_builder.register_json_encoder(DataObjectReplicaCollection, DataObjectReplicaCollectionJSONEncoder)
+DataObjectModificationDescriptionJSONEncoder = _encoder_builder.build()
+del _encoder_builder

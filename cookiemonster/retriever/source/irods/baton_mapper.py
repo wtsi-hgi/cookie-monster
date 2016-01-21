@@ -1,12 +1,12 @@
+import json
 import math
 from datetime import datetime, timezone
 from threading import Semaphore, Thread
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable
 
 from baton._baton_mappers import BatonCustomObjectMapper
-from baton.models import PreparedSpecificQuery
+from baton.models import PreparedSpecificQuery, DataObjectReplica
 from baton.types import CustomObjectType
-from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.helpers import localise_to_utc
@@ -16,6 +16,8 @@ from cookiemonster.retriever.source.irods._constants import UPDATE_METADATA_ATTR
     UPDATE_COLLECTION_NAME_PROPERTY, UPDATE_DATA_OBJECT_NAME_PROPERTY, UPDATE_DATA_HASH_PROPERTY, \
     UPDATE_DATA_TIMESTAMP_PROPERTY, UPDATE_METADATA_TIMESTAMP_PROPERTY, DATA_UPDATES_QUERY_ALIAS, \
     UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY, METADATA_UPDATES_QUERY_ALIAS, UPDATE_DATA_REPLICA_NUMBER
+from cookiemonster.retriever.source.irods.json_serialisation import DataObjectModificationDescriptionJSONEncoder
+from cookiemonster.retriever.source.irods.models import DataObjectModificationDescription
 
 HASH_METADATA_KEY = "hash"
 REPLICAS_KEY = "replicas"
@@ -65,26 +67,32 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         return BatonUpdateMapper._combine_updates_for_same_entity(all_updates)
 
     def _object_serialiser(self, object_as_json: dict) -> CustomObjectType:
-        metadata = Metadata()
         metadata_update = UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY in object_as_json
 
-        if metadata_update:
-            key = object_as_json[UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY]
-            value = object_as_json[UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY]
-            metadata[key] = value
-        else:
-            replica_number = object_as_json[UPDATE_DATA_REPLICA_NUMBER]
-            hash = object_as_json[UPDATE_DATA_HASH_PROPERTY] if UPDATE_DATA_HASH_PROPERTY in object_as_json else ""
-            metadata["replica_%s_%s" % (replica_number, HASH_METADATA_KEY)] = hash
-            metadata[REPLICAS_KEY] = [replica_number]
-
         path = "%s/%s" % (object_as_json[UPDATE_COLLECTION_NAME_PROPERTY],
-                       object_as_json[UPDATE_DATA_OBJECT_NAME_PROPERTY])
+                          object_as_json[UPDATE_DATA_OBJECT_NAME_PROPERTY])
         modified_at_as_string = object_as_json[UPDATE_DATA_TIMESTAMP_PROPERTY] if not metadata_update \
             else object_as_json[UPDATE_METADATA_TIMESTAMP_PROPERTY]
         modified_at = datetime.fromtimestamp(int(modified_at_as_string), tz=timezone.utc)
 
-        return Update(path, modified_at, metadata)
+        modification_description = DataObjectModificationDescription(path)
+
+        if metadata_update:
+            key = object_as_json[UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY]
+            # TODO: How does this cope with same keys with different values?
+            value = object_as_json[UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY]
+            modification_description.modified_metadata = {key: value}
+        else:
+            replica_number = object_as_json[UPDATE_DATA_REPLICA_NUMBER]
+            checksum = object_as_json[UPDATE_DATA_HASH_PROPERTY] if UPDATE_DATA_HASH_PROPERTY in object_as_json else ""
+
+            replica = DataObjectReplica(replica_number, checksum)
+            modification_description.modified_replicas.add(replica)
+
+        modification_description_as_metadata = json.dumps(
+                modification_description, cls=DataObjectModificationDescriptionJSONEncoder)
+
+        return Update(path, modified_at, modification_description_as_metadata)
 
     @staticmethod
     def _combine_updates_for_same_entity(updates: Iterable[Update]) -> UpdateCollection:
@@ -110,16 +118,15 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
                 if update.timestamp > existing_update.timestamp:
                     existing_update.timestamp = update.timestamp
 
-                # Merge metadata together
-                for key, value in update.metadata.items():
-                    if key == REPLICAS_KEY:
-                        # Merge replica numbers to create a list of replicas that have been modified
-                        if REPLICAS_KEY not in existing_update.metadata:
-                            existing_update.metadata[REPLICAS_KEY] = []
-                        existing_update.metadata[REPLICAS_KEY].extend(value)
-                    else:
-                        # Assumed iRODS always merges multiple updates to the same thing
-                        assert key not in existing_update.metadata
-                        existing_update.metadata[key] = value
+                # Merge updated replica
+                print(existing_update.metadata)
+                print(existing_update.metadata["modified_replicas"])
+                existing_update.metadata["modified_replicas"].extend(update.metadata["modified_replicas"])
+
+                # Merge update metadata
+                for key, value in update.metadata["modified_metadata"].items():
+                    # Assumed iRODS always merges multiple updates to the same thing
+                    assert key not in existing_update.metadata["modified_metadata"]
+                    existing_update.metadata["modified_metadata"][key] = value
 
         return UpdateCollection(combined_updates_map.values())

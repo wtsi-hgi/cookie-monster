@@ -84,7 +84,6 @@ register(_notification_receiver)
 
 
 ## HTTP API
-
 A JSON-based HTTP API is provided to expose certain functionality as an
 outwardly facing interface, on a configurable port. Currently, the
 following endpoints are defined:
@@ -108,10 +107,3 @@ Note that *all* requests must include `application/json` in their
 #### Locally
 To run the tests, use ``./scripts/run-tests.sh`` from the project's root directory. This script will use ``pip`` to 
 install all requirements for running the tests (use `virtualenv` if necessary).
-
-#### Using Docker
-From the project's root directory:
-```bash
-$ docker build -t wtsi-hgi/cookie-monster/test -f docker/tests/Dockerfile .
-$ docker run wtsi-hgi/cookie-monster/test
-```
