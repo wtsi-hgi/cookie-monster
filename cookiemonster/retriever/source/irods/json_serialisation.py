@@ -32,8 +32,14 @@ class DataObjectModificationDescriptionJSONEncoder(IrodsEntityModificationDescri
         if not isinstance(to_encode, DataObjectModificationDescription):
             JSONEncoder.default(self, to_encode)
 
+        encoded_replicas = self._replicas_encoder.default(to_encode.modified_replicas)  # type: list
+        # Remove properties of replica that are not know via the update retrieve
+        for encoded_replica in encoded_replicas:
+            del encoded_replica["host"]
+            del encoded_replica["resource_name"]
+
         encoded = super().default(to_encode)
         encoded.update({
-            "modified_replicas": self._replicas_encoder.default(to_encode.modified_replicas)
+            "modified_replicas": encoded_replicas
         })
         return encoded
