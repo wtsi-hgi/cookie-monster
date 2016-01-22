@@ -1,3 +1,4 @@
+import copy
 import logging
 from threading import Lock, Thread
 from typing import List, Callable, Optional, Sequence, Iterable
@@ -28,9 +29,10 @@ class BasicProcessor(Processor):
 
         while not terminate and rule_queue.has_unapplied_rules():
             rule = rule_queue.get_next()
+            isolated_cookie = copy.deepcopy(cookie)
             try:
-                if rule.matches(cookie):
-                    rule_action = rule.generate_action(cookie)
+                if rule.matches(isolated_cookie):
+                    rule_action = rule.generate_action(isolated_cookie)
                     notifications += rule_action.notifications
                     terminate = rule_action.terminate_processing
             except Exception as e:

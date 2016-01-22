@@ -10,7 +10,6 @@ from hgicommon.data_source import ListDataSource
 from hgicommon.mixable import Priority
 
 from cookiemonster.common.models import Cookie, Notification, Enrichment
-from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor.basic_processing import BasicProcessorManager, BasicProcessor
 from cookiemonster.processor.models import Rule, EnrichmentLoader, RuleAction
 from cookiemonster.processor.processing import ABOUT_NO_RULES_MATCH
@@ -73,6 +72,28 @@ class TestBasicProcessor(unittest.TestCase):
             self.assertEqual(selected_notifications, [notifications[1]])
 
         self.processor.process(self.cookie, self.rules, TestBasicProcessor._create_assert_on_complete(assertions))
+
+    def test_process_does_not_allow_rule_to_change_cookie_for_subsequent_rules(self):
+        source = "my_enrichment"
+        change_detected_in_next_rule = False
+
+        def cookie_changer(cookie: Cookie) -> bool:
+            enrichment = Enrichment(source, datetime(year=2000, month=1, day=1), Metadata())
+            cookie.enrich(enrichment)
+            return False
+
+        def record_fail_if_changed(cookie: Cookie) -> bool:
+            nonlocal change_detected_in_next_rule
+            if source in cookie.get_metadata_sources():
+                change_detected_in_next_rule = True
+
+        rules = [
+            Rule(cookie_changer, self.rules[0]._generate_action, priority=Priority.MAX_PRIORITY),
+            Rule(record_fail_if_changed, self.rules[0]._generate_action, priority=Priority.MIN_PRIORITY)
+        ]
+        self.processor.process(self.cookie, rules, lambda *args: None)
+
+        self.assertFalse(change_detected_in_next_rule)
 
     @staticmethod
     def _create_assert_on_complete(assertions: Callable[[bool, List[Notification]], None]) \
