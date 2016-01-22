@@ -9,15 +9,15 @@ from hgicommon.collections import Metadata
 from testwithbaton.api import TestWithBatonSetup
 from testwithbaton.helpers import SetupHelper
 
-from cookiemonster.retriever.source.irods._constants import METADATA_UPDATES_QUERY_ALIAS
-from cookiemonster.retriever.source.irods.baton_mapper import BatonUpdateMapper, DATA_UPDATES_QUERY_ALIAS
+from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_QUERY_ALIAS
+from cookiemonster.retriever.source.irods.baton_mapper import BatonUpdateMapper, MODIFIED_DATA_QUERY_ALIAS
 from cookiemonster.retriever.source.irods.json_serialisation import DataObjectModificationDescriptionJSONEncoder
 from cookiemonster.retriever.source.irods.models import DataObjectModificationDescription
 from cookiemonster.tests.retriever.source.irods._settings import BATON_DOCKER_BUILD
 
 REQUIRED_SPECIFIC_QUERIES = {
-    DATA_UPDATES_QUERY_ALIAS: join("resources", "specific-queries", "data-modified-partial.sql"),
-    METADATA_UPDATES_QUERY_ALIAS: join("resources", "specific-queries", "metadata-modified-partial.sql")
+    MODIFIED_DATA_QUERY_ALIAS: join("resources", "specific-queries", "data-modified-partial.sql"),
+    MODIFIED_METADATA_QUERY_ALIAS: join("resources", "specific-queries", "metadata-modified-partial.sql")
 }
 
 _DATA_OBJECT_NAMES = ["data_object_1", "data_object_2"]

@@ -1,9 +1,7 @@
 import math
 from datetime import datetime, timezone
 from threading import Semaphore, Thread
-from typing import Dict
-from typing import Iterable
-from typing import Optional
+from typing import Dict, Iterable, Optional
 
 from baton._baton_mappers import BatonCustomObjectMapper
 from baton.models import PreparedSpecificQuery, DataObjectReplica
@@ -14,10 +12,11 @@ from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.helpers import localise_to_utc
 from cookiemonster.common.models import Update
 from cookiemonster.retriever.mappers import UpdateMapper
-from cookiemonster.retriever.source.irods._constants import UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY, \
-    UPDATE_COLLECTION_NAME_PROPERTY, UPDATE_DATA_OBJECT_NAME_PROPERTY, UPDATE_DATA_HASH_PROPERTY, \
-    UPDATE_DATA_TIMESTAMP_PROPERTY, UPDATE_METADATA_TIMESTAMP_PROPERTY, DATA_UPDATES_QUERY_ALIAS, \
-    UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY, METADATA_UPDATES_QUERY_ALIAS, UPDATE_DATA_REPLICA_NUMBER
+from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_ATTRIBUTE_NAME_PROPERTY, \
+    MODIFIED_COLLECTION_NAME_PROPERTY, MODIFIED_DATA_NAME_PROPERTY, MODIFIED_DATA_REPLICA_CHECKSUM_PROPERTY, \
+    MODIFIED_DATA_TIMESTAMP_PROPERTY, MODIFIED_METADATA_TIMESTAMP_PROPERTY, MODIFIED_DATA_QUERY_ALIAS, \
+    MODIFIED_METADATA_ATTRIBUTE_VALUE_PROPERTY, MODIFIED_METADATA_QUERY_ALIAS, MODIFIED_DATA_REPLICA_NUMBER_PROPERTY, \
+    MODIFIED_DATA_REPLICA_STATUS_PROPERTY
 from cookiemonster.retriever.source.irods.json_serialisation import DataObjectModificationDescriptionJSONEncoder
 from cookiemonster.retriever.source.irods.models import DataObjectModificationDescription
 
@@ -40,7 +39,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         until_timestamp = str(_MAX_IRODS_TIMESTAMP)
 
         arguments = [since_timestamp, until_timestamp]
-        aliases = [DATA_UPDATES_QUERY_ALIAS, METADATA_UPDATES_QUERY_ALIAS]
+        aliases = [MODIFIED_DATA_QUERY_ALIAS, MODIFIED_METADATA_QUERY_ALIAS]
         all_updates = []
         semaphore = Semaphore(0)
         error = None    # type: Optional(Exception)
@@ -66,25 +65,26 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         return BatonUpdateMapper._combine_updates_for_same_entity(all_updates)
 
     def _object_serialiser(self, object_as_json: dict) -> CustomObjectType:
-        metadata_update = UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY in object_as_json
+        metadata_update = MODIFIED_METADATA_ATTRIBUTE_NAME_PROPERTY in object_as_json
 
-        path = "%s/%s" % (object_as_json[UPDATE_COLLECTION_NAME_PROPERTY],
-                          object_as_json[UPDATE_DATA_OBJECT_NAME_PROPERTY])
-        modified_at_as_string = object_as_json[UPDATE_DATA_TIMESTAMP_PROPERTY] if not metadata_update \
-            else object_as_json[UPDATE_METADATA_TIMESTAMP_PROPERTY]
+        path = "%s/%s" % (object_as_json[MODIFIED_COLLECTION_NAME_PROPERTY],
+                          object_as_json[MODIFIED_DATA_NAME_PROPERTY])
+        modified_at_as_string = object_as_json[MODIFIED_DATA_TIMESTAMP_PROPERTY] if not metadata_update \
+            else object_as_json[MODIFIED_METADATA_TIMESTAMP_PROPERTY]
         modified_at = datetime.fromtimestamp(int(modified_at_as_string), tz=timezone.utc)
         modification_description = DataObjectModificationDescription()
 
         if metadata_update:
-            key = object_as_json[UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY]
-            # TODO: How does this cope with same keys with different values?
-            value = object_as_json[UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY]
+            key = object_as_json[MODIFIED_METADATA_ATTRIBUTE_NAME_PROPERTY]
+            value = object_as_json[MODIFIED_METADATA_ATTRIBUTE_VALUE_PROPERTY]
             modification_description.modified_metadata = {key: value}
         else:
-            replica_number = object_as_json[UPDATE_DATA_REPLICA_NUMBER]
-            checksum = object_as_json[UPDATE_DATA_HASH_PROPERTY] if UPDATE_DATA_HASH_PROPERTY in object_as_json else ""
+            replica_number = object_as_json[MODIFIED_DATA_REPLICA_NUMBER_PROPERTY]
+            checksum = object_as_json[MODIFIED_DATA_REPLICA_CHECKSUM_PROPERTY] \
+                if MODIFIED_DATA_REPLICA_CHECKSUM_PROPERTY in object_as_json else ""
+            up_to_date = object_as_json[MODIFIED_DATA_REPLICA_STATUS_PROPERTY]
 
-            replica = DataObjectReplica(replica_number, checksum)
+            replica = DataObjectReplica(replica_number, checksum, up_to_date=up_to_date)
             modification_description.modified_replicas.add(replica)
 
         modification_description_as_dict = DataObjectModificationDescriptionJSONEncoder().default(
