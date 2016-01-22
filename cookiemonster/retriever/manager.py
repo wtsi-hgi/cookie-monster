@@ -14,7 +14,6 @@ from cookiemonster.retriever._models import RetrievalLog
 from cookiemonster.retriever.mappers import RetrievalLogMapper, UpdateMapper
 
 TimeDeltaInSecondsT = TypeVar("TimeDelta")
-_TimeT = TypeVar("Time")
 
 
 class RetrievalManager(Listenable[UpdateCollection]):

@@ -2,30 +2,38 @@ from json import JSONEncoder
 
 from baton.json_serialisation import DataObjectReplicaCollectionJSONEncoder
 from hgicommon.json import DefaultSupportedReturnType
-from hgicommon.json_conversion import MetadataJSONEncoder
 
-from cookiemonster.retriever.source.irods.models import DataObjectModificationDescription
+from cookiemonster.retriever.source.irods.models import DataObjectModificationDescription, \
+    IrodsEntityModificationDescription
 
 
-class DataObjectModificationDescriptionJSONEncoder(JSONEncoder):
+class IrodsEntityModificationDescriptionJSONEncoder(JSONEncoder):
+    """
+    JSON encoder for `IrodsEntityModificationDescription`.
+    """
+    def default(self, to_encode: IrodsEntityModificationDescription) -> DefaultSupportedReturnType:
+        if not isinstance(to_encode, IrodsEntityModificationDescription):
+            JSONEncoder.default(self, to_encode)
+
+        return {
+            "modified_metadata": dict(to_encode.modified_metadata)
+        }
+
+
+class DataObjectModificationDescriptionJSONEncoder(IrodsEntityModificationDescriptionJSONEncoder):
     """
     JSON encoder for `DataObjectModificationDescription`.
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._metadata_encoder = MetadataJSONEncoder(**kwargs)
         self._replicas_encoder = DataObjectReplicaCollectionJSONEncoder(**kwargs)
 
     def default(self, to_encode: DataObjectModificationDescription) -> DefaultSupportedReturnType:
-        print(to_encode)
-        print(isinstance(to_encode, DataObjectModificationDescription))
-        print(id(self))
-
         if not isinstance(to_encode, DataObjectModificationDescription):
-            super().default(to_encode)
+            JSONEncoder.default(self, to_encode)
 
-        # TODO: Make dynamic to allow for changes in properties?
-        return {
-            "modified_metadata": self._metadata_encoder.default(to_encode.modified_metadata),
+        encoded = super().default(to_encode)
+        encoded.update({
             "modified_replicas": self._replicas_encoder.default(to_encode.modified_replicas)
-        }
+        })
+        return encoded

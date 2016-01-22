@@ -3,12 +3,16 @@ import unittest
 from datetime import datetime
 from os.path import dirname, normpath, realpath, join
 
+from baton.collections import DataObjectReplicaCollection
+from baton.models import DataObjectReplica
 from hgicommon.collections import Metadata
 from testwithbaton.api import TestWithBatonSetup
 from testwithbaton.helpers import SetupHelper
 
 from cookiemonster.retriever.source.irods._constants import METADATA_UPDATES_QUERY_ALIAS
-from cookiemonster.retriever.source.irods.baton_mapper import BatonUpdateMapper, DATA_UPDATES_QUERY_ALIAS, REPLICAS_KEY
+from cookiemonster.retriever.source.irods.baton_mapper import BatonUpdateMapper, DATA_UPDATES_QUERY_ALIAS
+from cookiemonster.retriever.source.irods.json_serialisation import DataObjectModificationDescriptionJSONEncoder
+from cookiemonster.retriever.source.irods.models import DataObjectModificationDescription
 from cookiemonster.tests.retriever.source.irods._settings import BATON_DOCKER_BUILD
 
 REQUIRED_SPECIFIC_QUERIES = {
@@ -56,19 +60,25 @@ class TestBatonUpdateMapper(unittest.TestCase):
         self.assertEqual(len(updates), 2)
         self.assertEqual(len(updates.get_entity_updates(location_1)), 1)
         self.assertEqual(len(updates.get_entity_updates(location_2)), 1)
+        # TODO: More detailed check on updates
 
     def test_get_all_since_with_updates_to_data_object_replica(self):
         inital_updates = self.mapper.get_all_since(datetime.min)
         location = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[0])
+        resource = self.setup_helper.create_replica_storage()
+        self.setup_helper.replicate_data_object(location, resource)
+        self.setup_helper.update_checksums(location)
 
-        resource_name = self.setup_helper.create_replica_storage()
-        self.setup_helper.replicate_data_object(location, resource_name)
+        checksum = self.setup_helper.get_checksum(location)
+        replicas = DataObjectReplicaCollection([DataObjectReplica(i, checksum) for i in range(2)])
+        expected_modification_description = DataObjectModificationDescription(modified_replicas=replicas)
+        expected_metadata = Metadata(
+                DataObjectModificationDescriptionJSONEncoder().default(expected_modification_description))
 
         updates = self.mapper.get_all_since(inital_updates.get_most_recent()[0].timestamp)
-
         self.assertEquals(len(updates), 1)
         self.assertIn(updates[0].target, location)
-        self.assertCountEqual(updates[0].metadata[REPLICAS_KEY], ["0", "1"])
+        self.assertCountEqual(updates[0].metadata, expected_metadata)
 
     def test_get_all_since_with_metadata_update(self):
         location = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[0])
@@ -80,14 +90,17 @@ class TestBatonUpdateMapper(unittest.TestCase):
         })
         self.setup_helper.add_metadata_to(location, metadata)
 
+        expected_modification_description = DataObjectModificationDescription(modified_metadata=metadata)
+        expected_metadata = Metadata(
+                DataObjectModificationDescriptionJSONEncoder().default(expected_modification_description))
+
         updates = self.mapper.get_all_since(updates_before_metadata_added.get_most_recent()[0].timestamp)
         self.assertEqual(len(updates), 1)
         relevant_updates = updates.get_entity_updates(location)
-        # Expect the mapper to have combined all updates into one
-        # (see discussion: https://github.com/wtsi-hgi/cookie-monster/issues/3)
+        # Expect the mapper to have combined all updates into one: https://github.com/wtsi-hgi/cookie-monster/issues/3
         self.assertEqual(len(relevant_updates), 1)
         self.assertEqual(relevant_updates[0].target, location)
-        self.assertEqual(relevant_updates[0].metadata, metadata)
+        self.assertEqual(relevant_updates[0].metadata, expected_metadata)
 
     def tearDown(self):
         self.test_with_baton.tear_down()

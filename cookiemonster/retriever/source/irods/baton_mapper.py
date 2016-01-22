@@ -1,12 +1,14 @@
-import json
 import math
 from datetime import datetime, timezone
 from threading import Semaphore, Thread
-from typing import Dict, Iterable
+from typing import Dict
+from typing import Iterable
+from typing import Optional
 
 from baton._baton_mappers import BatonCustomObjectMapper
 from baton.models import PreparedSpecificQuery, DataObjectReplica
 from baton.types import CustomObjectType
+from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.helpers import localise_to_utc
@@ -18,9 +20,6 @@ from cookiemonster.retriever.source.irods._constants import UPDATE_METADATA_ATTR
     UPDATE_METADATA_ATTRIBUTE_VALUE_PROPERTY, METADATA_UPDATES_QUERY_ALIAS, UPDATE_DATA_REPLICA_NUMBER
 from cookiemonster.retriever.source.irods.json_serialisation import DataObjectModificationDescriptionJSONEncoder
 from cookiemonster.retriever.source.irods.models import DataObjectModificationDescription
-
-HASH_METADATA_KEY = "hash"
-REPLICAS_KEY = "replicas"
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 _MAX_IRODS_TIMESTAMP = int(math.pow(2, 31)) - 1
@@ -74,8 +73,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         modified_at_as_string = object_as_json[UPDATE_DATA_TIMESTAMP_PROPERTY] if not metadata_update \
             else object_as_json[UPDATE_METADATA_TIMESTAMP_PROPERTY]
         modified_at = datetime.fromtimestamp(int(modified_at_as_string), tz=timezone.utc)
-
-        modification_description = DataObjectModificationDescription(path)
+        modification_description = DataObjectModificationDescription()
 
         if metadata_update:
             key = object_as_json[UPDATE_METADATA_ATTRIBUTE_NAME_PROPERTY]
@@ -89,19 +87,17 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
             replica = DataObjectReplica(replica_number, checksum)
             modification_description.modified_replicas.add(replica)
 
-        print(modification_description)
-        modification_description_as_metadata = json.dumps(
-                modification_description, cls=DataObjectModificationDescriptionJSONEncoder)
+        modification_description_as_dict = DataObjectModificationDescriptionJSONEncoder().default(
+                modification_description)
 
-        return Update(path, modified_at, modification_description_as_metadata)
+        return Update(path, modified_at, Metadata(modification_description_as_dict))
 
     @staticmethod
     def _combine_updates_for_same_entity(updates: Iterable[Update]) -> UpdateCollection:
         """
         Combines updates for the same entities into single "merged" update entries. The merged update entries will have
-        the timestamp of the latest update that was merged into them.
-
-        Implemented due to: https://github.com/wtsi-hgi/cookie-monster/issues/3#issuecomment-168990482.
+        the timestamp of the latest update that was merged into them, as discussed in:
+        https://github.com/wtsi-hgi/cookie-monster/issues/3#issuecomment-168990482.
         :param updates: the updates to combine
         :return: the combined updates
         """
@@ -120,8 +116,6 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
                     existing_update.timestamp = update.timestamp
 
                 # Merge updated replica
-                print(existing_update.metadata)
-                print(existing_update.metadata["modified_replicas"])
                 existing_update.metadata["modified_replicas"].extend(update.metadata["modified_replicas"])
 
                 # Merge update metadata
