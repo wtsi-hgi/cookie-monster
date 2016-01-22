@@ -82,7 +82,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
             replica_number = object_as_json[MODIFIED_DATA_REPLICA_NUMBER_PROPERTY]
             checksum = object_as_json[MODIFIED_DATA_REPLICA_CHECKSUM_PROPERTY] \
                 if MODIFIED_DATA_REPLICA_CHECKSUM_PROPERTY in object_as_json else ""
-            up_to_date = object_as_json[MODIFIED_DATA_REPLICA_STATUS_PROPERTY]
+            up_to_date = bool(object_as_json[MODIFIED_DATA_REPLICA_STATUS_PROPERTY])
 
             replica = DataObjectReplica(replica_number, checksum, up_to_date=up_to_date)
             modification_description.modified_replicas.add(replica)
