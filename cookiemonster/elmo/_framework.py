@@ -238,7 +238,7 @@ class API(object):
 
         self._port = port
         self._running = True
-        self._service.run(debug=False, port=port)
+        self._service.run(debug=False, host='0.0.0.0', port=port)
 
     def stop(self):
         '''
