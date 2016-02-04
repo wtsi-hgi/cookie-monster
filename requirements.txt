@@ -1,7 +1,7 @@
 SQLAlchemy==1.0.11
 CouchDB==1.0
 Flask==0.10.1
-git+https://github.com/wtsi-hgi/common-python.git@develop#egg=hgicommon
+git+https://github.com/wtsi-hgi/python-common.git@develop#egg=hgicommon
 pytz==2015.7
-git+https://github.com/wtsi-hgi/baton-python-wrapper.git@develop#egg=baton
+git+https://github.com/wtsi-hgi/python-baton-wrapper.git@develop#egg=baton
 APScheduler==3.0.5

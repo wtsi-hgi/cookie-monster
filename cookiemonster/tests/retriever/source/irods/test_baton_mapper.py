@@ -1,9 +1,9 @@
 import math
 import unittest
 from datetime import datetime
-from os.path import dirname, normpath, realpath, join
+from os.path import join
 
-from baton.collections import DataObjectReplicaCollection
+from baton.collections import DataObjectReplicaCollection, IrodsMetadata
 from baton.models import DataObjectReplica
 from hgicommon.collections import Metadata
 from testwithbaton.api import TestWithBatonSetup
@@ -11,8 +11,9 @@ from testwithbaton.helpers import SetupHelper
 
 from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_QUERY_ALIAS
 from cookiemonster.retriever.source.irods.baton_mapper import BatonUpdateMapper, MODIFIED_DATA_QUERY_ALIAS
-from cookiemonster.retriever.source.irods.json_serialisation import DataObjectModificationDescriptionJSONEncoder
-from cookiemonster.retriever.source.irods.models import DataObjectModificationDescription
+from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder
+from cookiemonster.retriever.source.irods.models import DataObjectModification
+from cookiemonster.tests.retriever.source.irods._helpers import install_queries
 from cookiemonster.tests.retriever.source.irods._settings import BATON_DOCKER_BUILD
 
 REQUIRED_SPECIFIC_QUERIES = {
@@ -35,8 +36,7 @@ class TestBatonUpdateMapper(unittest.TestCase):
         self.test_with_baton = TestWithBatonSetup(baton_docker_build=BATON_DOCKER_BUILD)
         self.test_with_baton.setup()
         self.setup_helper = SetupHelper(self.test_with_baton.icommands_location)
-
-        self._install_update_queries()
+        install_queries(REQUIRED_SPECIFIC_QUERIES, self.setup_helper)
 
         self.mapper = BatonUpdateMapper(
                 self.test_with_baton.baton_location, self.test_with_baton.irods_test_server.users[0])
@@ -71,9 +71,9 @@ class TestBatonUpdateMapper(unittest.TestCase):
 
         checksum = self.setup_helper.get_checksum(location)
         replicas = DataObjectReplicaCollection([DataObjectReplica(i, checksum) for i in range(2)])
-        expected_modification_description = DataObjectModificationDescription(modified_replicas=replicas)
+        expected_modification_description = DataObjectModification(modified_replicas=replicas)
         expected_metadata = Metadata(
-                DataObjectModificationDescriptionJSONEncoder().default(expected_modification_description))
+                DataObjectModificationJSONEncoder().default(expected_modification_description))
 
         updates = self.mapper.get_all_since(inital_updates.get_most_recent()[0].timestamp)
         self.assertEquals(len(updates), 1)
@@ -90,32 +90,21 @@ class TestBatonUpdateMapper(unittest.TestCase):
         })
         self.setup_helper.add_metadata_to(location, metadata)
 
-        expected_modification_description = DataObjectModificationDescription(modified_metadata=metadata)
+        expected_modification_description = DataObjectModification(
+            modified_metadata=IrodsMetadata.from_metadata(metadata))
         expected_metadata = Metadata(
-                DataObjectModificationDescriptionJSONEncoder().default(expected_modification_description))
+                DataObjectModificationJSONEncoder().default(expected_modification_description))
 
         updates = self.mapper.get_all_since(updates_before_metadata_added.get_most_recent()[0].timestamp)
         self.assertEqual(len(updates), 1)
         relevant_updates = updates.get_entity_updates(location)
-        # Expect the mapper to have combined all updates into one: https://github.com/wtsi-hgi/cookie-monster/issues/3
+        # Expect the mapper to have combined all updates into one (https://github.com/wtsi-hgi/cookie-monster/issues/3)
         self.assertEqual(len(relevant_updates), 1)
         self.assertEqual(relevant_updates[0].target, location)
         self.assertEqual(relevant_updates[0].metadata, expected_metadata)
 
     def tearDown(self):
         self.test_with_baton.tear_down()
-
-    def _install_update_queries(self):
-        """
-        Installs the specific queries required to get file updates from iRODS.
-        """
-        for alias, query_location_relative_to_root in REQUIRED_SPECIFIC_QUERIES.items():
-            query_location = normpath(join(dirname(realpath(__file__)), "..", "..", "..", "..", "..",
-                                           query_location_relative_to_root))
-            with open(query_location) as file:
-                query = file.read().replace('\n', ' ')
-
-            self.setup_helper.run_icommand(["iadmin", "asq", "\"%s\"" % query, alias])
 
 
 if __name__ == "__main__":

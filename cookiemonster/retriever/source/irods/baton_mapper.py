@@ -4,6 +4,7 @@ from threading import Semaphore, Thread
 from typing import Dict, Iterable, Optional
 
 from baton._baton_mappers import BatonCustomObjectMapper
+from baton.collections import IrodsMetadata
 from baton.models import PreparedSpecificQuery, DataObjectReplica
 from baton.types import CustomObjectType
 from hgicommon.collections import Metadata
@@ -17,8 +18,9 @@ from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_AT
     MODIFIED_DATA_TIMESTAMP_PROPERTY, MODIFIED_METADATA_TIMESTAMP_PROPERTY, MODIFIED_DATA_QUERY_ALIAS, \
     MODIFIED_METADATA_ATTRIBUTE_VALUE_PROPERTY, MODIFIED_METADATA_QUERY_ALIAS, MODIFIED_DATA_REPLICA_NUMBER_PROPERTY, \
     MODIFIED_DATA_REPLICA_STATUS_PROPERTY
-from cookiemonster.retriever.source.irods.json_serialisation import DataObjectModificationDescriptionJSONEncoder
-from cookiemonster.retriever.source.irods.models import DataObjectModificationDescription
+from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder, \
+    DataObjectModificationJSONDecoder
+from cookiemonster.retriever.source.irods.models import DataObjectModification
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 _MAX_IRODS_TIMESTAMP = int(math.pow(2, 31)) - 1
@@ -72,25 +74,24 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         modified_at_as_string = object_as_json[MODIFIED_DATA_TIMESTAMP_PROPERTY] if not metadata_update \
             else object_as_json[MODIFIED_METADATA_TIMESTAMP_PROPERTY]
         modified_at = datetime.fromtimestamp(int(modified_at_as_string), tz=timezone.utc)
-        modification_description = DataObjectModificationDescription()
+        data_object_modification = DataObjectModification()
 
         if metadata_update:
             key = object_as_json[MODIFIED_METADATA_ATTRIBUTE_NAME_PROPERTY]
             value = object_as_json[MODIFIED_METADATA_ATTRIBUTE_VALUE_PROPERTY]
-            modification_description.modified_metadata = {key: value}
+            data_object_modification.modified_metadata = IrodsMetadata({key: {value}})
         else:
-            replica_number = object_as_json[MODIFIED_DATA_REPLICA_NUMBER_PROPERTY]
+            replica_number = int(object_as_json[MODIFIED_DATA_REPLICA_NUMBER_PROPERTY])
             checksum = object_as_json[MODIFIED_DATA_REPLICA_CHECKSUM_PROPERTY] \
                 if MODIFIED_DATA_REPLICA_CHECKSUM_PROPERTY in object_as_json else ""
             up_to_date = bool(object_as_json[MODIFIED_DATA_REPLICA_STATUS_PROPERTY])
 
             replica = DataObjectReplica(replica_number, checksum, up_to_date=up_to_date)
-            modification_description.modified_replicas.add(replica)
+            data_object_modification.modified_replicas.add(replica)
 
-        modification_description_as_dict = DataObjectModificationDescriptionJSONEncoder().default(
-                modification_description)
+        data_object_modification_as_json_dict = DataObjectModificationJSONEncoder().default(data_object_modification)
 
-        return Update(path, modified_at, Metadata(modification_description_as_dict))
+        return Update(path, modified_at, Metadata(data_object_modification_as_json_dict))
 
     @staticmethod
     def _combine_updates_for_same_entity(updates: Iterable[Update]) -> UpdateCollection:
@@ -98,30 +99,49 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         Combines updates for the same entities into single "merged" update entries. The merged update entries will have
         the timestamp of the latest update that was merged into them, as discussed in:
         https://github.com/wtsi-hgi/cookie-monster/issues/3#issuecomment-168990482.
+
+        This whole method is a bit clumsy due to the use of `Metadata` in `Update` leading to a loss of structure of
+        the modifications.
         :param updates: the updates to combine
         :return: the combined updates
         """
         combined_updates_map = dict()   # type: Dict[str, Update]
 
         for update in updates:
-            target = update.target
+            update_target = update.target
 
-            if target not in combined_updates_map:
-                combined_updates_map[target] = update
+            if update_target not in combined_updates_map:
+                combined_updates_map[update_target] = update
             else:
-                existing_update = combined_updates_map[target]
+                existing_update = combined_updates_map[update_target]
+
+                # Convert modifications that the updates are about to models - costly but the structure makes things
+                # much easy to work with
+                update_modification = DataObjectModificationJSONDecoder().decode_dict(update.metadata)  # type: DataObjectModification
+                existing_update_modification = DataObjectModificationJSONDecoder().decode_dict(existing_update.metadata)  # type: DataObjectModification
 
                 # Preserve newest timestamp
                 if update.timestamp > existing_update.timestamp:
                     existing_update.timestamp = update.timestamp
 
-                # Merge updated replica
-                existing_update.metadata["modified_replicas"].extend(update.metadata["modified_replicas"])
+                # Merge replica updated
+                assert len(update_modification.modified_replicas) <= 1
+                if len(update_modification.modified_replicas) == 1:
+                    updated_replica = update_modification.modified_replicas.get_all()[0]
+                    existing_update_modification.modified_replicas.add(updated_replica)
 
                 # Merge update metadata
-                for key, value in update.metadata["modified_metadata"].items():
+                assert len(update_modification.modified_metadata) <= 1
+                if len(update_modification.modified_metadata) == 1:
+                    key = list(update_modification.modified_metadata.keys())[0]
+                    value = update_modification.modified_metadata[key]
                     # Assumed iRODS always merges multiple updates to the same thing
-                    assert key not in existing_update.metadata["modified_metadata"]
-                    existing_update.metadata["modified_metadata"][key] = value
+                    assert key not in existing_update_modification.modified_metadata
+                    existing_update_modification.modified_metadata[key] = value
+
+                # Update existing update's metadata
+                existing_update_modification_as_json_dict = DataObjectModificationJSONEncoder().default(
+                    existing_update_modification)
+                existing_update.metadata = Metadata(existing_update_modification_as_json_dict)
 
         return UpdateCollection(combined_updates_map.values())
