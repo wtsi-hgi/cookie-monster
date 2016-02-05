@@ -23,7 +23,7 @@ REQUIRED_SPECIFIC_QUERIES = {
 
 _DATA_OBJECT_NAMES = ["data_object_1", "data_object_2"]
 _METADATA_KEYS = ["key_1", "key_2"]
-_METADATA_VALUES = ["value_1", "value_2"]
+_METADATA_VALUES = ["value_1", "value_2", "value_2"]
 
 _MAX_IRODS_TIMESTAMP = int(math.pow(2, 31)) - 1
 
@@ -84,16 +84,21 @@ class TestBatonUpdateMapper(unittest.TestCase):
         location = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[0])
         updates_before_metadata_added = self.mapper.get_all_since(datetime.min)
 
-        metadata = Metadata({
+        metadata_1 = Metadata({
             _METADATA_KEYS[0]: _METADATA_VALUES[0],
             _METADATA_KEYS[1]: _METADATA_VALUES[1]
         })
-        self.setup_helper.add_metadata_to(location, metadata)
+        self.setup_helper.add_metadata_to(location, metadata_1)
+        # Update pre-existing metadata item
+        metadata_2 = Metadata({_METADATA_KEYS[0]: _METADATA_VALUES[2]})
+        self.setup_helper.add_metadata_to(location, metadata_2)
+        expected_irods_metadata = IrodsMetadata({
+            _METADATA_KEYS[0]: {_METADATA_VALUES[0], _METADATA_VALUES[2]},
+            _METADATA_KEYS[1]: {_METADATA_VALUES[1]}
+        })
 
-        expected_modification_description = DataObjectModification(
-            modified_metadata=IrodsMetadata.from_metadata(metadata))
-        expected_metadata = Metadata(
-                DataObjectModificationJSONEncoder().default(expected_modification_description))
+        modification_description = DataObjectModification(expected_irods_metadata)
+        expected_update_metadata = Metadata(DataObjectModificationJSONEncoder().default(modification_description))
 
         updates = self.mapper.get_all_since(updates_before_metadata_added.get_most_recent()[0].timestamp)
         self.assertEqual(len(updates), 1)
@@ -101,7 +106,7 @@ class TestBatonUpdateMapper(unittest.TestCase):
         # Expect the mapper to have combined all updates into one (https://github.com/wtsi-hgi/cookie-monster/issues/3)
         self.assertEqual(len(relevant_updates), 1)
         self.assertEqual(relevant_updates[0].target, location)
-        self.assertEqual(relevant_updates[0].metadata, expected_metadata)
+        self.assertEqual(relevant_updates[0].metadata, expected_update_metadata)
 
     def tearDown(self):
         self.test_with_baton.tear_down()

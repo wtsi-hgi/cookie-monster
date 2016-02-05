@@ -134,10 +134,9 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
                 assert len(update_modification.modified_metadata) <= 1
                 if len(update_modification.modified_metadata) == 1:
                     key = list(update_modification.modified_metadata.keys())[0]
-                    value = update_modification.modified_metadata[key]
-                    # Assumed iRODS always merges multiple updates to the same thing
-                    assert key not in existing_update_modification.modified_metadata
-                    existing_update_modification.modified_metadata[key] = value
+                    assert len(update_modification.modified_metadata[key]) == 1
+                    value = update_modification.modified_metadata[key].pop()
+                    existing_update_modification.modified_metadata.add(key, value)
 
                 # Update existing update's metadata
                 existing_update_modification_as_json_dict = DataObjectModificationJSONEncoder().default(
