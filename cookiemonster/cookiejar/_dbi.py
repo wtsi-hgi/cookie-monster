@@ -128,7 +128,6 @@ from couchdb.client import Server, Document, ViewResults, Row
 
 from hgicommon.collections import Metadata
 from cookiemonster.common.models import Enrichment
-from cookiemonster.common.enums import EnrichmentSource
 
 
 def _document_to_dictionary(document: Optional[Document]) -> dict:
@@ -157,25 +156,11 @@ def _now() -> int:
     return int(time())
 
 
-def _to_enrichment_source(source: str) -> Union[EnrichmentSource, str]:
-    '''
-    Attempt to convert a string into an EnrichmentSource; falling back
-    to the string when not found
-
-    @param  source  Source
-    @return EnrichmentSource or original input string
-    '''
-    try:
-        return EnrichmentSource(source)
-    except:
-        return source
-
-
 class _EnrichmentEncoder(JSONEncoder):
     ''' JSON encoder for Enrichment models '''
     def default(self, enrichment: Enrichment) -> dict:
         return {
-            'source':    enrichment.source.value if isinstance(enrichment.source, EnrichmentSource) else enrichment.source,
+            'source':    enrichment.source,
             'timestamp': int(mktime(enrichment.timestamp.timetuple())),
             'metadata':  enrichment.metadata._data
         }
@@ -636,7 +621,7 @@ class Ernie(_Couch):
         results = self.query('metadata', 'collate', key=path, reduce=False)
 
         output = [
-            Enrichment(source    = _to_enrichment_source(enrichment.value['source']),
+            Enrichment(source    = enrichment.value['source'],
                        timestamp = datetime.fromtimestamp(enrichment.value['timestamp']),
                        metadata  = Metadata(enrichment.value['metadata']))
             for enrichment in results

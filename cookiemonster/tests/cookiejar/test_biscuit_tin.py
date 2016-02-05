@@ -50,10 +50,8 @@ from unittest.mock import MagicMock
 from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer
 
 from datetime import datetime, timedelta
-from time import sleep
 
 from hgicommon.collections import Metadata
-from cookiemonster.common.enums import EnrichmentSource
 from cookiemonster.common.models import Enrichment, Cookie
 
 import cookiemonster.cookiejar._dbi as dbi
@@ -83,7 +81,7 @@ class TestCookieJar(unittest.TestCase):
         self.eg_metadata    = [Metadata({'xyzzy': 123}),
                                Metadata({'quux': 'snuffleupagus'})]
         self.eg_enrichments = [Enrichment('random', datetime(1981, 9, 25, 5, 55), self.eg_metadata[0]),
-                               Enrichment(EnrichmentSource.IRODS, datetime(2015, 12, 9, 9), self.eg_metadata[1])]
+                               Enrichment("irods", datetime(2015, 12, 9, 9), self.eg_metadata[1])]
         self.eg_listener = MagicMock()
 
         self.jar.add_listener(self.eg_listener)
