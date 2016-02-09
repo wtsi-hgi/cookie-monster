@@ -5,8 +5,8 @@ necessary dependencies, including baton and iRODS.
 
 ## Build Instructions
 
-First the [docker-baton](https://github.com/wtsi-hgi/docker-baton) image
-should be built using the HGI specific query fork of baton:
+First the [`docker-baton`](https://github.com/wtsi-hgi/docker-baton)
+image should be built using the HGI specific query fork of baton:
 
     docker build --build-arg BRANCH=feature/specificquery \
                  --build-arg REPOSITORY=https://github.com/wtsi-hgi/baton.git \
