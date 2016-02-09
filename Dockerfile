@@ -22,4 +22,4 @@ RUN gpg --keyserver keyserver.ubuntu.com --recv-keys DB82666C \
 ENV CM_REPO   "wtsi-hgi/cookie-monster"
 ENV CM_BRANCH "develop"
 RUN curl https://raw.githubusercontent.com/$CM_REPO/$CM_BRANCH/requirements.txt \
-    | xargs pip install git+https://github.com/$CM_REPO.git@$CM_BRANCH#egg=cookiemonster
+  | xargs pip install git+https://github.com/$CM_REPO.git@$CM_BRANCH#egg=cookiemonster
