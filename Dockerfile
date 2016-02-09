@@ -17,9 +17,9 @@ RUN gpg --keyserver keyserver.ubuntu.com --recv-keys DB82666C \
 
 # Install Cookie Monster
 # n.b., pip apparently won't/can't install Github-based dependencies, so
-# until we figure out a better solution, they have to be hardcoded...
-# This is horrible :(
-RUN pip install \
-    "git+https://github.com/wtsi-hgi/python-common.git@develop#egg=hgicommon" \
-    "git+https://github.com/wtsi-hgi/python-baton-wrapper.git@develop#egg=baton" \
-    "git+https://github.com/wtsi-hgi/cookie-monster.git@develop#egg=cookiemonster"
+# until we figure out a better solution, we explicitly pass the contents
+# of the hosted requirements.txt file to pip... This is horrible :(
+ENV CM_REPO   "wtsi-hgi/cookie-monster"
+ENV CM_BRANCH "develop"
+RUN curl https://raw.githubusercontent.com/$CM_REPO/$CM_BRANCH/requirements.txt \
+    | xargs pip install git+https://github.com/$CM_REPO.git@$CM_BRANCH#egg=cookiemonster
