@@ -66,7 +66,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
 
         return BatonUpdateMapper._combine_updates_for_same_entity(all_updates)
 
-    def _object_serialiser(self, object_as_json: dict) -> CustomObjectType:
+    def _object_deserialiser(self, object_as_json: dict) -> CustomObjectType:
         metadata_update = MODIFIED_METADATA_ATTRIBUTE_NAME_PROPERTY in object_as_json
 
         path = "%s/%s" % (object_as_json[MODIFIED_COLLECTION_NAME_PROPERTY],

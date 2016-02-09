@@ -1,5 +1,5 @@
-from baton.serialization.json import IrodsMetadataJSONEncoder, IrodsMetadataJSONDecoder, \
-    DataObjectReplicaCollectionJSONDecoder, DataObjectReplicaCollectionJSONEncoder
+from baton.json import DataObjectReplicaCollectionJSONDecoder, IrodsMetadataJSONDecoder, IrodsMetadataJSONEncoder
+from baton.json import DataObjectReplicaCollectionJSONEncoder
 from hgijson.json.builders import MappingJSONEncoderClassBuilder, MappingJSONDecoderClassBuilder
 from hgijson.json.models import JsonPropertyMapping
 
