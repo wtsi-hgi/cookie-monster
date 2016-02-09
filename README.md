@@ -6,9 +6,13 @@ necessary dependencies, including baton and iRODS.
 ## Build Instructions
 
 First the [docker-baton](https://github.com/wtsi-hgi/docker-baton) image
-should be built:
+should be built using the HGI specific query fork of baton:
 
-    docker build -t wtsi-hgi/baton:0.16.1 -f 0.16.1/irods-3.3.1/Dockerfile github.com/wtsi-hgi/docker-baton.git
+    docker build --build-arg BRANCH=feature/specificquery \
+                 --build-arg REPOSITORY=https://github.com/wtsi-hgi/baton.git \
+                 -t wtsi-hgi/baton:0.16.1-specificquery \
+                 -f custom/irods-3.3.1/Dockerfile \
+                 github.com/wtsi-hgi/docker-baton.git
 
 The iRODS setup is per this image. See the respective documentation for
 details. Once this is built, the Cookie Monster image can be built using

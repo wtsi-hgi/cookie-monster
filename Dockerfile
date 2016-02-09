@@ -1,7 +1,9 @@
-# git clone https://github.com/wtsi-hgi/docker-baton
-# cd docker-baton
-# docker build -t wtsi-hgi/baton:0.16.1 -f 0.16.1/irods-3.3.1/Dockerfile .
-FROM wtsi-hgi/baton:0.16.1
+# docker build --build-arg BRANCH=feature/specificquery \
+#              --build-arg REPOSITORY=https://github.com/wtsi-hgi/baton.git \
+#              -t wtsi-hgi/baton:0.16.1-specificquery \
+#              -f custom/irods-3.3.1/Dockerfile \
+#              github.com/wtsi-hgi/docker-baton.git
+FROM wtsi-hgi/baton:0.16.1-specificquery
 MAINTAINER "Human Genetics Informatics" <hgi@sanger.ac.uk>
 
 # We can get Python 3.5 from the Deadsnakes PPA
