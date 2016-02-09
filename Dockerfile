@@ -11,7 +11,7 @@ COPY deadsnakes.list /etc/apt/sources.list.d
 RUN gpg --keyserver keyserver.ubuntu.com --recv-keys DB82666C \
  && gpg --export DB82666C | apt-key add - \
  && apt-get update \
- && apt-get install -y --no-install-recommends python3.5 \
+ && apt-get install -y --no-install-recommends python3.5 python3.5-dev \
  && ln -s /usr/bin/python3.5 /usr/bin/python \
  && curl https://bootstrap.pypa.io/get-pip.py | python
 
