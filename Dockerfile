@@ -9,7 +9,7 @@ MAINTAINER "Human Genetics Informatics" <hgi@sanger.ac.uk>
 # We can get Python 3.5 from the Deadsnakes PPA
 # We match Debian Jessie with Ubuntu Trusty
 # pip is installed per https://pip.pypa.io/en/stable/installing/
-COPY deadsnakes.list /etc/apt/sources.list.d
+COPY deadsnakes.list /etc/apt/sources.list.d/
 RUN gpg --keyserver keyserver.ubuntu.com --recv-keys DB82666C \
  && gpg --export DB82666C | apt-key add - \
  && apt-get update \
