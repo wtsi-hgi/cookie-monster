@@ -11,7 +11,7 @@ class TestNotificationReceiverSource(unittest.TestCase):
         self.source = NotificationReceiverSource("/")
 
     def test_is_data_file_when_is(self):
-        self.assertTrue(self.source.is_data_file("/my/file.notification_receiver.py"))
+        self.assertTrue(self.source.is_data_file("/my/file.receiver.py"))
 
     def test_is_data_file_when_is_not(self):
         self.assertFalse(self.source.is_data_file("/my/file.py"))

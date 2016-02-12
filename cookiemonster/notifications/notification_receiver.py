@@ -32,7 +32,7 @@ class NotificationReceiverSource(RegisteringDataSource):
     directory. These modules can be changed on-the-fly.
     """
     # Regex used to determine if a file contains an enrichment loader(s)
-    FILE_PATH_MATCH_REGEX = ".*notification_receiver\.py"
+    FILE_PATH_MATCH_REGEX = ".*receiver\.py"
     _COMPILED_FILE_PATH_MATCH_REGEX = re.compile(FILE_PATH_MATCH_REGEX)
 
     def __init__(self, directory_location: str):

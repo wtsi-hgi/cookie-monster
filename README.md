@@ -69,16 +69,16 @@ criteria; notification receivers receive these notifications.
 #### Changing notification receivers on-the-fly
 Notification receivers can also be changed on the fly in the same way as [rules](#rules) and 
 [cookie enrichments](#cookie-enrichments). Files containing enrichment loaders must have a name matching the format:
-``*.notification_receiver.py``.
+``*.receiver.py``.
 ```python
 from cookiemonster import Notification, NotificationReceiver
 from hgicommon.data_source import register
 
-def _retrieve(notification: Notification) -> bool:
+def _receive(notification: Notification):
     if notification.about == "something_exciting":
         print(notification)
     
-_notification_receiver = NotificationReceiver(_retrieve)
+_notification_receiver = NotificationReceiver(_receive)
 register(_notification_receiver)
 ```
 
