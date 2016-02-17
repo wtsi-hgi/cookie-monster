@@ -2,6 +2,45 @@
 [![codecov.io](https://codecov.io/github/wtsi-hgi/cookie-monster/coverage.svg?branch=master)](https://codecov.io/github/wtsi-hgi/cookie-monster?branch=master)
 
 # Cookie Monster
+"Cookie Monster" is a system that can source and aggregate information about data objects, with the ability to make 
+decisions relating to these objects based upon the information known.
+
+
+## Definitions
+* The collection of all information known about a particular data object shall be referred to as a "Cookie".
+* A subsystem that stores collection of Cookies shall be referred to as a "CookieJar".
+* A subsystem that deals with the processing of a Cookie shall be referred to as a "Cookie Processor". 
+* A "Rule" shall be defined as a matching criteria that is used against a Cookie, and an action, which is to be executed
+if the criteria were satisfied.
+* A process whereby more information is added to a Cookie shall be known as a "Cookie Enrichment".
+
+
+## Components
+### Cookie storage
+At a minimum, a Cookie Monster installation uses a CookieJar to store Cookies. Each Cookie in the jar holds an the
+identifier of the data object that the Cookie relates to ([beware of naming inconsistency](https://github.com/wtsi-hgi/cookie-monster/issues/16)).
+A Cookie may also contain a number of Enrichments, each of which holds information about the data object, along with 
+details about where and when this information was attained.
+
+A CookieJar implementation using a MongoDB (named "BiscuitTin") is supplied.
+
+### Data retrievers
+A Cookie Monster installation may use data retrievers, which get information about data objects that can be used to 
+create/enrich Cookies in the CookieJar.
+ 
+A retriever that periodically gets information about updates made to entities in an [iRODS database](https://irods.org/)
+is shipped with the system. In order to use it, specific queries defined in [resources/specific-queries](resources/specific-queries)
+must be installed on your iRODS server and a version of [baton](https://github.com/wtsi-npg/baton) must be installed.
+
+### Cookie processing
+A Cookie Monster installation may be setup with a Processor Manager, which uses Processors to examine Cookies after they 
+have been enriched. A Processor first checks if a Cookie matches any predefined Rules, examined in order of priority. If 
+a rule is matched, a Rule Action is executed: this action may specify a set of Notifications that should be broadcast
+to any Notification Receivers, in addition to whether any more Rules should be ran. In the case where no Rule are 
+matched, the Processor will check if the Cookie can be enriched further using an Enrichment Loader.
+
+A basic implementation of a Processor Manager and a Processor is supplied.
+
 
 ## Setup
 ### Rules
