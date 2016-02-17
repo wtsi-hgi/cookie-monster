@@ -183,8 +183,11 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         rule_lock = Lock()
         rule_lock.acquire()
+        match_lock = Lock()
+        match_lock.acquire()
 
         def matching_criteria(cookie: Cookie) -> bool:
+            match_lock.release()
             rule_lock.acquire()
             return True
 
@@ -203,6 +206,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.rules.append(Rule(lambda cookie: True, lambda cookie: RuleAction([], True)))
 
         # Free the processor to complete the first cookie
+        match_lock.acquire()
         rule_lock.release()
         rule_lock.release()
 
