@@ -2,6 +2,7 @@ import unittest
 from datetime import datetime
 from multiprocessing import Lock
 from threading import Thread, Semaphore
+from time import sleep
 from typing import Callable, List
 from unittest.mock import MagicMock, call
 
@@ -181,8 +182,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         self.cookie_jar.mark_as_complete = MagicMock(side_effect=on_complete)
 
-        rule_lock = Lock()
-        rule_lock.acquire()
+        rule_lock = Semaphore(0)
         match_lock = Lock()
         match_lock.acquire()
 
@@ -195,18 +195,18 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         self.cookie_jar.mark_for_processing(self.cookie.path)
         processor_manager.process_any_cookies()
+        match_lock.acquire()
         # Processor should have locked at this point - i.e. 0 free processors
 
-        # The fact that there are more cookies should be "remembered" by the processor manager
         self.cookie_jar.mark_for_processing("/other/cookie")
         processor_manager.process_any_cookies()
+        # The fact that there are more cookies should be "remembered" by the processor manager
 
         # Change the rules for the next cookie to be processed
         self.rules.pop()
         self.rules.append(Rule(lambda cookie: True, lambda cookie: RuleAction([], True)))
 
         # Free the processor to complete the first cookie
-        match_lock.acquire()
         rule_lock.release()
         rule_lock.release()
 

@@ -8,11 +8,9 @@ from unittest.mock import MagicMock, call
 from hgicommon.data_source import ListDataSource
 
 from cookiemonster.common.models import Notification
-from cookiemonster.notifications.notification_receiver import NotificationReceiverSource, NotificationReceiver
-from cookiemonster.processor._enrichment import EnrichmentManager, EnrichmentLoaderSource
+from cookiemonster.processor._enrichment import EnrichmentLoaderSource
 from cookiemonster.processor._rules import RuleSource
 from cookiemonster.processor.basic_processing import BasicProcessorManager
-from cookiemonster.processor.processing import ProcessorManager
 from cookiemonster.tests.processor._helpers import add_data_files, block_until_processed
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
 from cookiemonster.tests.processor._stubs import StubNotificationReceiver
