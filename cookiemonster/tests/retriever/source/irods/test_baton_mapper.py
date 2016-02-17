@@ -1,3 +1,4 @@
+import logging
 import math
 import unittest
 from datetime import datetime
@@ -39,7 +40,7 @@ class TestBatonUpdateMapper(unittest.TestCase):
         install_queries(REQUIRED_SPECIFIC_QUERIES, self.setup_helper)
 
         self.mapper = BatonUpdateMapper(
-                self.test_with_baton.baton_location, self.test_with_baton.irods_test_server.users[0])
+                self.test_with_baton.baton_location, self.test_with_baton.irods_server.users[0])
 
     def test_get_all_since_with_date_in_future(self):
         updates = self.mapper.get_all_since(datetime.fromtimestamp(_MAX_IRODS_TIMESTAMP))
@@ -106,6 +107,8 @@ class TestBatonUpdateMapper(unittest.TestCase):
         # Expect the mapper to have combined all updates into one (https://github.com/wtsi-hgi/cookie-monster/issues/3)
         self.assertEqual(len(relevant_updates), 1)
         self.assertEqual(relevant_updates[0].target, location)
+        logging.debug(relevant_updates[0].metadata)
+        logging.debug(expected_update_metadata)
         self.assertEqual(relevant_updates[0].metadata, expected_update_metadata)
 
     def tearDown(self):

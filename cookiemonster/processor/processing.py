@@ -22,7 +22,6 @@ class Processor(metaclass=ABCMeta):
         :param on_complete: called when the processing has completed. First argument indicates if at least one rule was
         matched and the second is a set of notifications that were generated.
         """
-        pass
 
 
 class ProcessorManager(metaclass=ABCMeta):
@@ -34,7 +33,6 @@ class ProcessorManager(metaclass=ABCMeta):
         """
         Check for new cookie jobs that are to be processed and process them if they are available.
         """
-        pass
 
     @abstractmethod
     def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: Iterable[Notification]=()):
@@ -44,4 +42,3 @@ class ProcessorManager(metaclass=ABCMeta):
         :param stop_processing: whether rule indicates that we should stop processing the given cookie
         :param notifications: external processes that are to be notified
         """
-        pass

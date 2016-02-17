@@ -17,7 +17,6 @@ class RetrievalLogMapper(metaclass=ABCMeta):
         Adds a retrieval retrieval_log to the database.
         :param retrieval_log: the log to store in the database
         """
-        pass
 
     @abstractmethod
     def get_most_recent(self) -> RetrievalLog:
@@ -25,7 +24,6 @@ class RetrievalLogMapper(metaclass=ABCMeta):
         Gets the most recent retrieval log that was added to the database.
         :return: the most recently added retrieval log
         """
-        pass
 
 
 class UpdateMapper(metaclass=ABCMeta):
@@ -39,4 +37,3 @@ class UpdateMapper(metaclass=ABCMeta):
         :param since: the time at which to get updates from (`fileUpdate.timestamp > since`)
         :return: the results of the query
         """
-        pass

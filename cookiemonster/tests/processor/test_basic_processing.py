@@ -2,6 +2,7 @@ import unittest
 from datetime import datetime
 from multiprocessing import Lock
 from threading import Thread, Semaphore
+from time import sleep
 from typing import Callable, List
 from unittest.mock import MagicMock, call
 
@@ -170,9 +171,9 @@ class TestBasicProcessorManager(unittest.TestCase):
             completed += 1
 
     def test_process_any_cookies_when_no_free_processors(self):
-        single_processor_manager = BasicProcessorManager(1, self.cookie_jar, ListDataSource(self.rules),
-                                                         ListDataSource(self.enrichment_loaders),
-                                                         ListDataSource([self.notification_receiver]))
+        processor_manager = BasicProcessorManager(1, self.cookie_jar, ListDataSource(self.rules),
+                                                  ListDataSource(self.enrichment_loaders),
+                                                  ListDataSource([self.notification_receiver]))
 
         complete = Semaphore(0)
 
@@ -181,22 +182,25 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         self.cookie_jar.mark_as_complete = MagicMock(side_effect=on_complete)
 
-        rule_lock = Lock()
-        rule_lock.acquire()
+        rule_lock = Semaphore(0)
+        match_lock = Lock()
+        match_lock.acquire()
 
         def matching_criteria(cookie: Cookie) -> bool:
+            match_lock.release()
             rule_lock.acquire()
             return True
 
         self.rules.append(Rule(matching_criteria, lambda cookie: RuleAction([], True)))
 
         self.cookie_jar.mark_for_processing(self.cookie.path)
-        single_processor_manager.process_any_cookies()
+        processor_manager.process_any_cookies()
+        match_lock.acquire()
         # Processor should have locked at this point - i.e. 0 free processors
 
-        # The fact that there are more cookies should be "remembered" by the processor manager
         self.cookie_jar.mark_for_processing("/other/cookie")
-        single_processor_manager.process_any_cookies()
+        processor_manager.process_any_cookies()
+        # The fact that there are more cookies should be "remembered" by the processor manager
 
         # Change the rules for the next cookie to be processed
         self.rules.pop()

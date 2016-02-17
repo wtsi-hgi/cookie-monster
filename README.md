@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/wtsi-hgi/cookie-monster.svg)](https://travis-ci.org/wtsi-hgi/cookie-monster)
+[![codecov.io](https://codecov.io/github/wtsi-hgi/cookie-monster/coverage.svg?branch=master)](https://codecov.io/github/wtsi-hgi/cookie-monster?branch=master)
 
 # Cookie Monster
 
