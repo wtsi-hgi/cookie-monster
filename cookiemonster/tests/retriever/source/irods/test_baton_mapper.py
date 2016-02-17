@@ -39,7 +39,7 @@ class TestBatonUpdateMapper(unittest.TestCase):
         install_queries(REQUIRED_SPECIFIC_QUERIES, self.setup_helper)
 
         self.mapper = BatonUpdateMapper(
-                self.test_with_baton.baton_location, self.test_with_baton.irods_test_server.users[0])
+                self.test_with_baton.baton_location, self.test_with_baton.irods_server.users[0])
 
     def test_get_all_since_with_date_in_future(self):
         updates = self.mapper.get_all_since(datetime.fromtimestamp(_MAX_IRODS_TIMESTAMP))
