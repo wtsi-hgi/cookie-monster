@@ -22,7 +22,7 @@ identifier of the data object that the Cookie relates to ([beware of naming inco
 A Cookie may also contain a number of Enrichments, each of which holds information about the data object, along with 
 details about where and when this information was attained.
 
-A CookieJar implementation using a MongoDB (named "BiscuitTin") is supplied.
+A CookieJar implementation using CouchDB (named "BiscuitTin") is supplied.
 
 ### Data retrievers
 A Cookie Monster installation may use data retrievers, which get information about data objects that can be used to 
