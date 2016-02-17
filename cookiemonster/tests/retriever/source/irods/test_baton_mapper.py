@@ -1,3 +1,4 @@
+import logging
 import math
 import unittest
 from datetime import datetime
@@ -106,6 +107,8 @@ class TestBatonUpdateMapper(unittest.TestCase):
         # Expect the mapper to have combined all updates into one (https://github.com/wtsi-hgi/cookie-monster/issues/3)
         self.assertEqual(len(relevant_updates), 1)
         self.assertEqual(relevant_updates[0].target, location)
+        logging.debug(relevant_updates[0].metadata)
+        logging.debug(expected_update_metadata)
         self.assertEqual(relevant_updates[0].metadata, expected_update_metadata)
 
     def tearDown(self):
