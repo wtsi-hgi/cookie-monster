@@ -1,12 +1,28 @@
-sudo: required
+language: python
 
-language: bash
+python:
+  - 3.5
 
 services:
-    - docker
+  - docker
+
+env:
+  global:
+    - DOCKER_HOST="tcp://127.0.0.1:2375"
+    - DOCKER_TLS_VERIFY=""
+    - DOCKER_CERT_PATH=""
 
 before_install:
-    - docker build -t hgi/cookie-monster/tests -f docker/test/dind/Dockerfile .
+  - pip install codecov
+  - sudo apt-get update
+  - sudo apt-get install -y -o Dpkg::Options::=--force-confdef docker-engine
+
+install:
+  - pip install -r requirements.txt
+  - pip install -r test_requirements.txt
 
 script:
-    - docker run --privileged hgi/cookie-monster/tests
+  - nosetests -v --with-coverage
+
+after_success:
+  - codecov
