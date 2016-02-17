@@ -22,7 +22,7 @@ install:
   - pip install -r test_requirements.txt
 
 script:
-  - nosetests -v --with-coverage
+  - nosetests -v --with-coverage --cover-package=cookiemonster
 
 after_success:
   - codecov
