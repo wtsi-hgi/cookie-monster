@@ -7,10 +7,11 @@ Simply deciding what Cookies to eat...
 
 ## Summary
 1. Data retrievers can be setup to periodically pull information into the system.
-2. The information is aggregated in a knowledge base, grouped by relation to a distinct data object.
+2. The information is aggregated in a knowledge base, grouped by its their relation to a distinct data object.
 3. When information becomes known, a production rule system is ran using rules that may have arbitrarily complex
 preconditions and have productions that can trigger arbitrarily complex processing via a notification based system.
-4. Information about data objects can be easily enriched if no rules cannot be matched.
+4. Information about data objects can be easily enriched if it is determined that not enough information is known about
+the object to process it.
 
 
 ## Key features
@@ -29,10 +30,10 @@ For better or for worse, naming within some parts of the system is Sesame Street
 
 ## Components
 ### Cookie storage
-At a minimum, a Cookie Monster installation uses a CookieJar to store Cookies. This is essentially a knowledge base that
-stores unstructured JSON data with a limited amount of metadata. Each Cookie in the jar holds an the identifier of the
-data object that the Cookie relates to ([beware of naming inconsistency](https://github.com/wtsi-hgi/cookie-monster/issues/16)).
-A Cookie may also contain a number of Enrichments, each of which holds information about the data object, along with 
+At a minimum, a Cookie Monster installation comprises of a CookieJar that can store Cookies. It is essentially a
+knowledge base that stores unstructured JSON data with a limited amount of metadata. Each Cookie in the jar holds an the
+identifier of the data object to which it releates ([beware of naming inconsistency](https://github.com/wtsi-hgi/cookie-monster/issues/16)).
+A Cookie may also contain a number of "enrichments", each of which holds information about the data object, along with 
 details about where and when this information was attained.
 
 A CookieJar implementation (named `BiscuitTin`), which uses a CouchDB database, is supplied. It can be setup with:
@@ -43,18 +44,16 @@ cookie_jar = BiscuitTin(couchdb_host, couchdb_database_name)
 
 ### Cookie processing
 A Cookie Monster installation may be setup with a Processor Manager, which uses Processors to examine Cookies after they 
-have been enriched. These Processors essentially implement a production rule system, where predefined production rules 
-are evaluated in order of priority. If a rule's precondition is matched, its action is triggered: this action may
-specify a set of Notifications that are broadcast to any Notification Receivers, in addition to whether any more
-rules should be evaluated. Notification Receivers may then take any action upon been notified of a particular fact. In 
-the case where no rules are matched, the Processor will check if the Cookie can be enriched further using an Enrichment 
-Loader.
+have been enriched. Processors essentially implement a production rule system, where predefined rules are evaluated in 
+order of priority. If a rule's precondition is matched, its action is triggered: this action may specify a set of
+Notifications that are broadcast to any Notification Receivers, in addition to whether any more rules should be 
+evaluated. Notification Receivers may then take any action upon been given a notification. In the case where no rules 
+are matched, the Processor will check if the Cookie can be enriched further using an Enrichment Loader.
 
 A simple implementation of a Processor Manager (named `BasicProcessorManager`) is supplied. This can be constructed as
 such:
 ```python
-processor_manager = BasicProcessorManager(
-    number_of_processors, cookie_jar, rules_source, enrichment_loader_source, notification_receivers_source)
+processor_manager = BasicProcessorManager(number_of_processors, cookie_jar, rules_source, enrichment_loader_source, notification_receivers_source)
 ```
 Then setup to process Cookies as they are enriched in the CookieJar:
 ```python
@@ -62,13 +61,13 @@ cookie_jar.add_listener(processor_manager.process_any_cookies)
 ```
 
 #### Rules
-Rules have a matching criteria (the precondition) to which cookies are compared to determine if any action should be
-taken. If matched, the rule specifies an action for the cookie that can indicate that notification receivers should be
-informed and whether further processing of the cookie is required. The order in which rules are evaluated is determined 
-by their priority.
+Rules have a matching criteria (a precondition) to which Cookies are compared to determine if any action should be
+taken. If matched, the rule specifies an action, which can define a set of notifications that are to be broadcast to 
+all Notification Receivers and whether further processing of the Cookie is required. The order in which rules are 
+evaluated is determined by their priority.
 
 ##### Changing rules on-the-fly
-If ``RuleSource`` is being used by your ``ProcessorManager`` to attain the rules that are followed by ``Processor``
+If ``RuleSource`` is being used by your ``ProcessorManager`` to attain the rules that are evaluated by ``Processor``
 instances, it is possible to dynamically changes the rules used by the Cookie Monster for future jobs (jobs already 
 running will continue to use the set of rules that they had when they were started).
 
@@ -96,8 +95,8 @@ To delete a pre-existing rule, delete the file containing it or remove the relev
 rule, simply change its code and it will be updated on save.
 
 #### Cookie Enrichments
-If all the rules have been applied against a cookie and none of them indicated in their action that no further
-processing is required, cookie "enrichment" loaders can be used to load more information about a cookie.
+If all the rules have been evaluated and none of them defined in their action that no further processing of the Cookie
+is required, cookie "enrichment" loaders can be used to load more information about a cookie.
 
 ##### Changing enrichment loaders on-the-fly
 Similarly to [rules](#rules), the enrichment loaders can be changed during execution. Files containing enrichment
@@ -120,7 +119,7 @@ register(_enrichment_loader)
 ```
 
 #### Notification Receivers
-Rules can specify that a notification or set of notifications should be broadcast if a cookie matches the rule's
+Rules can specify that a notification or set of notifications should be broadcast if a Cookie matches the rule's
 criteria; notification receivers receive these notifications.
 
 ##### Changing notification receivers on-the-fly
@@ -145,10 +144,11 @@ A Cookie Monster installation may use data retrievers, which get updates about d
 (which will create if no previous information is known) related Cookies in the CookieJar.
  
 A retriever that periodically gets information about updates made to entities in an [iRODS database](https://irods.org/)
-is shipped with the system. In order to use it, specific queries defined in [resources/specific-queries](resources/specific-queries)
-must be installed on your iRODS server and a version of [baton](https://github.com/wtsi-npg/baton) that supports 
-specific queries ([such as that by wtsi-hgi](https://github.com/wtsi-hgi/baton/tree/feature/specificquery)) must be
-installed. It can be setup as such:
+is shipped with the system. In order to use it, specific queries defined in 
+[resources/specific-queries](resources/specific-queries) must be installed on your iRODS server and a version of 
+[baton](https://github.com/wtsi-npg/baton) that supports specific queries 
+([such as that by wtsi-hgi](https://github.com/wtsi-hgi/baton/tree/feature/specificquery)) must be installed. It can be 
+setup as such:
 ```python
 update_mapper = BatonUpdateMapper(baton_binaries_location)
 database_connector = SQLAlchemyDatabaseConnector(retrieval_log_database)
