@@ -22,10 +22,18 @@ identifier of the data object that the Cookie relates to ([beware of naming inco
 A Cookie may also contain a number of Enrichments, each of which holds information about the data object, along with 
 details about where and when this information was attained.
 
-A CookieJar implementation, which uses a MongoDB (named "BiscuitTin"), is supplied. It can be setup with:
+A CookieJar implementation (named "BiscuitTin"), which uses a CouchDB database, is supplied. It can be setup with:
 ```python
-cookie_jar = BiscuitTin(mongodb_host, mongodb_database_name)
+cookie_jar = BiscuitTin(couchdb_host, couchdb_database_name)
 ```
+
+### Data retrievers
+A Cookie Monster installation may use data retrievers, which get information about data objects that can be used to 
+create/enrich Cookies in the CookieJar.
+ 
+A retriever that periodically gets information about updates made to entities in an [iRODS database](https://irods.org/)
+is shipped with the system. In order to use it, specific queries defined in [resources/specific-queries](resources/specific-queries)
+must be installed on your iRODS server and a version of [baton](https://github.com/wtsi-npg/baton) must be installed.
 
 ### Cookie processing
 A Cookie Monster installation may be setup with a Processor Manager, which uses Processors to examine Cookies after they 
