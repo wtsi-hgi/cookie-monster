@@ -2,47 +2,55 @@
 [![codecov.io](https://codecov.io/github/wtsi-hgi/cookie-monster/coverage.svg?branch=master)](https://codecov.io/github/wtsi-hgi/cookie-monster?branch=master)
 
 # Cookie Monster
-"Cookie Monster" is a system that can source and aggregate information about data objects, with the ability to make 
-decisions relating to these objects based upon the information known.
+Simply deciding what Cookies to eat...
+
+
+## Summary
+1. Data retrievers can be setup to periodically pull information into the system.
+2. The information is aggregated in a knowledge base, grouped by relation to a distinct data object.
+3. When information becomes known, a production rule system is ran using rules that may have arbitrarily complex
+preconditions and have productions that can trigger arbitrarily complex processing via a notification based system.
+4. Information about data objects can be easily enriched if no rules cannot be matched.
+
+
+## Key features
+* DSL free.
+* Python 3.5+.
+* Simple to add rules, actions and methods of gathering more information.
+* Decoupling of rule matching and subsequent processing via simple notification based system.
 
 
 ## Definitions
-* The collection of all information known about a particular data object shall be referred to as a "Cookie".
-* A subsystem that stores collection of Cookies shall be referred to as a "CookieJar".
-* A subsystem that deals with the processing of a Cookie shall be referred to as a "Cookie Processor". 
-* A "Rule" shall be defined as a matching criteria that is used against a Cookie, and an action, which is to be executed
-if the criteria were satisfied.
-* A process whereby more information is added to a Cookie shall be known as a "Cookie Enrichment".
+For better or for worse, naming within some parts of the system is Sesame Street themed...
+* The collection of all information known about a particular data object is referred to as a "Cookie".
+* The [subsystem that stores collection of Cookies](#cookie-storage) is referred to as a "CookieJar".
+* The [HTTP API](#http-api) is referred to as Elmo.
 
 
 ## Components
 ### Cookie storage
-At a minimum, a Cookie Monster installation uses a CookieJar to store Cookies. Each Cookie in the jar holds an the
-identifier of the data object that the Cookie relates to ([beware of naming inconsistency](https://github.com/wtsi-hgi/cookie-monster/issues/16)).
+At a minimum, a Cookie Monster installation uses a CookieJar to store Cookies. This is essentially a knowledge base that
+stores unstructured JSON data with a limited amount of metadata. Each Cookie in the jar holds an the identifier of the
+data object that the Cookie relates to ([beware of naming inconsistency](https://github.com/wtsi-hgi/cookie-monster/issues/16)).
 A Cookie may also contain a number of Enrichments, each of which holds information about the data object, along with 
 details about where and when this information was attained.
 
-A CookieJar implementation (named "BiscuitTin"), which uses a CouchDB database, is supplied. It can be setup with:
+A CookieJar implementation (named `BiscuitTin`), which uses a CouchDB database, is supplied. It can be setup with:
 ```python
 cookie_jar = BiscuitTin(couchdb_host, couchdb_database_name)
 ```
 
-### Data retrievers
-A Cookie Monster installation may use data retrievers, which get information about data objects that can be used to 
-create/enrich Cookies in the CookieJar.
- 
-A retriever that periodically gets information about updates made to entities in an [iRODS database](https://irods.org/)
-is shipped with the system. In order to use it, specific queries defined in [resources/specific-queries](resources/specific-queries)
-must be installed on your iRODS server and a version of [baton](https://github.com/wtsi-npg/baton) must be installed.
 
 ### Cookie processing
 A Cookie Monster installation may be setup with a Processor Manager, which uses Processors to examine Cookies after they 
-have been enriched. A Processor first checks if a Cookie matches any predefined Rules, examined in order of priority. If 
-a rule is matched, a Rule Action is executed: this action may specify a set of Notifications that should be broadcast
-to any Notification Receivers, in addition to whether any more Rules should be ran. In the case where no Rule are 
-matched, the Processor will check if the Cookie can be enriched further using an Enrichment Loader.
+have been enriched. These Processors essentially implement a production rule system, where predefined production rules 
+are evaluated in order of priority. If a rule's precondition is matched, its action is triggered: this action may
+specify a set of Notifications that are broadcast to any Notification Receivers, in addition to whether any more
+rules should be evaluated. Notification Receivers may then take any action upon been notified of a particular fact. In 
+the case where no rules are matched, the Processor will check if the Cookie can be enriched further using an Enrichment 
+Loader.
 
-A simple implementation of a Processor Manager (named "BasicProcessorManager") is supplied. This can be constructed as
+A simple implementation of a Processor Manager (named `BasicProcessorManager`) is supplied. This can be constructed as
 such:
 ```python
 processor_manager = BasicProcessorManager(
@@ -54,9 +62,10 @@ cookie_jar.add_listener(processor_manager.process_any_cookies)
 ```
 
 #### Rules
-Rules have a matching criteria to which cookies are compared to determine if any action should be taken. If matched, 
-the rule specifies an action for the cookie that can indicate that notification receivers should be informed and whether
-further processing of the cookie is required. The order in which rules are applied is determined by their priority.
+Rules have a matching criteria (the precondition) to which cookies are compared to determine if any action should be
+taken. If matched, the rule specifies an action for the cookie that can indicate that notification receivers should be
+informed and whether further processing of the cookie is required. The order in which rules are evaluated is determined 
+by their priority.
 
 ##### Changing rules on-the-fly
 If ``RuleSource`` is being used by your ``ProcessorManager`` to attain the rules that are followed by ``Processor``
@@ -156,7 +165,7 @@ retrieval_manager.add_listener(put_update_in_cookie_jar)
 ```
 
 
-## HTTP API
+### HTTP API
 A JSON-based HTTP API is provided to expose certain functionality as an outwardly facing interface, on a configurable 
 port. Currently, the following endpoints are defined:
 
