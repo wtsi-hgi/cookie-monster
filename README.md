@@ -20,6 +20,12 @@ the object to process it.
 * Python 3.5+.
 * Simple to add rules, actions and methods of gathering more information.
 * Decoupling of rule matching and subsequent processing via simple notification based system.
+* [Available as a Docker image](https://github.com/wtsi-hgi/docker-cookie-monster).
+
+
+## Less documentation, more example
+If you do not want to read about how the Cookie Monster system works and just want to look at an example of it in 
+action, please see the [HGI Cookie Monster setup](https://github.com/wtsi-hgi/hgi-cookie-monster-setup/).
 
 
 ## Definitions
