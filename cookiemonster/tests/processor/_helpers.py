@@ -72,5 +72,3 @@ def add_data_files(source: SynchronisedFilesDataSource, data_files: Sequence[str
         loaded += 1
 
     source.remove_listener(on_load)
-
-

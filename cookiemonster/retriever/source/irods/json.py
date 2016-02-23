@@ -21,6 +21,6 @@ _data_object_modification_json_mappings = [
                         decoder_cls=DataObjectReplicaCollectionJSONDecoder)
 ]
 DataObjectModificationJSONEncoder = MappingJSONEncoderClassBuilder(
-    DataObjectModification, _data_object_modification_json_mappings, IrodsEntityModificationJSONEncoder).build()
+    DataObjectModification, _data_object_modification_json_mappings, (IrodsEntityModificationJSONEncoder, )).build()
 DataObjectModificationJSONDecoder = MappingJSONDecoderClassBuilder(
-    DataObjectModification, _data_object_modification_json_mappings, IrodsEntityModificationJSONDecoder).build()
+    DataObjectModification, _data_object_modification_json_mappings, (IrodsEntityModificationJSONDecoder, )).build()
