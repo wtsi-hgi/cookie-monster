@@ -32,11 +32,11 @@ action, please see the [HGI Cookie Monster setup](https://github.com/wtsi-hgi/hg
 For better or for worse, naming within some parts of the system is Sesame Street themed...
 * The collection of all information known about a particular data object is referred to as a "Cookie".
 * The [subsystem that stores a collection of Cookies](#cookie-storage) is referred to as a "CookieJar".
-* The [HTTP API](#http-api) is referred to as Elmo.
+* The [HTTP API](#http-api) is referred to as "Elmo".
 
-The system is called "Cookie Monster" as its behaviour is similar to that of the 
-[Cookie Monster](https://www.youtube.com/watch?v=I5e6ftNpGsU&feature=youtu.be&t=1m7s) character in Sesame Street: it 
-shovels in all of the cookies but only a few get digested, with the rest falling back out.
+The system is called "Cookie Monster" as its behaviour is [similar to that of the 
+Cookie Monster character in Sesame Street](https://www.youtube.com/watch?v=I5e6ftNpGsU&feature=youtu.be&t=1m7s): it 
+shovels in all of the cookies but only a few get digested/mashed into the hand puppet, with the rest falling back out.
 
 
 ## Components
@@ -109,6 +109,34 @@ register(_rule)
 To delete a pre-existing rule, delete the file containing it or remove the relevant call to ``register``. To modify a 
 rule, simply change its code and it will be updated in Cookie Monster when it is saved.
 
+##### Examples
+Please see the [rules used in the HGI Cookie Monster setup](https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/rules).
+
+
+#### Notification Receivers
+Rules can specify that a notification or set of notifications should be broadcast if a Cookie matches the rule's
+criteria; notification receivers receive these notifications.
+
+##### Changing notification receivers on-the-fly
+Notification receivers can also be changed on the fly in the same way as [rules](#rules) and 
+[cookie enrichments](#cookie-enrichments). Files containing enrichment loaders must have a name matching the format:
+``*.receiver.py``.
+```python
+from cookiemonster import Notification, NotificationReceiver
+from hgicommon.data_source import register
+
+def _receive(notification: Notification):
+    if notification.about == "something_exciting":
+        print(notification)
+    
+_notification_receiver = NotificationReceiver(_receive)
+register(_notification_receiver)
+```
+
+##### Examples
+Please see the [notification receivers used in the HGI Cookie Monster setup](https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/notification_receivers).
+
+
 #### Cookie Enrichments
 If all the rules have been evaluated and none of them defined in their action that no further processing of the Cookie
 is required, cookie "enrichment loaders" can be used to load more information about a cookie.
@@ -133,25 +161,8 @@ _enrichment_loader = EnrichmentLoader(_can_enrich, _load_enrichment, _priority)
 register(_enrichment_loader)
 ```
 
-#### Notification Receivers
-Rules can specify that a notification or set of notifications should be broadcast if a Cookie matches the rule's
-criteria; notification receivers receive these notifications.
-
-##### Changing notification receivers on-the-fly
-Notification receivers can also be changed on the fly in the same way as [rules](#rules) and 
-[cookie enrichments](#cookie-enrichments). Files containing enrichment loaders must have a name matching the format:
-``*.receiver.py``.
-```python
-from cookiemonster import Notification, NotificationReceiver
-from hgicommon.data_source import register
-
-def _receive(notification: Notification):
-    if notification.about == "something_exciting":
-        print(notification)
-    
-_notification_receiver = NotificationReceiver(_receive)
-register(_notification_receiver)
-```
+##### Examples
+Please see the [enrichment loaders used in the HGI Cookie Monster setup](https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/enrichment_loaders).
 
 
 ### Data retrievers
