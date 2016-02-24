@@ -1,19 +1,14 @@
 import logging
 import unittest
-from datetime import timedelta, datetime
+from datetime import datetime
 from threading import Thread, Semaphore, Lock
-from typing import Any
 from unittest.mock import MagicMock, call
 
-import sys
-
-from apscheduler.triggers.interval import IntervalTrigger
 from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.helpers import localise_to_utc
 from cookiemonster.common.models import Update
-from cookiemonster.retriever._models import RetrievalLog
 from cookiemonster.retriever.manager import PeriodicRetrievalManager, RetrievalManager
 from cookiemonster.tests.retriever._stubs import StubUpdateMapper, StubRetrievalLogMapper
 
