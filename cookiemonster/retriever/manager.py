@@ -48,6 +48,7 @@ class RetrievalManager(Listenable[UpdateCollection]):
         logging.debug("Starting update retrieval...")
 
         # Do retrieve
+        started_at_clocktime = datetime.now()
         started_at = RetrievalManager._get_current_time()
         updates = self.update_mapper.get_all_since(updates_since)
         seconds_taken_to_complete_query = RetrievalManager._get_current_time() - started_at
@@ -61,7 +62,7 @@ class RetrievalManager(Listenable[UpdateCollection]):
             self.notify_listeners(updates)
 
         # Log retrieval
-        retrieval_log = RetrievalLog(started_at, seconds_taken_to_complete_query, len(updates), updates_since)
+        retrieval_log = RetrievalLog(started_at_clocktime, seconds_taken_to_complete_query, len(updates), updates_since)
         logging.debug("Logging update query: %s" % retrieval_log)
         self._retrieval_log_mapper.add(retrieval_log)
 
