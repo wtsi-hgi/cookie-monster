@@ -30,6 +30,10 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
     """
     Retrieves updates from iRODS using baton.
     """
+    def __init__(self, baton_binaries_directory: str, zone: str=None):
+        super().__init__(baton_binaries_directory)
+        self.zone = zone
+
     def get_all_since(self, since: datetime) -> UpdateCollection:
         # iRODS works with Epoch time therefore ensure `since` is localised as UTC
         since = localise_to_utc(since)
@@ -49,7 +53,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         def run_threaded(alias: str):
             updates_query = PreparedSpecificQuery(alias, arguments)
             try:
-                updates = self._get_with_prepared_specific_query(updates_query)
+                updates = self._get_with_prepared_specific_query(updates_query, zone=self.zone)
                 all_updates.extend(list(updates))
             except Exception as e:
                 nonlocal error
