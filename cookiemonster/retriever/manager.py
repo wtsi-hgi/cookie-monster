@@ -48,7 +48,7 @@ class RetrievalManager(Listenable[UpdateCollection]):
         logging.debug("Starting update retrieval...")
 
         # Do retrieve
-        started_at_clocktime = RetrievalManager._get_clock_time()
+        started_at_clock_time = RetrievalManager._get_clock_time()
         started_at = RetrievalManager._get_monotonic_time()
         updates = self.update_mapper.get_all_since(updates_since)
         seconds_taken_to_complete_query = RetrievalManager._get_monotonic_time() - started_at
@@ -64,7 +64,7 @@ class RetrievalManager(Listenable[UpdateCollection]):
         # Log retrieval
         most_recent_retrieved = updates.get_most_recent()[0].timestamp if len(updates) > 0 else None
         retrieval_log = RetrievalLog(
-            started_at_clocktime, seconds_taken_to_complete_query, len(updates), most_recent_retrieved)
+            started_at_clock_time, seconds_taken_to_complete_query, len(updates), most_recent_retrieved)
         logging.debug("Logging update query: %s" % retrieval_log)
         self._retrieval_log_mapper.add(retrieval_log)
 

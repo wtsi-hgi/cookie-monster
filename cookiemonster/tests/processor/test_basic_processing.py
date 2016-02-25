@@ -2,7 +2,6 @@ import unittest
 from datetime import datetime
 from multiprocessing import Lock
 from threading import Thread, Semaphore
-from time import sleep
 from typing import Callable, List
 from unittest.mock import MagicMock, call
 

@@ -9,9 +9,9 @@ _irods_entity_modification_json_mappings = [
     JsonPropertyMapping("modified_metadata", "modified_metadata", "modified_metadata",
                         encoder_cls=IrodsMetadataJSONEncoder, decoder_cls=IrodsMetadataJSONDecoder)
 ]
-IrodsEntityModificationJSONEncoder = MappingJSONEncoderClassBuilder(
+_IrodsEntityModificationJSONEncoder = MappingJSONEncoderClassBuilder(
     IrodsEntityModification, _irods_entity_modification_json_mappings).build()
-IrodsEntityModificationJSONDecoder = MappingJSONDecoderClassBuilder(
+_IrodsEntityModificationJSONDecoder = MappingJSONDecoderClassBuilder(
     IrodsEntityModification, _irods_entity_modification_json_mappings).build()
 
 
@@ -21,6 +21,6 @@ _data_object_modification_json_mappings = [
                         decoder_cls=DataObjectReplicaCollectionJSONDecoder)
 ]
 DataObjectModificationJSONEncoder = MappingJSONEncoderClassBuilder(
-    DataObjectModification, _data_object_modification_json_mappings, (IrodsEntityModificationJSONEncoder, )).build()
+    DataObjectModification, _data_object_modification_json_mappings, (_IrodsEntityModificationJSONEncoder,)).build()
 DataObjectModificationJSONDecoder = MappingJSONDecoderClassBuilder(
-    DataObjectModification, _data_object_modification_json_mappings, (IrodsEntityModificationJSONDecoder, )).build()
+    DataObjectModification, _data_object_modification_json_mappings, (_IrodsEntityModificationJSONDecoder,)).build()

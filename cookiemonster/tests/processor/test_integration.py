@@ -96,7 +96,8 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
         self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
-        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notification_receiver.receive.call_args_list)
+        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)),
+                      self.notification_receiver.receive.call_args_list)
 
     def test_with_rules_and_enrichments(self):
         add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
@@ -109,7 +110,8 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
         self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
-        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)), self.notification_receiver.receive.call_args_list)
+        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)),
+                      self.notification_receiver.receive.call_args_list)
 
     def tearDown(self):
         shutil.rmtree(self.rules_directory)

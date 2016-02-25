@@ -5,7 +5,7 @@ from typing import Optional, Callable, Iterable
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.processor.models import Rule
 
-ABOUT_NO_RULES_MATCH = "no rules match cookie"
+ABOUT_NO_RULES_MATCH = "no rules matched"
 
 
 class Processor(metaclass=ABCMeta):

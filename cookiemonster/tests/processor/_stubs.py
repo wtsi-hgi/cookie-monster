@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Optional, Callable
+from typing import Optional
 
 from cookiemonster.common.models import Notification, Enrichment, Cookie
 from cookiemonster.cookiejar import CookieJar

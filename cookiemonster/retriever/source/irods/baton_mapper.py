@@ -127,7 +127,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
                 if update.timestamp > existing_update.timestamp:
                     existing_update.timestamp = update.timestamp
 
-                # Merge replica updated
+                # Merge update replica
                 assert len(update_modification.modified_replicas) <= 1
                 if len(update_modification.modified_replicas) == 1:
                     updated_replica = update_modification.modified_replicas.get_all()[0]

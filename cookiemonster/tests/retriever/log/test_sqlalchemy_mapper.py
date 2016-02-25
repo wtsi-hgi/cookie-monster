@@ -1,6 +1,6 @@
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy import create_engine
 
@@ -12,7 +12,6 @@ from cookiemonster.retriever.log.sqlalchemy_models import SQLAlchemyModel
 
 
 _STARTED_AT = datetime.min
-_SECONDS_TAKEN_TO_COMPLETE_QUERY = 3.0
 _NUMBER_OF_FILE_UPDATES = 74
 _LATEST_RETRIEVED_TIMESTAMP = datetime.max
 _SECONDS_TAKEN_TO_COMPLETE_QUERY = 0.1

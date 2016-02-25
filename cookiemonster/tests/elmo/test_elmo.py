@@ -16,7 +16,6 @@ Copyright (c) 2016 Genome Research Limited
 import unittest
 from unittest.mock import MagicMock
 
-from cookiemonster import Cookie
 from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer, _get_port
 
 import json

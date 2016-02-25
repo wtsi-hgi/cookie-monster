@@ -81,7 +81,6 @@ class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
         @param  path        File path
         @param  enrichment  Enrichment
         '''
-        pass
 
     @abstractmethod
     def mark_as_failed(self, path: str, requeue_delay: Optional[timedelta]):
@@ -92,7 +91,6 @@ class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
         @param  path           File path
         @param  requeue_delay  Time to wait before requeuing
         '''
-        pass
 
     @abstractmethod
     def mark_as_complete(self, path: str):
@@ -102,7 +100,6 @@ class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
 
         @param  path  File path
         '''
-        pass
 
     @abstractmethod
     def mark_for_processing(self, path: str):
@@ -112,7 +109,6 @@ class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
 
         @param  path  File path
         '''
-        pass
 
     @abstractmethod
     def get_next_for_processing(self) -> Optional[Cookie]:
@@ -123,7 +119,6 @@ class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
                 empty)
         @note   This method is thread-safe
         '''
-        pass
 
     @abstractmethod
     def queue_length(self) -> int:
@@ -132,4 +127,3 @@ class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
 
         @return Number of items in the queue
         '''
-        pass

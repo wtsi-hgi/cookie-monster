@@ -28,6 +28,7 @@ Copyright (c) 2016 Genome Research Limited
 from typing import Any
 from cookiemonster.elmo._handler_injection import DependencyInjectionHandler
 
+
 class CookieJarHandlers(DependencyInjectionHandler):
     ''' Handler functions for CookieJar '''
     def GET_queue_length(self):
