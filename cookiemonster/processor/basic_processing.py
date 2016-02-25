@@ -96,7 +96,8 @@ class BasicProcessorManager(ProcessorManager):
                 Thread(target=processor.process, args=(cookie, self._rules_source.get_all(), on_complete)).start()
             else:
                 self._release_processor(processor)
-                logging.debug("Triggered to process cookies - no cookies to process")
+                logging.debug("Triggered to process cookies - no cookies to process. %d free processors"
+                              % len(self._idle_processors))
         else:
             logging.debug("Triggered to process cookies but no free processors")
 
