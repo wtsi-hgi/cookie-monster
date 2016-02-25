@@ -36,12 +36,6 @@ class Rule(Model, Priority):
         self._matches = matches
         self._generate_action = generate_action
 
-    def __hash__(self):
-        return id(self)
-
-    def __str__(self):
-        return str(id(self))
-
     def matches(self, cookie: Cookie) -> bool:
         """
         Returns whether this rule applies to the given cookie that is being processed.
@@ -61,6 +55,12 @@ class Rule(Model, Priority):
         if not self._matches(cookie):
             return ValueError("Rules does not match cookie: %s" % cookie)
         return self._generate_action(cookie)
+
+    def __hash__(self):
+        return id(self)
+
+    def __str__(self):
+        return str(id(self))
 
 
 class EnrichmentLoader(Model, Priority):

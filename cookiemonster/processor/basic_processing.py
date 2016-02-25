@@ -89,8 +89,10 @@ class BasicProcessorManager(ProcessorManager):
                     # One last task before the thread that ran the processor can end...
                     self.process_any_cookies()
 
-                logging.debug("Starting processor \"%s\" for cookie with path \"%s\". %d free processors remaining"
-                              % (id(processor), cookie.path, len(self._idle_processors)))
+                logging.info(
+                    "Starting processor \"%s\" for cookie with path \"%s\". %d free processors remaining, %d cookies "
+                    "queued for processing" % (id(processor), cookie.path, len(self._idle_processors),
+                                               self._cookie_jar.queue_length()))
                 Thread(target=processor.process, args=(cookie, self._rules_source.get_all(), on_complete)).start()
             else:
                 self._release_processor(processor)
@@ -121,7 +123,7 @@ class BasicProcessorManager(ProcessorManager):
                 logging.info("Applying enrichment from source \"%s\" to cookie with path \"%s\""
                              % (enrichment.source, cookie.path))
                 self._cookie_jar.enrich_cookie(cookie.path, enrichment)
-                # Enrichment method also sets cookie for reprocessing so no need to repeat that
+                # Enrichment method sets cookie for processing when enriched so no need to repeat that
 
     def _claim_processor(self) -> Optional[Processor]:
         """

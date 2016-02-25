@@ -121,7 +121,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
                 # Convert modifications that the updates are about to models - costly but the structure makes things
                 # much easy to work with
                 update_modification = DataObjectModificationJSONDecoder().decode_dict(update.metadata)  # type: DataObjectModification
-                existing_update_modification = DataObjectModificationJSONDecoder().decode_dict(existing_update.metadata)  # type: DataObjectModification
+                existing_update_modification = DataObjectModificationJSONDecoder().decode_dict(existing_update.metadata)    # type: DataObjectModification
 
                 # Preserve newest timestamp
                 if update.timestamp > existing_update.timestamp:
