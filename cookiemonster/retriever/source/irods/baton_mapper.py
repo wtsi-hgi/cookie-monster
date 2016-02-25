@@ -103,12 +103,11 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         Combines updates for the same entities into single "merged" update entries. The merged update entries will have
         the timestamp of the latest update that was merged into them, as discussed in:
         https://github.com/wtsi-hgi/cookie-monster/issues/3#issuecomment-168990482.
-
-        This whole method is a bit clumsy due to the use of `Metadata` in `Update` leading to a loss of structure of
-        the modifications.
         :param updates: the updates to combine
         :return: the combined updates
         """
+        # This whole method is a bit clumsy due to the use of `Metadata` in `Update` leading to a loss of structure of
+        # the modifications.
         combined_updates_map = dict()   # type: Dict[str, Update]
 
         for update in updates:
