@@ -25,5 +25,5 @@ def convert_to_sqlalchemy_retrieval_log(retrieval_log: RetrievalLog) -> SQLAlche
     sqlalchemy_retrieval_log.started_at = retrieval_log.started_at
     sqlalchemy_retrieval_log.seconds_taken_to_complete_query = retrieval_log.seconds_taken_to_complete_query
     sqlalchemy_retrieval_log.number_of_file_updates = retrieval_log.number_of_updates
-    sqlalchemy_retrieval_log.latest_retrieved_timestamp = retrieval_log.retrieved_updates_since
+    sqlalchemy_retrieval_log.latest_retrieved_timestamp = retrieval_log.latest_retrieved_timestamp
     return sqlalchemy_retrieval_log

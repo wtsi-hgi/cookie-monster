@@ -31,7 +31,7 @@ class TestConvertToRetrievalLog(unittest.TestCase):
         self.assertEqual(retrieve_log.started_at, _STARTED_AT)
         self.assertEqual(retrieve_log.seconds_taken_to_complete_query, _SECONDS_TAKEN_TO_COMPLETE_QUERY)
         self.assertEqual(retrieve_log.number_of_updates, _NUMBER_OF_FILE_UPDATES)
-        self.assertEqual(retrieve_log.retrieved_updates_since, _LATEST_RETRIEVED_TIMESTAMP)
+        self.assertEqual(retrieve_log.latest_retrieved_timestamp, _LATEST_RETRIEVED_TIMESTAMP)
 
 
 class TestConvertToSqlalchemyRetrievalLog(unittest.TestCase):

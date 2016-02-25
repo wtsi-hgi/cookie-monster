@@ -62,7 +62,8 @@ class RetrievalManager(Listenable[UpdateCollection]):
             self.notify_listeners(updates)
 
         # Log retrieval
-        retrieval_log = RetrievalLog(started_at_clocktime, seconds_taken_to_complete_query, len(updates), updates_since)
+        retrieval_log = RetrievalLog(
+            started_at_clocktime, seconds_taken_to_complete_query, len(updates), updates.get_most_recent()[0].timestamp)
         logging.debug("Logging update query: %s" % retrieval_log)
         self._retrieval_log_mapper.add(retrieval_log)
 
