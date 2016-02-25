@@ -48,10 +48,10 @@ class RetrievalManager(Listenable[UpdateCollection]):
         logging.debug("Starting update retrieval...")
 
         # Do retrieve
-        started_at_clocktime = datetime.now()
-        started_at = RetrievalManager._get_current_time()
+        started_at_clocktime = RetrievalManager._get_clock_time()
+        started_at = RetrievalManager._get_monotonic_time()
         updates = self.update_mapper.get_all_since(updates_since)
-        seconds_taken_to_complete_query = RetrievalManager._get_current_time() - started_at
+        seconds_taken_to_complete_query = RetrievalManager._get_monotonic_time() - started_at
         assert updates is not None
         logging.debug("Retrieved %d updates since %s (query took: %s)"
                       % (len(updates), updates_since, seconds_taken_to_complete_query))
@@ -62,20 +62,29 @@ class RetrievalManager(Listenable[UpdateCollection]):
             self.notify_listeners(updates)
 
         # Log retrieval
+        most_recent_retrieved = updates.get_most_recent()[0].timestamp if len(updates) > 0 else None
         retrieval_log = RetrievalLog(
-            started_at_clocktime, seconds_taken_to_complete_query, len(updates), updates.get_most_recent()[0].timestamp)
+            started_at_clocktime, seconds_taken_to_complete_query, len(updates), most_recent_retrieved)
         logging.debug("Logging update query: %s" % retrieval_log)
         self._retrieval_log_mapper.add(retrieval_log)
 
         return updates
 
     @staticmethod
-    def _get_current_time() -> TimeDeltaInSecondsT:
+    def _get_monotonic_time() -> TimeDeltaInSecondsT:
         """
         Gets the time in seconds according to a monotonic time source.
-        :return: the current time
+        :return: the monotonic time
         """
         return time.monotonic()
+
+    @staticmethod
+    def _get_clock_time() -> datetime:
+        """
+        Gets the current clock time.
+        :return: the clock time
+        """
+        return datetime.now()
 
 
 class PeriodicRetrievalManager(RetrievalManager):
