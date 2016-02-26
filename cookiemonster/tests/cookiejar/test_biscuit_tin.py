@@ -47,6 +47,8 @@ Copyright (c) 2015, 2016 Genome Research Limited
 '''
 import unittest
 from unittest.mock import MagicMock
+
+from cookiemonster.cookiejar.rate_limited_biscuit_tin import RateLimitedBiscuitTin
 from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer
 
 from datetime import datetime, timedelta
@@ -74,7 +76,7 @@ class TestCookieJar(unittest.TestCase):
         self.HOST = self.couchdb_container.couchdb_fqdn
         self.DB   = 'cookiejar-test'
 
-        self.jar = BiscuitTin(self.HOST, self.DB)
+        self.jar = RateLimitedBiscuitTin(10, self.HOST, self.DB)
 
         self.eg_paths       = ['/foo',
                                '/bar/baz']
