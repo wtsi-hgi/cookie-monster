@@ -133,20 +133,19 @@ from cookiemonster.common.models import Enrichment
 
 def _document_to_dictionary(document: Optional[Document]) -> dict:
     '''
-    Strip out the CouchDB keys (_id and _rev) from a document and return
-    a plain dictionary
+    Strip out the CouchDB keys (anything prefixed with an underscore)
+    from a document and return a plain dictionary
 
     @param  document  CouchDB document
     @return Dictionary
     '''
     if not document:
         return {}
-    
-    couch_keys = ['_id', '_rev']
+
     return {
         key: value
         for key, value in document.items()
-        if  key not in couch_keys
+        if  key[0] != '_'
     }
 
 
@@ -359,7 +358,7 @@ class _Couch(object):
         # Make sure we have a `views` item
         if 'views' not in doc:
             doc['views'] = {}
-    
+
         # Create/overwrite view
         doc['views'][name] = {'map': map_fn}
         if reduce_fn:
@@ -395,7 +394,7 @@ class Bert(object):
         doc['dirty']      = True
         doc['processing'] = False
         doc['queue_from'] = _now()
-        
+
         return doc
 
     def __init__(self, host: str, database: str):
@@ -423,7 +422,7 @@ class Bert(object):
     def _get_id(self, path: str) -> Optional[str]:
         '''
         Get queue document ID by file path
-        
+
         @param  path  File path
         '''
         results = self.db.query('queue', 'get_id', key=path, reduce=False)
