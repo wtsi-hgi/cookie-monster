@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from threading import Semaphore, Timer
 from typing import Optional
@@ -21,23 +22,23 @@ class RateLimitedBiscuitTin(BiscuitTin):
 
     def mark_as_failed(self, path: str, requeue_delay: Optional[timedelta]=None):
         self._get_request_permission()
-        self.mark_as_failed(path, requeue_delay=requeue_delay)
+        super().mark_as_failed(path, requeue_delay=requeue_delay)
 
     def mark_as_complete(self, path: str):
         self._get_request_permission()
-        self.mark_as_complete(path)
+        super().mark_as_complete(path)
 
     def mark_for_processing(self, path: str):
         self._get_request_permission()
-        self.mark_for_processing(path)
+        super().mark_for_processing(path)
 
     def get_next_for_processing(self) -> Optional[Cookie]:
         self._get_request_permission()
-        return self.get_next_for_processing()
+        return super().get_next_for_processing()
 
     def queue_length(self) -> int:
         self._get_request_permission()
-        return self.queue_length()
+        return super().queue_length()
 
     def _get_request_permission(self):
         """
