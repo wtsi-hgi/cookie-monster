@@ -1,5 +1,6 @@
 from datetime import timedelta
 from multiprocessing import Lock
+from threading import Timer
 from typing import Optional, List, Dict
 
 from cookiemonster.common.models import Cookie, Enrichment
@@ -20,78 +21,69 @@ class InMemoryCookieJar(CookieJar):
         self._waiting = []  # type: List[str]
         self._failed = []   # type: List[str]
         self._completed = []    # type: List[str]
-        self._reprocess_on_complete = []    # type: List[str]
         self._lists_lock = Lock()
 
     def enrich_cookie(self, path: str, enrichment: Enrichment):
         with self._lists_lock:
             if path not in self._known_data:
                 self._known_data[path] = Cookie(path)
-            self._known_data[path].enrichments.append(enrichment)
 
-        if path not in self._waiting:
-            self.mark_for_processing(path)
-        else:
-            with self._lists_lock:
-                self._reprocess_on_complete = path
+        self._known_data[path].enrichments.append(enrichment)
+        self.mark_for_processing(path)
 
-    def mark_as_failed(self, path: str, requeue_delay: Optional[timedelta]):
+    def mark_as_failed(self, path: str, requeue_delay: timedelta=None):
         if path not in self._known_data:
-            raise ValueError("File not known: %s" % path)
+            raise ValueError("Not known: %s" % path)
         with self._lists_lock:
             self._assert_is_being_processed(path)
             self._processing.remove(path)
+            self._failed.append(path)
 
-        if requeue_delay == timedelta(0):
-            self.mark_for_processing(path)
-        else:
-            with self._lists_lock:
-                self._failed.append(path)
-            if requeue_delay is not None:
-                pass
-                # TODO: Timing
+        if requeue_delay is not None:
+            if requeue_delay.total_seconds() == 0:
+                self._reprocess(path)
+            else:
+                Timer(requeue_delay.total_seconds(), self._reprocess, (path, )).start()
 
     def mark_as_complete(self, path: str):
         if path not in self._known_data:
-            raise ValueError("File not known: %s" % path)
-        reprocess = False
-
+            raise ValueError("Not known: %s" % path)
         with self._lists_lock:
             self._assert_is_being_processed(path)
             self._processing.remove(path)
-
-            if path not in self._reprocess_on_complete:
-                self._completed.append(path)
-            else:
-                reprocess = True
-
-        if reprocess:
-            self.mark_for_processing(path)
+            self._completed.append(path)
 
     def mark_for_processing(self, path: str):
         if path not in self._known_data:
             self._known_data[path] = Cookie(path)
 
         with self._lists_lock:
-            if path in self._reprocess_on_complete:
-                self._reprocess_on_complete.remove(path)
+            if path in self._completed:
+                self._completed.remove(path)
             if path not in self._waiting:
-                if path in self._completed:
-                    self._completed.remove(path)
                 self._waiting.append(path)
-            self.notify_listeners(self.queue_length())
+        self.notify_listeners(self.queue_length())
 
     def get_next_for_processing(self) -> Optional[Cookie]:
         with self._lists_lock:
             if len(self._waiting) == 0:
                 return None
-            path = self._waiting.pop(0)
+            path = self._waiting.pop()
             self._processing.append(path)
             self._assert_is_being_processed(path)
         return self._known_data[path]
 
     def queue_length(self) -> int:
         return len(self._waiting)
+
+    def _reprocess(self, path: str):
+        """
+        Reprocess Cookie with the given path where processing has previously failed.
+        :param path: path of cookie to reprocess
+        """
+        with self._lists_lock:
+            self._failed.remove(path)
+        self.mark_for_processing(path)
 
     def _assert_is_being_processed(self, path: str):
         """

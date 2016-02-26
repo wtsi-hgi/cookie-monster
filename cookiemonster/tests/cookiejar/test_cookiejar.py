@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 from hgicommon.collections import Metadata
 
 from cookiemonster.cookiejar import _dbi
-from cookiemonster.common.enums import EnrichmentSource
 from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.cookiejar import CookieJar, BiscuitTin
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
@@ -27,7 +26,7 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.eg_metadata = [Metadata({'xyzzy': 123}),
                             Metadata({'quux': 'snuffleupagus'})]
         self.eg_enrichments = [Enrichment('random', datetime(1981, 9, 25, 5, 55), self.eg_metadata[0]),
-                               Enrichment(EnrichmentSource.IRODS, datetime(2015, 12, 9, 9), self.eg_metadata[1])]
+                               Enrichment("irods", datetime(2015, 12, 9, 9), self.eg_metadata[1])]
         self.eg_listener = MagicMock()
 
         self.jar = self._create_cookie_jar()
