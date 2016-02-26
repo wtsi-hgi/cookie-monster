@@ -76,7 +76,7 @@ class TestCookieJar(unittest.TestCase):
         self.HOST = self.couchdb_container.couchdb_fqdn
         self.DB   = 'cookiejar-test'
 
-        self.jar = RateLimitedBiscuitTin(10, self.HOST, self.DB)
+        self.jar = RateLimitedBiscuitTin(5, self.HOST, self.DB)
 
         self.eg_paths       = ['/foo',
                                '/bar/baz']

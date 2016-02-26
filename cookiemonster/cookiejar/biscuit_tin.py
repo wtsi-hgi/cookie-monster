@@ -74,7 +74,7 @@ class BiscuitTin(CookieJar):
         Broadcast the current queue length to all listeners and keep the
         latest broadcast state
         '''
-        self._last_length = self.queue_length()
+        self._last_length = self._queue.queue_length()
         self.notify_listeners(self._last_length)
 
     def enrich_cookie(self, path: str, enrichment: Enrichment):
