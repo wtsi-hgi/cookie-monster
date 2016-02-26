@@ -33,7 +33,7 @@ class TestIntegration(unittest.TestCase):
     """
     Integration tests for processor.
     """
-    _NUMBER_OF_COOKIE_ENRICHMENTS = 1000
+    _NUMBER_OF_COOKIE_ENRICHMENTS = 50
     _NUMBER_OF_PROCESSORS = 10
     _PATH = "/my/cookie"
 
