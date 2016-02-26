@@ -5,9 +5,12 @@ from unittest.mock import MagicMock
 
 from hgicommon.collections import Metadata
 
+from cookiemonster.cookiejar import _dbi
 from cookiemonster.common.enums import EnrichmentSource
 from cookiemonster.common.models import Enrichment, Cookie
-from cookiemonster.cookiejar import CookieJar
+from cookiemonster.cookiejar import CookieJar, BiscuitTin
+from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
+from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer
 
 
 class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
@@ -19,8 +22,6 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         Build, if necessary, and start a Dockerised CouchDB instance and
         connect. Plus, provide sample inputs with which to test.
         '''
-        self.jar = self._create_cookie_jar()
-
         self.eg_paths = ['/foo',
                          '/bar/baz']
         self.eg_metadata = [Metadata({'xyzzy': 123}),
@@ -29,6 +30,7 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
                                Enrichment(EnrichmentSource.IRODS, datetime(2015, 12, 9, 9), self.eg_metadata[1])]
         self.eg_listener = MagicMock()
 
+        self.jar = self._create_cookie_jar()
         self.jar.add_listener(self.eg_listener)
 
         # Change time zone to Testing Standard Time ;)
@@ -40,7 +42,6 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         Creates a cookie jar as the SUT.
         :return: cookie jar that is to be tested
         """
-        pass
 
     @abstractmethod
     def _change_time(self, change_time_to: int):
@@ -48,7 +49,6 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         Changes the time considered in tests to that given.
         :param change_time_to: the time to change to
         """
-        pass
 
     def test01_empty_queue(self):
         '''
@@ -232,7 +232,70 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEquals(self.eg_listener.call_count, 2)
 
 
-# Horrendous hack to stop unittest from running the abstract "TestCookieJar" tests
-HiddenTestCookieJar = [TestCookieJar]
-class TestCookieJar:
-    pass
+class TestBiscuitTin(TestCookieJar):
+    """
+    Tests for `BiscuitTin`.
+    """
+    def setUp(self):
+        self.couchdb_container = CouchDBContainer()
+        self.HOST = self.couchdb_container.couchdb_fqdn
+        self.DB = "cookiejar-test"
+        super().setUp()
+
+    def _create_cookie_jar(self) -> BiscuitTin:
+        return BiscuitTin(self.HOST, self.DB)
+
+    def _change_time(self, change_time_to: int):
+        _dbi._now = MagicMock(return_value=change_time_to)
+
+    def tearDown(self):
+        self.couchdb_container.tear_down()
+
+    def test11_connection_failure(self):
+        '''
+        CookieJar Sequence: Enrich -> Reconnect -> Get Next
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        new_jar = self._create_cookie_jar()
+
+        self.assertEqual(new_jar.queue_length(), 1)
+
+        to_process = new_jar.get_next_for_processing()
+
+        self.assertEqual(new_jar.queue_length(), 0)
+        self.assertIsInstance(to_process, Cookie)
+        self.assertEqual(to_process.path, self.eg_paths[0])
+        self.assertEqual(len(to_process.enrichments), 1)
+        self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
+
+    def test12_connection_failure_while_processing(self):
+        '''
+        CookieJar Sequence: Enrich -> Get Next -> Reconnect -> Get Next
+        '''
+        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        before = self.jar.get_next_for_processing()
+
+        new_jar = self._create_cookie_jar()
+        self.assertEqual(new_jar.queue_length(), 1)
+
+        after = new_jar.get_next_for_processing()
+        self.assertEqual(before, after)
+
+
+class TestInMemoryCookieJar(TestCookieJar):
+    """
+    Tests for `InMemoryCookieJar`.
+    """
+    def _create_cookie_jar(self) -> CookieJar:
+        return InMemoryCookieJar()
+
+    def _change_time(self, change_time_to: int):
+        pass
+
+
+# Trick required to stop Python's unittest from running the abstract base class as a test
+del TestCookieJar
+
+
+if __name__ == "__main__":
+    unittest.main()
