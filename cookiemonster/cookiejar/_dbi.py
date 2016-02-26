@@ -103,7 +103,7 @@ Document schema:
 
 Dependencies
 ------------
-* couchdb-python
+* pycouchdb
 * CouchDB 0.10, or later
 
 Authors
@@ -117,27 +117,27 @@ Copyright (c) 2015, 2016 Genome Research Limited
 '''
 
 from collections import defaultdict
-from copy import deepcopy
 from datetime import datetime, timedelta
 from json import JSONEncoder
 from threading import Lock
 from time import time, mktime
-from typing import Any, Callable, Iterable, Optional, Union
+from typing import Any, Callable, Iterable, Optional, Generator
 from uuid import uuid4
 
-from couchdb.client import Server, Document, ViewResults, Row
+from pycouchdb.client import Server, Database
+from pycouchdb.exceptions import NotFound, Conflict
 
 from hgicommon.collections import Metadata
 from cookiemonster.common.models import Enrichment
 
 
-def _document_to_dictionary(document: Optional[Document]) -> dict:
+def _decouch(document: Optional[dict]) -> dict:
     '''
     Strip out the CouchDB keys (anything prefixed with an underscore)
     from a document and return a plain dictionary
 
-    @param  document  CouchDB document
-    @return Dictionary
+    @param  document  CouchDB document dictionary
+    @return Stripped dictionary
     '''
     if not document:
         return {}
@@ -193,10 +193,10 @@ class _Couch(object):
         if not self._db:
             self._couch = Server(self.host)
 
-            if self.database not in self._couch:
-                self._couch.create(self.database)
-
-            self._db = self._couch[self.database]
+            try:
+                self._db = self._couch.create(self.database)
+            except Conflict:
+                self._db = self._couch.database(self.database)
 
         self._push_designs()
 
@@ -205,7 +205,7 @@ class _Couch(object):
         if not self._db:
             raise ConnectionError('Not connected to any database')
 
-    def fetch(self, key: str, revision: Optional[str] = None) -> Optional[Document]:
+    def fetch(self, key: str, revision: Optional[str] = None) -> Optional[dict]:
         '''
         Get a database document by its ID and, optionally, revision
 
@@ -214,17 +214,20 @@ class _Couch(object):
         @return Database document (or None, if not found)
         '''
         self._check_connection()
-        output = None
 
-        if key in self._db:
-            if revision:
+        try:
+            if not revision:
+                output = self._db.get(key)
+
+            else:
                 output = next((
                     doc
                     for doc in self._db.revisions(key)
                     if  doc['_rev'] == revision
                 ), None)
-            else:
-                output = self._db[key]
+
+        except NotFound:
+            output = None
 
         return output
 
@@ -244,30 +247,34 @@ class _Couch(object):
         should be used in most cases
         '''
         self._check_connection()
-        new_data = deepcopy(data)
+        new_data = _decouch(data)
 
         with self._doclox[key]:
-            if key in self._db:
-                # Update
-                current_doc  = self.fetch(key)
-                current_data = _document_to_dictionary(current_doc)
-                if new_data != current_data:
-                    # To avoid update conflicts, we must explicitly set the
-                    # revision key to the latest
-                    new_data['_id']  = key
-                    new_data['_rev'] = current_doc.rev
-                    _, _rev = self._db.save(Document(new_data))
-                else:
-                    _rev = current_doc.rev
+            try:
+                current_doc  = self._db.get(key)
 
-            else:
+                if new_data != _decouch(current_doc):
+                    # To avoid update conflicts, we must explicitly set
+                    # the revision key to the latest
+                    new_data['_id']  = key
+                    new_data['_rev'] = current_doc['_rev']
+
+                    new_data = self._db.save(new_data)
+
+                else:
+                    # No change required
+                    new_data = current_doc
+
+            except NotFound:
                 # Insert
                 new_data['_id'] = key
-                _, _rev = self._db.save(Document(new_data))
+                new_data = self._db.save(new_data)
 
-        return _rev
+        return new_data['_rev']
 
-    def upsert(self, design: str, update: str, key: Optional[str] = None, **options) -> Optional[Document]:
+    #### BROKEN ########################################################
+    # pycouchdb does not support update handlers
+    def upsert(self, design: str, update: str, key: Optional[str] = None, **options) -> Optional[dict]:
         '''
         Invoke an update handler
 
@@ -305,8 +312,9 @@ class _Couch(object):
 
         else:
             return None
+    ####################################################################
 
-    def query(self, design: str, view: str, wrapper: Optional[Callable[[Row], Any]] = None, **options) -> Optional[ViewResults]:
+    def query(self, design: str, view: str, wrapper: Optional[Callable[Generator, Any]] = None, **options) -> Optional[Generator]:
         '''
         Query a predefined view
 
@@ -324,7 +332,7 @@ class _Couch(object):
             return None
 
         view_name = '{}/{}'.format(design, view)
-        return self._db.view(view_name, wrapper, **options)
+        return self._db.query(view_name, wrapper, **options)
 
     def _define_design(self, name: str) -> dict:
         '''
@@ -364,6 +372,8 @@ class _Couch(object):
         if reduce_fn:
             doc['views'][name]['reduce'] = reduce_fn
 
+    #### BROKEN ########################################################
+    # This isn't broken, but it's no longer relevant
     def define_update(self, design: str, name: str, handler_fn: str):
         '''
         Define an update handler
@@ -380,6 +390,7 @@ class _Couch(object):
 
         # Create/overwrite update handler
         doc['updates'][name] = handler_fn
+    ####################################################################
 
 
 class Bert(object):
@@ -615,7 +626,7 @@ class Ernie(object):
         req_body = _EnrichmentEncoder().encode(metadata)
         self.db.upsert('metadata', 'append', location=path, body=req_body)
 
-    def get_metadata(self, path: str) -> Iterable[Enrichment]:
+    def get_metadata(self, path: str) -> Iterable:
         '''
         Get all the collected enrichments for a file
 

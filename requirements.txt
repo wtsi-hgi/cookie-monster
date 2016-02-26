@@ -1,5 +1,5 @@
 SQLAlchemy==1.0.11
-CouchDB==1.0
+pycouchdb==1.14
 Flask==0.10.1
 pytz==2015.7
 APScheduler==3.0.5
