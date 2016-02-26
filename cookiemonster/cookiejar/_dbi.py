@@ -13,8 +13,9 @@ Which is cool.
 
 _Couch
 ------
-`_Couch` is the base CouchDB class used to provide a common interface
-with the database instance. It should be the parent of instantiable
+
+`_Couch` is the CouchDB class used to provide a common interface
+with the database instance. It should be composed into any instantiable
 classes, which should define any view and/or update handlers and connect
 at instantiation. Upon which, it will acquire a connection and create
 the database, if it does not already exist, and create/update the
@@ -37,8 +38,8 @@ Methods:
 
 * `define_update` Define an update handler
 
-Child classes are expected to use these functions to build an interface
-for a particular type of document.
+Composition classes are expected to use these functions to build an
+interface for a particular type of document.
 
 Update handler interface:
 
@@ -167,8 +168,17 @@ class _EnrichmentEncoder(JSONEncoder):
 
 
 class _Couch(object):
-    ''' CouchDB abstraction base class '''
-    def __init__(self):
+    ''' CouchDB abstraction class '''
+    def __init__(self, host: str, database: str):
+        '''
+        Initialise the CouchDB interface
+
+        @param  host      CouchDB host URL
+        @param  database  Database name
+        '''
+        self.host     = host
+        self.database = database
+
         self._couch   = None
         self._db      = None
         self._designs = {}
@@ -176,21 +186,18 @@ class _Couch(object):
         # Thread locks for CouchDB documents
         self._doclox = defaultdict(Lock)
 
-    def connect(self, host: str, database: str):
+    def connect(self):
         '''
         Acquire connection with the CouchDB host and use (and create)
         the database and any predefined design documents
-
-        @param  host      CouchDB host URL
-        @param  database  Database name
         '''
         if not self._db:
-            self._couch = Server(host)
+            self._couch = Server(self.host)
 
-            if database not in self._couch:
-                self._couch.create(database)
+            if self.database not in self._couch:
+                self._couch.create(self.database)
 
-            self._db = self._couch[database]
+            self._db = self._couch[self.database]
 
         self._push_designs()
 
@@ -376,7 +383,7 @@ class _Couch(object):
         doc['updates'][name] = handler_fn
 
 
-class Bert(_Couch):
+class Bert(object):
     ''' Interface to the queue database documents '''
     @staticmethod
     def _reset_processing(query_row: Row) -> Document:
@@ -400,19 +407,18 @@ class Bert(_Couch):
         @param  host      CouchDB host URL
         @param  database  Database name
         '''
-        super().__init__()
-
+        self.db = _Couch(host, database)
         self._define_schema()
-        self.connect(host, database)
+        self.db.connect()
 
         # If there are any files marked as currently processing, this
         # must be due to a previous failure. Reset all of these for
         # immediate reprocessing
-        in_progress = self.query('queue', 'in_progress', Bert._reset_processing, reduce=False)
+        in_progress = self.db.query('queue', 'in_progress', Bert._reset_processing, reduce=False)
         if len(in_progress):
             # Use bulk update (i.e., single HTTP request) rather than
             # invoking update handlers for each
-            self._db.update(in_progress.rows)
+            self.db._db.update(in_progress.rows)
 
     def _get_id(self, path: str) -> Optional[str]:
         '''
@@ -420,16 +426,16 @@ class Bert(_Couch):
         
         @param  path  File path
         '''
-        results = self.query('queue', 'get_id', key=path, reduce=False)
+        results = self.db.query('queue', 'get_id', key=path, reduce=False)
         return results.rows[0].value if len(results) else None
 
     def queue_length(self) -> int:
         '''
         @return The current (for-processing) queue length
         '''
-        results = self.query('queue', 'to_process', endkey = _now(),
-                                                    reduce = True,
-                                                    group  = False)
+        results = self.db.query('queue', 'to_process', endkey = _now(),
+                                                       reduce = True,
+                                                       group  = False)
 
         return results.rows[0].value if len(results) else 0
 
@@ -449,11 +455,11 @@ class Bert(_Couch):
             if lead_time:
                 queue_from += lead_time.total_seconds()
 
-            self.upsert('queue', 'set_state', doc_id, dirty      = True,
-                                                      queue_from = queue_from)
+            self.db.upsert('queue', 'set_state', doc_id, dirty      = True,
+                                                         queue_from = queue_from)
         else:
-            self.upsert('queue', 'set_state', location   = path,
-                                              queue_from = _now())
+            self.db.upsert('queue', 'set_state', location   = path,
+                                                 queue_from = _now())
 
     def dequeue(self) -> Optional[str]:
         '''
@@ -461,14 +467,14 @@ class Bert(_Couch):
 
         @return File path (None, if empty queue)
         '''
-        results = self.query('queue', 'to_process', endkey = _now(),
-                                                    reduce = False,
-                                                    limit  = 1)
+        results = self.db.query('queue', 'to_process', endkey = _now(),
+                                                       reduce = False,
+                                                       limit  = 1)
         if len(results):
             latest    = results.rows[0]
             key, path = latest.id, latest.value
 
-            self.upsert('queue', 'set_processing', key, processing=True)
+            self.db.upsert('queue', 'set_processing', key, processing=True)
             return path
     
     def mark_finished(self, path: str):
@@ -481,7 +487,7 @@ class Bert(_Couch):
         doc_id = self._get_id(path)
 
         if doc_id:
-            self.upsert('queue', 'set_processing', doc_id, processing=False)
+            self.db.upsert('queue', 'set_processing', doc_id, processing=False)
 
     def _define_schema(self):
         ''' Define views and update handlers '''
@@ -489,7 +495,7 @@ class Bert(_Couch):
         # Queue documents marked as dirty and not currently processing
         # Keyed by `queue_from`, set the endkey in queries appropriately
         # Reduce to the number of items in the queue
-        self.define_view('queue', 'to_process',
+        self.db.define_view('queue', 'to_process',
             map_fn = '''
                 function(doc) {
                     if (doc.$queue && doc.dirty && !doc.processing) {
@@ -502,7 +508,7 @@ class Bert(_Couch):
 
         # View: queue/in_progress
         # Queue documents marked as currently processing
-        self.define_view('queue', 'in_progress',
+        self.db.define_view('queue', 'in_progress',
             map_fn = '''
                 function(doc) {
                     if (doc.$queue && doc.processing) {
@@ -514,7 +520,7 @@ class Bert(_Couch):
 
         # View: queue/get_id
         # Queue documents, keyed by their file path
-        self.define_view('queue', 'get_id',
+        self.db.define_view('queue', 'get_id',
             map_fn = '''
                 function (doc) {
                     if (doc.$queue) {
@@ -528,7 +534,7 @@ class Bert(_Couch):
         # Create a new queue document (expects `location` in the query
         # string), or update a queue document's dirty status (expects
         # `dirty` in the query string and an optional `queue_from`)
-        self.define_update('queue', 'set_state',
+        self.db.define_update('queue', 'set_state',
             handler_fn = '''
                 function(doc, req) {
                     var q   = req.query || {},
@@ -562,7 +568,7 @@ class Bert(_Couch):
 
         # Update handler: queue/set_processing
         # Update a queue document's processing status
-        self.define_update('queue', 'set_processing',
+        self.db.define_update('queue', 'set_processing',
             handler_fn = '''
                 function(doc, req) {
                     var q = req.query || {};
@@ -585,7 +591,7 @@ class Bert(_Couch):
         )
 
 
-class Ernie(_Couch):
+class Ernie(object):
     ''' Interface to the metadata database documents '''
     def __init__(self, host: str, database: str):
         '''
@@ -596,10 +602,9 @@ class Ernie(_Couch):
         @param  host      CouchDB host URL
         @param  database  Database name
         '''
-        super().__init__()
-
+        self.db = _Couch(host, database)
         self._define_schema()
-        self.connect(host, database)
+        self.db.connect()
 
     def enrich(self, path: str, metadata: Enrichment):
         '''
@@ -609,7 +614,7 @@ class Ernie(_Couch):
         @param  metadata  Metadata model
         '''
         req_body = _EnrichmentEncoder().encode(metadata)
-        self.upsert('metadata', 'append', location=path, body=req_body)
+        self.db.upsert('metadata', 'append', location=path, body=req_body)
 
     def get_metadata(self, path: str) -> Iterable[Enrichment]:
         '''
@@ -618,7 +623,7 @@ class Ernie(_Couch):
         @param  path  File path
         @return Iterable[Enrichment]
         '''
-        results = self.query('metadata', 'collate', key=path, reduce=False)
+        results = self.db.query('metadata', 'collate', key=path, reduce=False)
 
         output = [
             Enrichment(source    = enrichment.value['source'],
@@ -633,7 +638,7 @@ class Ernie(_Couch):
         ''' Define views and update handlers '''
         # View: metadata/collate
         # Metadata (Enrichment) documents keyed by `location`
-        self.define_view('metadata', 'collate',
+        self.db.define_view('metadata', 'collate',
             map_fn = '''
                 function(doc) {
                     if (doc.$metadata) {
@@ -652,7 +657,7 @@ class Ernie(_Couch):
         # expected to be a JSON object containing `source`, `timestamp`
         # and `metadata` members, assigned to the `location` from the
         # query string
-        self.define_update('metadata', 'append',
+        self.db.define_update('metadata', 'append',
             handler_fn = '''
                 function(doc, req) {
                     var q = req.query || {};
