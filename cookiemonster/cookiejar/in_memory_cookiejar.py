@@ -1,6 +1,6 @@
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import timedelta
 from multiprocessing import Lock
 from threading import Timer
 from typing import Optional, List, Dict
@@ -44,16 +44,19 @@ class InMemoryCookieJar(CookieJar):
             self._failed.append(path)
 
         if requeue_delay is not None:
-            end_time = self._get_time() + requeue_delay.total_seconds()
+            if requeue_delay.total_seconds() == 0:
+                self._reprocess(path)
+            else:
+                end_time = self._get_time() + requeue_delay.total_seconds()
 
-            def on_delay_end():
-                if timer in self._timers[end_time]:
-                    self._timers[end_time].remove(timer)
-                    self._reprocess(path)
+                def on_delay_end():
+                    if timer in self._timers[end_time]:
+                        self._timers[end_time].remove(timer)
+                        self._reprocess(path)
 
-            timer = Timer(requeue_delay.total_seconds(), on_delay_end)
-            self._timers[end_time].append(timer)
-            timer.start()
+                timer = Timer(requeue_delay.total_seconds(), on_delay_end)
+                self._timers[end_time].append(timer)
+                timer.start()
         else:
             self._on_complete(path)
 

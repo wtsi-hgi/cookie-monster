@@ -10,7 +10,7 @@ ABOUT_NO_RULES_MATCH = "no rules matched"
 
 class Processor(metaclass=ABCMeta):
     """
-    Processor for a single file update.
+    Processor for a single Cookie - pushes the Cookie through the "rule engine".
     """
     @abstractmethod
     def process(self, cookie: Cookie, rules: Iterable[Rule],

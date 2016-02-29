@@ -138,7 +138,7 @@ class TestBasicProcessorManager(unittest.TestCase):
             TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, ListDataSource(self.rules),
             ListDataSource(self.enrichment_loaders), ListDataSource([self.notification_receiver]))
 
-    def test_init_with_less_than_one_processor(self):
+    def test_init_with_less_than_one_processing_resource(self):
         self.assertRaises(ValueError, BasicProcessorManager, 0, self.cookie_jar, ListDataSource(self.rules),
                           self.enrichment_loaders, self.notification_receiver)
 
@@ -169,7 +169,7 @@ class TestBasicProcessorManager(unittest.TestCase):
             complete.acquire()
             completed += 1
 
-    def test_process_any_cookies_when_no_free_processors(self):
+    def test_process_any_cookies_when_no_processing_resources(self):
         processor_manager = BasicProcessorManager(1, self.cookie_jar, ListDataSource(self.rules),
                                                   ListDataSource(self.enrichment_loaders),
                                                   ListDataSource([self.notification_receiver]))
@@ -220,7 +220,8 @@ class TestBasicProcessorManager(unittest.TestCase):
 
     def test_on_cookie_processed_when_no_terminiation_no_enrichment(self):
         self.cookie_jar.mark_for_processing(self.cookie.path)
-        self.cookie_jar.get_next_for_processing()
+        processing = self.cookie_jar.get_next_for_processing()
+        self.assertEqual(processing, self.cookie)
 
         self.processor_manager.on_cookie_processed(self.cookie, False, self.notifications)
 
@@ -233,18 +234,22 @@ class TestBasicProcessorManager(unittest.TestCase):
         enrichment = Enrichment("source", datetime.min, Metadata())
         enrichment_loader = EnrichmentLoader(lambda *args: True, lambda *args: enrichment)
         self.enrichment_loaders.append(enrichment_loader)
+        self.cookie_jar.mark_for_processing(self.cookie.path)
+        self.cookie_jar.mark_for_processing.reset_mock()
+        processing = self.cookie_jar.get_next_for_processing()
+        self.assertEqual(processing, self.cookie)
 
         self.processor_manager.on_cookie_processed(self.cookie, False, self.notifications)
 
         self.cookie_jar.enrich_cookie.assert_called_once_with(self.cookie.path, enrichment)
         self.cookie_jar.mark_for_processing.assert_called_once_with(self.cookie.path)
-        self.cookie_jar.mark_as_complete.assert_not_called()
         self.notification_receiver.receive.assert_has_calls(
                 [call(notification) for notification in self.notifications], True)
 
     def test_on_cookie_processed_when_termination(self):
         self.cookie_jar.mark_for_processing(self.cookie.path)
-        self.cookie_jar.get_next_for_processing()
+        processing = self.cookie_jar.get_next_for_processing()
+        self.assertEqual(processing, self.cookie)
 
         self.processor_manager.on_cookie_processed(self.cookie, True, self.notifications)
 

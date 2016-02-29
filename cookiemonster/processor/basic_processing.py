@@ -4,6 +4,7 @@ from threading import Lock, Thread
 from typing import List, Callable, Optional, Sequence, Iterable
 
 from hgicommon.data_source import DataSource
+from typing import Set
 
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
@@ -16,7 +17,7 @@ from cookiemonster.processor.processing import ProcessorManager, Processor, ABOU
 
 class BasicProcessor(Processor):
     """
-    Simple processor for a single cookie.
+    Simple processor for a single Cookie.
     """
     def process(self, cookie: Cookie, rules: Sequence[Rule],
                 on_complete: Callable[[bool, Optional[Iterable[Notification]]], None]):
@@ -46,21 +47,23 @@ class BasicProcessor(Processor):
 
 class BasicProcessorManager(ProcessorManager):
     """
-    Simple manager for the continuous processing of new data.
+    Simple manager for the continuous processing of enriched Cookies.
     """
-    def __init__(self, number_of_processors: int, cookie_jar: CookieJar, rules_source: DataSource[Rule],
-                 enrichment_loader_source: DataSource[EnrichmentLoader],
+    def __init__(self, max_cookies_to_process_simultaneously: int, cookie_jar: CookieJar,
+                 rules_source: DataSource[Rule], enrichment_loader_source: DataSource[EnrichmentLoader],
                  notification_receivers_source: DataSource[NotificationReceiver]):
         """
         Constructor.
-        :param number_of_processors: the maximum number of processors to use. Must be at least 1
+        :param max_cookies_to_process_simultaneously: the maximum number of cookies to process simultaneously. Must be
+        at least one.
         :param cookie_jar: the cookie jar to get updates from
         :param rules_source: the source of the rules
         :param enrichment_loader_source: the source of enrichment loaders
         :param notification_receivers_source: the source of notification receivers
         """
-        if number_of_processors < 1:
-            raise ValueError("Must be instantiated with at least one processor, not %d" % number_of_processors)
+        if max_cookies_to_process_simultaneously < 1:
+            raise ValueError("Must be able to process at least one Cookie at a time, not %d"
+                             % max_cookies_to_process_simultaneously)
 
         self._cookie_jar = cookie_jar
         self._rules_source = rules_source
@@ -68,46 +71,45 @@ class BasicProcessorManager(ProcessorManager):
         self._enrichment_loaders_source = enrichment_loader_source
         self._enrichment_manager = EnrichmentManager(self._enrichment_loaders_source)
 
-        self._idle_processors = set()
-        self._busy_processors = set()
-        self._lists_lock = Lock()
-
-        for _ in range(number_of_processors):
-            processor = BasicProcessor()
-            self._idle_processors.add(processor)
+        self.max_cookies_to_process_simultaneously = max_cookies_to_process_simultaneously
+        self._number_of_cookies_being_processed = 0
+        self._number_of_cookies_being_processed_lock = Lock()
 
     def process_any_cookies(self):
-        processor = self._claim_processor()
+        # Claim resource to process Cookie
+        processing_resource_claimed = self._claim_cookie_processing_resource()
 
-        if processor is not None:
+        if processing_resource_claimed:
+            # Claim cookie
             cookie = self._cookie_jar.get_next_for_processing()
 
             if cookie is not None:
                 def on_complete(rules_matched: bool, notifications: List[Notification]):
                     self.on_cookie_processed(cookie, rules_matched, notifications)
-                    self._release_processor(processor)
-                    # One last task before the thread that ran the processor can end...
+                    self._release_cookie_processing_resource()
+                    # One last thing before this thread dies...
                     self.process_any_cookies()
 
-                logging.info(
-                    "Starting processor \"%s\" for cookie with path \"%s\". %d free processors remaining, %d cookies "
-                    "queued for processing" % (id(processor), cookie.path, len(self._idle_processors),
-                                               self._cookie_jar.queue_length()))
+                logging.info("Starting processor for cookie with path \"%s\". (%s)"
+                             % (cookie.path, self.get_status_string()))
+                processor = BasicProcessor()
                 Thread(target=processor.process, args=(cookie, self._rules_source.get_all(), on_complete)).start()
             else:
-                self._release_processor(processor)
-                logging.debug("Triggered to process cookies - no cookies to process. %d free processors"
-                              % len(self._idle_processors))
+                self._release_cookie_processing_resource()
+                logging.info("Triggered to process cookies - no cookies to process. (%s)" % self.get_status_string())
         else:
-            logging.debug("Triggered to process cookies but no free processors")
+            logging.info("Triggered to process cookies but already processing maximum number simultaneously. (%s)"
+                          % self.get_status_string())
 
     def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: Iterable[Notification]=()):
         for notification in notifications:
             self._notify_notification_receivers(notification)
 
+        # Relinquish claim on Cookie
+        self._cookie_jar.mark_as_complete(cookie.path)
+
         if stop_processing:
             logging.info("Stopping processing of cookie with path \"%s\"" % cookie.path)
-            self._cookie_jar.mark_as_complete(cookie.path)
         else:
             logging.info(
                     "Checking if any of the %d enrichment loader(s) can load enrichment for cookie with path \"%s\""
@@ -119,39 +121,21 @@ class BasicProcessorManager(ProcessorManager):
                 no_rules_match_notification = Notification(
                         ABOUT_NO_RULES_MATCH, cookie.path, BasicProcessorManager.__qualname__)
                 self._notify_notification_receivers(no_rules_match_notification)
-                self._cookie_jar.mark_as_complete(cookie.path)
             else:
                 logging.info("Applying enrichment from source \"%s\" to cookie with path \"%s\""
                              % (enrichment.source, cookie.path))
                 self._cookie_jar.enrich_cookie(cookie.path, enrichment)
                 # Enrichment method sets cookie for processing when enriched so no need to repeat that
 
-    def _claim_processor(self) -> Optional[Processor]:
+    def get_status_string(self) -> str:
         """
-        Claims a processor.
+        TODO
+        :return:
+        """
+        free_resources = self.max_cookies_to_process_simultaneously - self._number_of_cookies_being_processed
 
-        Thread-safe.
-        :return: the claimed processor, else `None` if none were available
-        """
-        if len(self._idle_processors) == 0:
-            return None
-        with self._lists_lock:
-            processor = self._idle_processors.pop()
-            self._busy_processors.add(processor)
-        return processor
-
-    def _release_processor(self, processor: Processor):
-        """
-        Releases a processor.
-
-        Thread-safe.
-        :param processor: the processor that is currently in use and should be released
-        """
-        assert processor in self._busy_processors
-        assert processor not in self._idle_processors
-        with self._lists_lock:
-            self._busy_processors.remove(processor)
-            self._idle_processors.add(processor)
+        return "%d cookies being processed, %d more cookie(s) can be processed simultaneously, %d cookies queued for " \
+               "processing" % (self._number_of_cookies_being_processed, free_resources, self._cookie_jar.queue_length())
 
     def _notify_notification_receivers(self, notification: Notification):
         """
@@ -166,3 +150,28 @@ class BasicProcessorManager(ProcessorManager):
 
         for notification_receiver in notification_receivers:
             Thread(target=notification_receiver.receive, args=(notification, )).start()
+
+    def _claim_cookie_processing_resource(self) -> bool:
+        """
+        Claims cookie processing resource.
+
+        Non-blocking, thread-safe.
+        :return: whether the resource has been successfully claimed
+        """
+        with self._number_of_cookies_being_processed_lock:
+            if self._number_of_cookies_being_processed == self.max_cookies_to_process_simultaneously:
+                return False
+            else:
+                self._number_of_cookies_being_processed += 1
+                assert self._number_of_cookies_being_processed <= self.max_cookies_to_process_simultaneously
+                return True
+
+    def _release_cookie_processing_resource(self):
+        """
+        Releases cookie processing resource
+
+        Thread-safe.
+        """
+        with self._number_of_cookies_being_processed_lock:
+            self._number_of_cookies_being_processed -= 1
+            assert self._number_of_cookies_being_processed >= 0
