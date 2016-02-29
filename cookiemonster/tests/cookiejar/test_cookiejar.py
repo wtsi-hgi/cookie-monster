@@ -1,6 +1,8 @@
+import copy
 import unittest
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, timedelta
+from threading import Timer
 from unittest.mock import MagicMock
 
 from hgicommon.collections import Metadata
@@ -166,7 +168,7 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         after = self.jar.get_next_for_processing()
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(before, after)
-        self.assertEquals(self.eg_listener.call_count, 1)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test08_fail_delayed(self):
         '''
@@ -289,7 +291,15 @@ class TestInMemoryCookieJar(TestCookieJar):
         return InMemoryCookieJar()
 
     def _change_time(self, change_time_to: int):
-        pass
+        self.jar._get_time = MagicMock(return_value=change_time_to)
+
+        for end_time in self.jar._timers.keys():
+            if end_time <= change_time_to:
+                while len(self.jar._timers[end_time]) > 0:
+                    timer = self.jar._timers[end_time][0]    # type: Timer
+                    timer.interval = 0
+                    timer.run()
+
 
 
 # Trick required to stop Python's unittest from running the abstract base class as a test
