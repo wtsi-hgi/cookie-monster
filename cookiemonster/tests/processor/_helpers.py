@@ -11,38 +11,34 @@ from hgicommon.data_source.static_from_file import FileSystemChange
 from cookiemonster.cookiejar import CookieJar
 
 
-def block_until_processed(cookie_jar: CookieJar, cookie_paths: Sequence[str]):
+def block_until_processed(cookie_jar: CookieJar, cookie_paths: Sequence[str],
+                          expected_number_of_calls_to_mark_as_complete: int):
     """
     Puts the given cookies into the cookie jar and wait until they have been completed/marked for reprocessing.
     :param cookie_jar: the cookie jar to put cookies to process into
     :param cookie_paths: the cookie paths to process
+    :param expected_number_of_calls_to_mark_as_complete: the number of calls expected to the Cookie jar's
+    `mark_as_complete` method
     """
     if cookie_jar.queue_length() != 0:
         raise RuntimeError("Already cookies in the jar")
 
-    processed_semaphore = Semaphore(0)
-
-    original_mark_as_completed = cookie_jar.mark_as_complete
-    original_mark_for_processing = cookie_jar.mark_for_processing
+    mark_as_complete_semaphore = Semaphore(0)
+    original_mark_as_complete = cookie_jar.mark_as_complete
 
     def mark_as_complete(path: str):
-        processed_semaphore.release()
-        original_mark_as_completed(path)
-
-    def mark_for_processing(path: str):
-        processed_semaphore.release()
-        original_mark_for_processing(path)
+        mark_as_complete_semaphore.release()
+        original_mark_as_complete(path)
 
     cookie_jar.mark_as_complete = MagicMock(side_effect=mark_as_complete)
-    cookie_jar.mark_for_processing = MagicMock(side_effect=mark_for_processing)
 
     for cookie_path in cookie_paths:
-        original_mark_for_processing(cookie_path)
+        cookie_jar.mark_for_processing(cookie_path)
 
-    processed = 0
-    while processed != len(cookie_paths):
-        processed_semaphore.acquire()
-        processed += 1
+    calls_to_mark_as_complete = 0
+    while calls_to_mark_as_complete != expected_number_of_calls_to_mark_as_complete:
+        mark_as_complete_semaphore.acquire()
+        calls_to_mark_as_complete += 1
 
     # Not rebinding `mark_as_complete` and `mark_as_reprocess` back to the originals in case they have been re-binded
     # again since this method was called.

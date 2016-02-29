@@ -28,12 +28,11 @@ _ENRICHMENT_LOADER_LOCATIONS = [
 ]
 
 
-@unittest.skip("Broken - requires fixing")
 class TestIntegration(unittest.TestCase):
     """
     Integration tests for processor.
     """
-    _NUMBER_OF_COOKIE_ENRICHMENTS = 50
+    _NUMBER_OF_COOKIES = 1000
     _NUMBER_OF_PROCESSORS = 10
     _PATH = "/my/cookie"
 
@@ -70,8 +69,8 @@ class TestIntegration(unittest.TestCase):
         self.processor_manager._notify_notification_receivers = self.notification_receiver.receive
 
     def test_with_no_rules_or_enrichments(self):
-        cookie_paths = TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS)
-        block_until_processed(self.cookie_jar, cookie_paths)
+        cookie_paths = TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIES)
+        block_until_processed(self.cookie_jar, cookie_paths, TestIntegration._NUMBER_OF_COOKIES)
 
         self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
         self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_paths))
@@ -80,19 +79,20 @@ class TestIntegration(unittest.TestCase):
     def test_with_enrichments_no_rules(self):
         add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
 
-        cookie_paths = TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS)
-        block_until_processed(self.cookie_jar, cookie_paths)
+        cookie_paths = TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIES)
+        expected_number_of_calls_to_mark_as_complete = len(cookie_paths) * len(_ENRICHMENT_LOADER_LOCATIONS)
+        block_until_processed(self.cookie_jar, cookie_paths, expected_number_of_calls_to_mark_as_complete)
 
-        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_calls_to_mark_as_complete)
         self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
 
     def test_with_rules_no_enrichments(self):
         add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
 
-        cookie_paths = list(TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS))
+        cookie_paths = list(TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIES))
         cookie_paths.append(MATCHES_COOKIES_WITH_PATH)
-        block_until_processed(self.cookie_jar, cookie_paths)
+        block_until_processed(self.cookie_jar, cookie_paths, TestIntegration._NUMBER_OF_COOKIES)
 
         self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
         self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_paths))
@@ -104,11 +104,12 @@ class TestIntegration(unittest.TestCase):
         add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
         add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
 
-        cookie_paths = list(TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIE_ENRICHMENTS))
+        cookie_paths = list(TestIntegration._generate_cookie_paths(TestIntegration._NUMBER_OF_COOKIES - 1))
         cookie_paths.append(MATCHES_ENIRCHED_COOKIE_WITH_PATH)
-        block_until_processed(self.cookie_jar, cookie_paths)
+        expected_number_of_calls_to_mark_as_complete = len(cookie_paths) * len(_ENRICHMENT_LOADER_LOCATIONS) - 1
+        block_until_processed(self.cookie_jar, cookie_paths, expected_number_of_calls_to_mark_as_complete)
 
-        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_paths))
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_calls_to_mark_as_complete)
         self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_paths))
         self.cookie_jar.mark_as_failed.assert_not_called()
         self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_PATH)),
