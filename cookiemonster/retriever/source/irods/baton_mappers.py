@@ -1,7 +1,8 @@
 import math
 from datetime import datetime, timezone
 from threading import Semaphore, Thread
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Sequence
+from typing import List
 
 from baton._baton_mappers import BatonCustomObjectMapper
 from baton.collections import IrodsMetadata
@@ -26,7 +27,7 @@ _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 _MAX_IRODS_TIMESTAMP = int(math.pow(2, 31)) - 1
 
 
-class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
+class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectModification], UpdateMapper):
     """
     Retrieves updates from iRODS using baton.
     """
@@ -46,15 +47,15 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
 
         arguments = [since_timestamp, until_timestamp]
         aliases = [MODIFIED_DATA_QUERY_ALIAS, MODIFIED_METADATA_QUERY_ALIAS]
-        all_updates = []
+        all_modifications = []  # type: List[DataObjectModification]
         semaphore = Semaphore(0)
         error = None    # type: Optional(Exception)
 
         def run_threaded(alias: str):
             updates_query = PreparedSpecificQuery(alias, arguments)
             try:
-                updates = self._get_with_prepared_specific_query(updates_query, zone=self.zone)
-                all_updates.extend(list(updates))
+                modifications = self._get_with_prepared_specific_query(updates_query, zone=self.zone)
+                all_modifications.extend(list(modifications))
             except Exception as e:
                 nonlocal error
                 error = e
@@ -68,9 +69,14 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
             if error is not None:
                 raise error
 
-        return BatonUpdateMapper._combine_updates_for_same_entity(all_updates)
+        combined_modifications = BatonUpdateMapper._combine_modifications_for_same_entity(all_modifications)
 
-    def _object_deserialiser(self, object_as_json: dict) -> CustomObjectType:
+        # Package modifications into `UpdateCollection`
+        updates = BatonUpdateMapper._modifications_to_update_collection(combined_modifications)
+
+        return updates
+
+    def _object_deserialiser(self, object_as_json: dict) -> DataObjectModification:
         metadata_update = MODIFIED_METADATA_ATTRIBUTE_NAME_PROPERTY in object_as_json
 
         path = "%s/%s" % (object_as_json[MODIFIED_COLLECTION_NAME_PROPERTY],
@@ -78,7 +84,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
         modified_at_as_string = object_as_json[MODIFIED_DATA_TIMESTAMP_PROPERTY] if not metadata_update \
             else object_as_json[MODIFIED_METADATA_TIMESTAMP_PROPERTY]
         modified_at = datetime.fromtimestamp(int(modified_at_as_string), tz=timezone.utc)
-        data_object_modification = DataObjectModification()
+        data_object_modification = DataObjectModification(path, modified_at)
 
         if metadata_update:
             key = object_as_json[MODIFIED_METADATA_ATTRIBUTE_NAME_PROPERTY]
@@ -93,57 +99,59 @@ class BatonUpdateMapper(BatonCustomObjectMapper[Update], UpdateMapper):
             replica = DataObjectReplica(replica_number, checksum, up_to_date=up_to_date)
             data_object_modification.modified_replicas.add(replica)
 
-        data_object_modification_as_json_dict = DataObjectModificationJSONEncoder().default(data_object_modification)
-
-        return Update(path, modified_at, Metadata(data_object_modification_as_json_dict))
+        return data_object_modification
 
     @staticmethod
-    def _combine_updates_for_same_entity(updates: Iterable[Update]) -> UpdateCollection:
+    def _combine_modifications_for_same_entity(modifications: Sequence[DataObjectModification]) \
+            -> Sequence[DataObjectModification]:
         """
-        Combines updates for the same entities into single "merged" update entries. The merged update entries will have
-        the timestamp of the latest update that was merged into them, as discussed in:
+        Combines modifications descriptions to the same entities into single "merged" description. The merged
+        modifications will have the timestamp of the latest update that was merged into them, as discussed in:
         https://github.com/wtsi-hgi/cookie-monster/issues/3#issuecomment-168990482.
-        :param updates: the updates to combine
-        :return: the combined updates
+        :param modifications: the modifications to combine
+        :return: the combined modifications
         """
-        # This whole method is a bit clumsy due to the use of `Metadata` in `Update` leading to a loss of structure of
-        # the modifications.
-        combined_updates_map = dict()   # type: Dict[str, Update]
+        combined_modifications_map = dict()   # type: Dict[str, DataObjectModification]
 
-        for update in updates:
-            update_target = update.target
+        for modification in modifications:
+            id = modification.entity.path
 
-            if update_target not in combined_updates_map:
-                combined_updates_map[update_target] = update
+            if id not in combined_modifications_map:
+                combined_modifications_map[id] = modification
             else:
-                existing_update = combined_updates_map[update_target]
-
-                # Convert modifications that the updates are about to models - costly but the structure makes things
-                # much easy to work with
-                update_modification = DataObjectModificationJSONDecoder().decode_dict(update.metadata)  # type: DataObjectModification
-                existing_update_modification = DataObjectModificationJSONDecoder().decode_dict(existing_update.metadata)    # type: DataObjectModification
+                existing_modification = combined_modifications_map[id]
 
                 # Preserve newest timestamp
-                if update.timestamp > existing_update.timestamp:
-                    existing_update.timestamp = update.timestamp
+                if modification.timestamp > existing_modification.timestamp:
+                    existing_modification.timestamp = modification.timestamp
 
-                # Merge update replica
-                assert len(update_modification.modified_replicas) <= 1
-                if len(update_modification.modified_replicas) == 1:
-                    updated_replica = update_modification.modified_replicas.get_all()[0]
-                    existing_update_modification.modified_replicas.add(updated_replica)
+                # Merge modification replica
+                assert len(modification.modified_replicas) <= 1
+                if len(modification.modified_replicas) == 1:
+                    updated_replica = modification.modified_replicas.get_all()[0]
+                    existing_modification.modified_replicas.add(updated_replica)
 
-                # Merge update metadata
-                assert len(update_modification.modified_metadata) <= 1
-                if len(update_modification.modified_metadata) == 1:
-                    key = list(update_modification.modified_metadata.keys())[0]
-                    assert len(update_modification.modified_metadata[key]) == 1
-                    value = update_modification.modified_metadata[key].pop()
-                    existing_update_modification.modified_metadata.add(key, value)
+                # Merge modification metadata
+                assert len(modification.modified_metadata) <= 1
+                if len(modification.modified_metadata) == 1:
+                    key = list(modification.modified_metadata.keys())[0]
+                    assert len(modification.modified_metadata[key]) == 1
+                    value = modification.modified_metadata[key].pop()
+                    existing_modification.modified_metadata.add(key, value)
 
-                # Update existing update's metadata
-                existing_update_modification_as_json_dict = DataObjectModificationJSONEncoder().default(
-                    existing_update_modification)
-                existing_update.metadata = Metadata(existing_update_modification_as_json_dict)
+        assert len(combined_modifications_map) <= len(modifications)
+        return combined_modifications_map.values()
 
-        return UpdateCollection(combined_updates_map.values())
+    @staticmethod
+    def _modifications_to_update_collection(modifications: Sequence[DataObjectModification]) -> UpdateCollection:
+        """
+        TODO
+        :param modifications:
+        :return:
+        """
+        updates = UpdateCollection()
+        for modification in modifications:
+            metadata = DataObjectModificationJSONEncoder().default(modification)
+            update = Update(modification.entity.path, modification.timestamp, metadata)
+            updates.append(update)
+        return updates

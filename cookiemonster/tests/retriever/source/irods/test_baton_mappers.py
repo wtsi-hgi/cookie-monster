@@ -11,7 +11,7 @@ from testwithbaton.api import TestWithBatonSetup
 from testwithbaton.helpers import SetupHelper
 
 from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_QUERY_ALIAS
-from cookiemonster.retriever.source.irods.baton_mapper import BatonUpdateMapper, MODIFIED_DATA_QUERY_ALIAS
+from cookiemonster.retriever.source.irods.baton_mappers import BatonUpdateMapper, MODIFIED_DATA_QUERY_ALIAS
 from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder
 from cookiemonster.retriever.source.irods.models import DataObjectModification
 from cookiemonster.tests.retriever.source.irods._helpers import install_queries
@@ -82,34 +82,34 @@ class TestBatonUpdateMapper(unittest.TestCase):
         self.assertCountEqual(updates[0].metadata, expected_metadata)
 
     def test_get_all_since_with_metadata_update(self):
-        location = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[0])
+        path = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[0])
         updates_before_metadata_added = self.mapper.get_all_since(datetime.min)
 
         metadata_1 = Metadata({
             _METADATA_KEYS[0]: _METADATA_VALUES[0],
             _METADATA_KEYS[1]: _METADATA_VALUES[1]
         })
-        self.setup_helper.add_metadata_to(location, metadata_1)
+        self.setup_helper.add_metadata_to(path, metadata_1)
         # Update pre-existing metadata item
         metadata_2 = Metadata({_METADATA_KEYS[0]: _METADATA_VALUES[2]})
-        self.setup_helper.add_metadata_to(location, metadata_2)
+        self.setup_helper.add_metadata_to(path, metadata_2)
         expected_irods_metadata = IrodsMetadata({
             _METADATA_KEYS[0]: {_METADATA_VALUES[0], _METADATA_VALUES[2]},
             _METADATA_KEYS[1]: {_METADATA_VALUES[1]}
         })
 
-        modification_description = DataObjectModification(expected_irods_metadata)
+        modification_description = DataObjectModification(modified_metadata=expected_irods_metadata)
         expected_update_metadata = Metadata(DataObjectModificationJSONEncoder().default(modification_description))
 
         updates = self.mapper.get_all_since(updates_before_metadata_added.get_most_recent()[0].timestamp)
         self.assertEqual(len(updates), 1)
-        relevant_updates = updates.get_entity_updates(location)
+        relevant_updates = updates.get_entity_updates(path)
         # Expect the mapper to have combined all updates into one (https://github.com/wtsi-hgi/cookie-monster/issues/3)
         self.assertEqual(len(relevant_updates), 1)
-        self.assertEqual(relevant_updates[0].target, location)
+        self.assertEqual(relevant_updates[0].target, path)
         logging.debug(relevant_updates[0].metadata)
         logging.debug(expected_update_metadata)
-        self.assertEqual(relevant_updates[0].metadata, expected_update_metadata)
+        self.assertCountEqual(relevant_updates[0].metadata, expected_update_metadata)
 
     def tearDown(self):
         self.test_with_baton.tear_down()
