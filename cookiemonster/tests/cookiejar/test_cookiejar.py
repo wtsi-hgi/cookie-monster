@@ -1,115 +1,72 @@
-'''
-Cookie Jar Implementation Test
-==============================
-High-level integration and logic tests of the CookieJar-CouchDB
-implementation (`BiscuitTin`). We assume that if the higher-level tests
-pass and are suitably comprehensive, then the underlying levels of
-abstraction are probably fine™.
-
-The following sequences are tested:
-
-* Get Next
-
-* Enrich -> Get Next
-
-* Enrich -> Enrich Again -> Get Next
-
-* Enrich -> Get Next -> Mark Complete
-
-* Enrich 1 -> Enrich 2 -> Get Next (X) -> Get Next (Y) -> Mark X
-  Complete -> Mark Y Complete
-
-* Enrich 1 -> Enrich 2 -> Get Next (X) -> Mark X Complete -> Get Next
-  (Y) -> Mark Y Complete
-
-* Enrich -> Get Next -> Mark Failed Immediate -> Get Next
-
-* Enrich -> Get Next -> Mark Failed 3s Delay -> Queue Empty Until Delay
-
-* Enrich -> Get Next -> Enrich same -> Mark Complete -> Get Next
-
-* Enrich -> Get Next -> Mark Complete -> Mark Reprocess -> Get Next
-
-* Enrich -> Reconnect (i.e., simulate failure) -> Get Next
-
-* Enrich -> Get Next -> Reconnect -> Get Next
-
-TODO Others?
-
-Authors
--------
-* Christopher Harrison <ch12@sanger.ac.uk>
-
-License
--------
-GPLv3 or later
-Copyright (c) 2015, 2016 Genome Research Limited
-'''
 import unittest
+from abc import ABCMeta, abstractmethod
+from datetime import datetime, timedelta
+from threading import Timer
 from unittest.mock import MagicMock
 
+from hgicommon.collections import Metadata
+
+from cookiemonster.cookiejar import _dbi
+from cookiemonster.common.models import Enrichment, Cookie
+from cookiemonster.cookiejar import CookieJar, BiscuitTin
+from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
 from cookiemonster.cookiejar.rate_limited_biscuit_tin import RateLimitedBiscuitTin
 from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer
 
-from datetime import datetime, timedelta
 
-from hgicommon.collections import Metadata
-from cookiemonster.common.models import Enrichment, Cookie
-
-import cookiemonster.cookiejar._dbi as dbi
-from cookiemonster.cookiejar import BiscuitTin
-
-
-def _change_time(time):
-    ''' Mock the timing so we can control it '''
-    dbi._now = MagicMock(return_value=time)
-
-
-class TestCookieJar(unittest.TestCase):
+class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
+    """
+    Tests for implementations of `CookieJar`.
+    """
     def setUp(self):
-        '''
+        """
         Build, if necessary, and start a Dockerised CouchDB instance and
         connect. Plus, provide sample inputs with which to test.
-        '''
-        self.couchdb_container = CouchDBContainer()
-
-        self.HOST = self.couchdb_container.couchdb_fqdn
-        self.DB   = 'cookiejar-test'
-
-        self.jar = RateLimitedBiscuitTin(5, self.HOST, self.DB)
-
-        self.eg_paths       = ['/foo',
-                               '/bar/baz']
-        self.eg_metadata    = [Metadata({'xyzzy': 123}),
-                               Metadata({'quux': 'snuffleupagus'})]
-        self.eg_enrichments = [Enrichment('random', datetime(1981, 9, 25, 5, 55), self.eg_metadata[0]),
-                               Enrichment("irods", datetime(2015, 12, 9, 9), self.eg_metadata[1])]
+        """
+        self.eg_paths = ['/foo', '/bar/baz']
+        self.eg_metadata = [Metadata({'xyzzy': 123}), Metadata({'quux': 'snuffleupagus'})]
+        self.eg_enrichments = [
+            Enrichment('random', datetime(1981, 9, 25, 5, 55), self.eg_metadata[0]),
+            Enrichment("irods", datetime(2015, 12, 9, 9), self.eg_metadata[1])
+        ]
         self.eg_listener = MagicMock()
 
+        self.jar = self._create_cookie_jar()
         self.jar.add_listener(self.eg_listener)
 
         # Change time zone to Testing Standard Time ;)
-        _change_time(123456)
+        self._change_time(self.jar, 123456)
 
-    def tearDown(self):
-        ''' Tear down CouchDB container '''
-        self.couchdb_container.tear_down()
+    @abstractmethod
+    def _create_cookie_jar(self) -> CookieJar:
+        """
+        Creates a cookie jar as the SUT.
+        :return: cookie jar that is to be tested
+        """
+
+    @abstractmethod
+    def _change_time(self, cookie_jar: CookieJar, change_time_to: int):
+        """
+        Changes the time in the given cookie jar.
+        :param cookie_jar: cookie jar to change the time in
+        :param change_time_to: the time to change to
+        """
 
     def test01_empty_queue(self):
-        '''
+        """
         CookieJar Sequence: Get Next
-        '''
+        """
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertIsNone(self.jar.get_next_for_processing())
         self.eg_listener.assert_not_called()
 
     def test02_single_enrichment(self):
-        '''
+        """
         CookieJar Sequence: Enrich -> Get Next
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         self.assertEqual(self.jar.queue_length(), 1)
-        
+
         to_process = self.jar.get_next_for_processing()
 
         self.assertEqual(self.jar.queue_length(), 0)
@@ -117,12 +74,12 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(to_process.path, self.eg_paths[0])
         self.assertEqual(len(to_process.enrichments), 1)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
-        self.assertEqual(self.eg_listener.call_count, 1)
+        self.assertEquals(self.eg_listener.call_count, 1)
 
     def test03_multiple_enrichment(self):
-        '''
+        """
         CookieJar Sequence: Enrich -> Enrich Again -> Get Next
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         self.assertEqual(self.jar.queue_length(), 1)
 
@@ -137,26 +94,26 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(len(to_process.enrichments), 2)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
-        self.assertEqual(self.eg_listener.call_count, 2)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test04_enrich_and_complete(self):
-        '''
+        """
         CookieJar Sequence: Enrich -> Get Next -> Mark Complete
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
         self.jar.mark_as_complete(to_process.path)
         self.assertEqual(self.jar.queue_length(), 0)
-        self.assertEqual(self.eg_listener.call_count, 1)
+        self.assertEquals(self.eg_listener.call_count, 1)
 
     def test05_process_multiple(self):
-        '''
+        """
         CookieJar Sequence: Enrich 1 -> Enrich 2 -> Get Next (X) -> Get Next (Y) -> Mark X Complete -> Mark Y Complete
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
 
         # Fast forward one second
-        _change_time(123457)
+        self._change_time(self.jar, 123457)
 
         self.jar.enrich_cookie(self.eg_paths[1], self.eg_enrichments[1])
         self.assertEqual(self.jar.queue_length(), 2)
@@ -182,12 +139,12 @@ class TestCookieJar(unittest.TestCase):
 
         self.jar.mark_as_complete(second.path)
         self.assertEqual(self.jar.queue_length(), 0)
-        self.assertEqual(self.eg_listener.call_count, 2)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test06_process_multiple_intertwined(self):
-        '''
+        """
         CookieJar Sequence: Enrich 1 -> Enrich 2 -> Get Next (X) -> Mark X Complete -> Get Next (Y) -> Mark Y Complete
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         self.jar.enrich_cookie(self.eg_paths[1], self.eg_enrichments[1])
         self.assertEqual(self.jar.queue_length(), 2)
@@ -199,12 +156,12 @@ class TestCookieJar(unittest.TestCase):
         second = self.jar.get_next_for_processing()
         self.jar.mark_as_complete(second.path)
         self.assertEqual(self.jar.queue_length(), 0)
-        self.assertEqual(self.eg_listener.call_count, 2)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test07_fail_immediate(self):
-        '''
+        """
         CookieJar Sequence: Enrich -> Get Next -> Mark Failed Immediate -> Get Next
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         before = self.jar.get_next_for_processing()
         self.jar.mark_as_failed(before.path, timedelta(0))
@@ -212,12 +169,12 @@ class TestCookieJar(unittest.TestCase):
         after = self.jar.get_next_for_processing()
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(before, after)
-        self.assertEqual(self.eg_listener.call_count, 1)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test08_fail_delayed(self):
-        '''
+        """
         CookieJar Sequence: Enrich -> Get Next -> Mark Failed 3s Delay -> Queue Empty Until Delay
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
 
@@ -225,27 +182,23 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(self.jar.queue_length(), 0)
 
         # +1 second
-        _change_time(123457)
+        self._change_time(self.jar, 123457)
         self.assertEqual(self.jar.queue_length(), 0)
 
         # +2 seconds
-        _change_time(123458)
+        self._change_time(self.jar, 123458)
         self.assertEqual(self.jar.queue_length(), 0)
 
         # +3 seconds
-        _change_time(123459)
+        self._change_time(self.jar, 123459)
         self.assertEqual(self.jar.queue_length(), 1)
 
-        # FIXME? The listener won't be called immediately once the
-        # cookie reappears on the queue, but is instead dependant on the
-        # polling interval... That is: The correct value for this should
-        # be 2 (i.e., once on enrichment and then again on failure)
-        self.assertEqual(self.eg_listener.call_count, 1)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test09_out_of_order_enrichment(self):
-        '''
+        """
         CookieJar Sequence: Enrich -> Get Next -> Enrich same -> Mark Complete -> Get Next
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[1])
@@ -262,12 +215,12 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(len(to_process.enrichments), 2)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
-        self.assertEqual(self.eg_listener.call_count, 2)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test10_reprocess(self):
-        '''
+        """
         CookieJar Sequence: Enrich -> Get Next -> Mark Complete -> Mark Reprocess -> Get Next
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         before = self.jar.get_next_for_processing()
         self.jar.mark_as_complete(before.path)
@@ -278,17 +231,40 @@ class TestCookieJar(unittest.TestCase):
         after = self.jar.get_next_for_processing()
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(before, after)
-        self.assertEqual(self.eg_listener.call_count, 2)
+        self.assertEquals(self.eg_listener.call_count, 2)
+
+
+class TestBiscuitTin(TestCookieJar):
+    """
+    High-level integration and logic tests of the CookieJar-CouchDB
+    implementation (`BiscuitTin`). We assume that if the higher-level tests
+    pass and are suitably comprehensive, then the underlying levels of
+    abstraction are probably fine™.
+    """
+    def setUp(self):
+        self.couchdb_container = CouchDBContainer()
+        self.HOST = self.couchdb_container.couchdb_fqdn
+        self.DB = "cookiejar-test"
+        super().setUp()
+
+    def tearDown(self):
+        self.couchdb_container.tear_down()
+
+    def _create_cookie_jar(self) -> BiscuitTin:
+        return BiscuitTin(self.HOST, self.DB)
+
+    def _change_time(self, cookie_jar: CookieJar, change_time_to: int):
+        _dbi._now = MagicMock(return_value=change_time_to)
 
     def test11_connection_failure(self):
-        '''
+        """
         CookieJar Sequence: Enrich -> Reconnect -> Get Next
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
-        new_jar = BiscuitTin(self.HOST, self.DB)
+        new_jar = self._create_cookie_jar()
 
         self.assertEqual(new_jar.queue_length(), 1)
-        
+
         to_process = new_jar.get_next_for_processing()
 
         self.assertEqual(new_jar.queue_length(), 0)
@@ -298,18 +274,49 @@ class TestCookieJar(unittest.TestCase):
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
 
     def test12_connection_failure_while_processing(self):
-        '''
+        """
         CookieJar Sequence: Enrich -> Get Next -> Reconnect -> Get Next
-        '''
+        """
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         before = self.jar.get_next_for_processing()
 
-        new_jar = BiscuitTin(self.HOST, self.DB)
+        new_jar = self._create_cookie_jar()
         self.assertEqual(new_jar.queue_length(), 1)
-        
+
         after = new_jar.get_next_for_processing()
         self.assertEqual(before, after)
 
 
-if __name__ == '__main__':
+class TestRateLimitedBiscuitTin(TestBiscuitTin):
+    """
+    Tests for `RateLimitedBiscuitTin`.
+    """
+    def _create_cookie_jar(self) -> RateLimitedBiscuitTin:
+        return RateLimitedBiscuitTin(10, self.HOST, self.DB)
+
+
+class TestInMemoryCookieJar(TestCookieJar):
+    """
+    Tests for `InMemoryCookieJar`.
+    """
+    def _create_cookie_jar(self) -> CookieJar:
+        return InMemoryCookieJar()
+
+    def _change_time(self, cookie_jar: InMemoryCookieJar, change_time_to: int):
+        # jar that may be used in tests
+        cookie_jar._get_time = MagicMock(return_value=change_time_to)
+
+        for end_time in cookie_jar._timers.keys():
+            if end_time <= change_time_to:
+                while len(cookie_jar._timers[end_time]) > 0:
+                    timer = cookie_jar._timers[end_time][0]    # type: Timer
+                    timer.interval = 0
+                    timer.run()
+
+
+# Trick required to stop Python's unittest from running the abstract base class as a test
+del TestCookieJar
+
+
+if __name__ == "__main__":
     unittest.main()
