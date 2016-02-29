@@ -44,9 +44,6 @@ class InMemoryCookieJar(CookieJar):
             self._failed.append(path)
 
         if requeue_delay is not None:
-            # if requeue_delay.total_seconds() == 0:
-            #     self._reprocess(path)
-            # else:
             end_time = self._get_time() + requeue_delay.total_seconds()
 
             def on_delay_end():
@@ -81,7 +78,7 @@ class InMemoryCookieJar(CookieJar):
                 if path not in self._reprocess_on_complete:
                     self._reprocess_on_complete.append(path)
                 notify = False
-            if path not in self._waiting:
+            elif path not in self._waiting:
                 self._waiting.append(path)
 
         if notify:

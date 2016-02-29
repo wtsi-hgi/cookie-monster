@@ -192,7 +192,7 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self._change_time(123459)
         self.assertEqual(self.jar.queue_length(), 1)
 
-        self.assertEquals(self.eg_listener.call_count, 1)
+        self.assertEquals(self.eg_listener.call_count, 2)
 
     def test09_out_of_order_enrichment(self):
         '''
@@ -291,6 +291,8 @@ class TestInMemoryCookieJar(TestCookieJar):
         return InMemoryCookieJar()
 
     def _change_time(self, change_time_to: int):
+        # FIXME: It is assumed that only the time in `self.jar` needs to be changed opposed to the time in any cookie
+        # jar that may be used in tests
         self.jar._get_time = MagicMock(return_value=change_time_to)
 
         for end_time in self.jar._timers.keys():
