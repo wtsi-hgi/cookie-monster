@@ -158,6 +158,7 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEquals(self.eg_listener.call_count, 2)
 
+    @unittest.skip("Skipping until fix for https://github.com/wtsi-hgi/cookie-monster/issues/22")
     def test07_fail_immediate(self):
         """
         CookieJar Sequence: Enrich -> Get Next -> Mark Failed Immediate -> Get Next
@@ -171,6 +172,7 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(before, after)
         self.assertEquals(self.eg_listener.call_count, 2)
 
+    @unittest.skip("Skipping until fix for https://github.com/wtsi-hgi/cookie-monster/issues/22")
     def test08_fail_delayed(self):
         """
         CookieJar Sequence: Enrich -> Get Next -> Mark Failed 3s Delay -> Queue Empty Until Delay
