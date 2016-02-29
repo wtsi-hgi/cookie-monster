@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="cookie-monster",
+    name="cookiemonster",
 
     version="0.5.0",
 
-    author="Sanger",
+    author="HGI",
     author_email="hgi@sanger.ac.uk",
 
     packages=find_packages(exclude=["test"]),

@@ -1,14 +1,14 @@
+import logging
 import math
+import time
 from datetime import datetime, timezone
 from threading import Semaphore, Thread
-from typing import Dict, Iterable, Optional, Sequence
-from typing import List
+from typing import Dict
+from typing import Sequence
 
 from baton._baton_mappers import BatonCustomObjectMapper
 from baton.collections import IrodsMetadata
 from baton.models import PreparedSpecificQuery, DataObjectReplica
-from baton.types import CustomObjectType
-from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.helpers import localise_to_utc
@@ -19,8 +19,7 @@ from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_AT
     MODIFIED_DATA_TIMESTAMP_PROPERTY, MODIFIED_METADATA_TIMESTAMP_PROPERTY, MODIFIED_DATA_QUERY_ALIAS, \
     MODIFIED_METADATA_ATTRIBUTE_VALUE_PROPERTY, MODIFIED_METADATA_QUERY_ALIAS, MODIFIED_DATA_REPLICA_NUMBER_PROPERTY, \
     MODIFIED_DATA_REPLICA_STATUS_PROPERTY
-from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder, \
-    DataObjectModificationJSONDecoder
+from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder
 from cookiemonster.retriever.source.irods.models import DataObjectModification
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -69,7 +68,10 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectModification], UpdateM
             if error is not None:
                 raise error
 
+        started_at = time.monotonic()
         combined_modifications = BatonUpdateMapper._combine_modifications_for_same_entity(all_modifications)
+        logging.info("Took %d seconds (wall time) to merge %d modifications related to %d data objects"
+                     % (time.monotonic() - started_at, len(all_modifications), len(combined_modifications)))
 
         # Package modifications into `UpdateCollection`
         updates = BatonUpdateMapper._modifications_to_update_collection(combined_modifications)
@@ -145,9 +147,9 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectModification], UpdateM
     @staticmethod
     def _modifications_to_update_collection(modifications: Sequence[DataObjectModification]) -> UpdateCollection:
         """
-        TODO
-        :param modifications:
-        :return:
+        Converts given modifications to an equivalent collection of `Update` instances.
+        :param modifications: the modifications to convert
+        :return: the equivalent updates
         """
         updates = UpdateCollection()
         for modification in modifications:
