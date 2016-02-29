@@ -3,6 +3,6 @@ CouchDB==1.0
 Flask==0.10.1
 pytz==2015.7
 APScheduler==3.0.5
-git+https://github.com/wtsi-hgi/python-common.git@380247354f771ac1bfd5f5ce7d7f6ae7948ab9bf#egg=hgicommon
+git+https://github.com/wtsi-hgi/python-common.git@771cd98716f31b41dc32166b7b5ee77da2a11f62#egg=hgicommon
 git+https://github.com/wtsi-hgi/python-baton-wrapper.git@4daafd926aa07d1b94223679c55c36c6eebf4284#egg=baton
 git+https://github.com/wtsi-hgi/python-json.git@46a1f30ed20f25570b0bcd362d1bb340e2d91e56#egg=hgijson

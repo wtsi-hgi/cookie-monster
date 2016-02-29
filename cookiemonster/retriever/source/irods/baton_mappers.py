@@ -3,8 +3,7 @@ import math
 import time
 from datetime import datetime, timezone
 from threading import Semaphore, Thread
-from typing import Dict
-from typing import Sequence
+from typing import Dict, List, Optional, Sequence
 
 from baton._baton_mappers import BatonCustomObjectMapper
 from baton.collections import IrodsMetadata
