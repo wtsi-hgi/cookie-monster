@@ -13,7 +13,7 @@ from testwithbaton.helpers import SetupHelper
 from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_QUERY_ALIAS
 from cookiemonster.retriever.source.irods.baton_mappers import BatonUpdateMapper, MODIFIED_DATA_QUERY_ALIAS
 from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder
-from cookiemonster.retriever.source.irods.models import DataObjectModification
+from cookiemonster.retriever.source.irods.models import DataObjectUpdate, DataObjectModification
 from cookiemonster.tests.retriever.source.irods._helpers import install_queries
 from cookiemonster.tests.retriever.source.irods._settings import BATON_DOCKER_BUILD
 
@@ -72,9 +72,8 @@ class TestBatonUpdateMapper(unittest.TestCase):
 
         checksum = self.setup_helper.get_checksum(location)
         replicas = DataObjectReplicaCollection([DataObjectReplica(i, checksum) for i in range(2)])
-        expected_modification_description = DataObjectModification(modified_replicas=replicas)
-        expected_metadata = Metadata(
-                DataObjectModificationJSONEncoder().default(expected_modification_description))
+        expected_modification = DataObjectModification(modified_replicas=replicas)
+        expected_metadata = Metadata(DataObjectModificationJSONEncoder().default(expected_modification))
 
         updates = self.mapper.get_all_since(inital_updates.get_most_recent()[0].timestamp)
         self.assertEquals(len(updates), 1)
@@ -98,8 +97,8 @@ class TestBatonUpdateMapper(unittest.TestCase):
             _METADATA_KEYS[1]: {_METADATA_VALUES[1]}
         })
 
-        modification_description = DataObjectModification(modified_metadata=expected_irods_metadata)
-        expected_update_metadata = Metadata(DataObjectModificationJSONEncoder().default(modification_description))
+        modification = DataObjectModification(modified_metadata=expected_irods_metadata)
+        expected_update_metadata = Metadata(DataObjectModificationJSONEncoder().default(modification))
 
         updates = self.mapper.get_all_since(updates_before_metadata_added.get_most_recent()[0].timestamp)
         self.assertEqual(len(updates), 1)

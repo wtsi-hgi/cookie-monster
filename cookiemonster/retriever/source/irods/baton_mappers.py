@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Sequence
 from baton._baton_mappers import BatonCustomObjectMapper
 from baton.collections import IrodsMetadata
 from baton.models import PreparedSpecificQuery, DataObjectReplica
+from hgicommon.collections import Metadata
 
 from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.helpers import localise_to_utc
@@ -19,13 +20,13 @@ from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_AT
     MODIFIED_METADATA_ATTRIBUTE_VALUE_PROPERTY, MODIFIED_METADATA_QUERY_ALIAS, MODIFIED_DATA_REPLICA_NUMBER_PROPERTY, \
     MODIFIED_DATA_REPLICA_STATUS_PROPERTY
 from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder
-from cookiemonster.retriever.source.irods.models import DataObjectModification
+from cookiemonster.retriever.source.irods.models import DataObjectUpdate
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 _MAX_IRODS_TIMESTAMP = int(math.pow(2, 31)) - 1
 
 
-class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectModification], UpdateMapper):
+class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectUpdate], UpdateMapper):
     """
     Retrieves updates from iRODS using baton.
     """
@@ -45,7 +46,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectModification], UpdateM
 
         arguments = [since_timestamp, until_timestamp]
         aliases = [MODIFIED_DATA_QUERY_ALIAS, MODIFIED_METADATA_QUERY_ALIAS]
-        all_modifications = []  # type: List[DataObjectModification]
+        all_modifications = []  # type: List[DataObjectUpdate]
         semaphore = Semaphore(0)
         error = None    # type: Optional(Exception)
 
@@ -68,8 +69,8 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectModification], UpdateM
                 raise error
 
         started_at = time.monotonic()
-        combined_modifications = BatonUpdateMapper._combine_modifications_for_same_entity(all_modifications)
-        logging.info("Took %d seconds (wall time) to merge %d modifications related to %d data objects"
+        combined_modifications = BatonUpdateMapper._combine_updates_for_same_entity(all_modifications)
+        logging.info("Took %f seconds (wall time) to merge %d modifications related to %d data objects"
                      % (time.monotonic() - started_at, len(all_modifications), len(combined_modifications)))
 
         # Package modifications into `UpdateCollection`
@@ -77,7 +78,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectModification], UpdateM
 
         return updates
 
-    def _object_deserialiser(self, object_as_json: dict) -> DataObjectModification:
+    def _object_deserialiser(self, object_as_json: dict) -> DataObjectUpdate:
         metadata_update = MODIFIED_METADATA_ATTRIBUTE_NAME_PROPERTY in object_as_json
 
         path = "%s/%s" % (object_as_json[MODIFIED_COLLECTION_NAME_PROPERTY],
@@ -85,12 +86,12 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectModification], UpdateM
         modified_at_as_string = object_as_json[MODIFIED_DATA_TIMESTAMP_PROPERTY] if not metadata_update \
             else object_as_json[MODIFIED_METADATA_TIMESTAMP_PROPERTY]
         modified_at = datetime.fromtimestamp(int(modified_at_as_string), tz=timezone.utc)
-        data_object_modification = DataObjectModification(path, modified_at)
+        data_object_update = DataObjectUpdate(path, modified_at)
 
         if metadata_update:
             key = object_as_json[MODIFIED_METADATA_ATTRIBUTE_NAME_PROPERTY]
             value = object_as_json[MODIFIED_METADATA_ATTRIBUTE_VALUE_PROPERTY]
-            data_object_modification.modified_metadata = IrodsMetadata({key: {value}})
+            data_object_update.modification.modified_metadata = IrodsMetadata({key: {value}})
         else:
             replica_number = int(object_as_json[MODIFIED_DATA_REPLICA_NUMBER_PROPERTY])
             checksum = object_as_json[MODIFIED_DATA_REPLICA_CHECKSUM_PROPERTY] \
@@ -98,61 +99,63 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectModification], UpdateM
             up_to_date = bool(object_as_json[MODIFIED_DATA_REPLICA_STATUS_PROPERTY])
 
             replica = DataObjectReplica(replica_number, checksum, up_to_date=up_to_date)
-            data_object_modification.modified_replicas.add(replica)
+            data_object_update.modification.modified_replicas.add(replica)
 
-        return data_object_modification
+        return data_object_update
 
     @staticmethod
-    def _combine_modifications_for_same_entity(modifications: Sequence[DataObjectModification]) \
-            -> Sequence[DataObjectModification]:
+    def _combine_updates_for_same_entity(updates: Sequence[DataObjectUpdate]) -> Sequence[DataObjectUpdate]:
         """
-        Combines modifications descriptions to the same entities into single "merged" description. The merged
-        modifications will have the timestamp of the latest update that was merged into them, as discussed in:
+        Combines update to the same entities into single "merged" description. The merged updates will have the
+        timestamp of the most recent update that was merged into them, as discussed in:
         https://github.com/wtsi-hgi/cookie-monster/issues/3#issuecomment-168990482.
-        :param modifications: the modifications to combine
-        :return: the combined modifications
+        :param updates: the updates to combine
+        :return: the combined updates
         """
-        combined_modifications_map = dict()   # type: Dict[str, DataObjectModification]
+        combined_updates_map = dict()   # type: Dict[str, DataObjectUpdate]
 
-        for modification in modifications:
-            id = modification.entity.path
+        for update in updates:
+            # Assert that each update in iRODS relates to only one modification (hence the need to merge)
+            assert len(update.modification.modified_replicas) <= 1
+            assert len(update.modification.modified_metadata) <= 1
 
-            if id not in combined_modifications_map:
-                combined_modifications_map[id] = modification
+            identifier = update.entity.path
+
+            if identifier not in combined_updates_map:
+                combined_updates_map[identifier] = update
             else:
-                existing_modification = combined_modifications_map[id]
+                existing_update = combined_updates_map[identifier]
 
-                # Preserve newest timestamp
-                if modification.timestamp > existing_modification.timestamp:
-                    existing_modification.timestamp = modification.timestamp
+                if update.timestamp > existing_update.timestamp:
+                    # Preserve newest timestamp
+                    existing_update.timestamp = update.timestamp
 
-                # Merge modification replica
-                assert len(modification.modified_replicas) <= 1
-                if len(modification.modified_replicas) == 1:
-                    updated_replica = modification.modified_replicas.get_all()[0]
-                    existing_modification.modified_replicas.add(updated_replica)
+                if len(update.modification.modified_replicas) == 1:
+                    # Merge modification replica
+                    updated_replica = update.modification.modified_replicas.get_all()[0]
+                    existing_update.modification.modified_replicas.add(updated_replica)
 
-                # Merge modification metadata
-                assert len(modification.modified_metadata) <= 1
-                if len(modification.modified_metadata) == 1:
-                    key = list(modification.modified_metadata.keys())[0]
-                    assert len(modification.modified_metadata[key]) == 1
-                    value = modification.modified_metadata[key].pop()
-                    existing_modification.modified_metadata.add(key, value)
+                if len(update.modification.modified_metadata) == 1:
+                    # Merge modification metadata
+                    key = list(update.modification.modified_metadata.keys())[0]
+                    assert len(update.modification.modified_metadata[key]) == 1
+                    value = update.modification.modified_metadata[key].pop()
+                    existing_update.modification.modified_metadata.add(key, value)
 
-        assert len(combined_modifications_map) <= len(modifications)
-        return combined_modifications_map.values()
+        assert len(combined_updates_map) <= len(updates)
+        return combined_updates_map.values()
 
     @staticmethod
-    def _modifications_to_update_collection(modifications: Sequence[DataObjectModification]) -> UpdateCollection:
+    def _modifications_to_update_collection(updates: Sequence[DataObjectUpdate]) -> UpdateCollection:
         """
         Converts given modifications to an equivalent collection of `Update` instances.
-        :param modifications: the modifications to convert
+        :param updates: the modifications to convert
         :return: the equivalent updates
         """
-        updates = UpdateCollection()
-        for modification in modifications:
-            metadata = DataObjectModificationJSONEncoder().default(modification)
-            update = Update(modification.entity.path, modification.timestamp, metadata)
-            updates.append(update)
-        return updates
+        generic_update_collection = UpdateCollection()
+        for update in updates:
+            modification_as_json = DataObjectModificationJSONEncoder().default(update.modification)
+            metadata = Metadata(modification_as_json)
+            update = Update(update.entity.path, update.timestamp, metadata)
+            generic_update_collection.append(update)
+        return generic_update_collection

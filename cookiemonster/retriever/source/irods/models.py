@@ -12,9 +12,7 @@ class IrodsEntityModification(Generic[_EntityType], Model):
     """
     Description of modification to an `IrodsEntity`.
     """
-    def __init__(self, entity: _EntityType=None, timestamp: datetime=None, modified_metadata: IrodsMetadata=None):
-        self.entity = entity
-        self.timestamp = timestamp
+    def __init__(self, modified_metadata: IrodsMetadata=None):
         self.modified_metadata = modified_metadata if modified_metadata is not None else IrodsMetadata()
 
 
@@ -22,7 +20,25 @@ class DataObjectModification(IrodsEntityModification[DataObject]):
     """
     Description of modification to a `DataObject`.
     """
-    def __init__(self, path: str=None, timestamp: datetime=None, modified_metadata: IrodsMetadata=None,
-                 modified_replicas: DataObjectReplicaCollection=None):
-        super().__init__(DataObject(path), timestamp, modified_metadata)
+    def __init__(self, modified_metadata: IrodsMetadata=None, modified_replicas: DataObjectReplicaCollection=None):
+        super().__init__(modified_metadata)
         self.modified_replicas = modified_replicas if modified_replicas is not None else DataObjectReplicaCollection()
+
+
+class IrodsEntityUpdate(Generic[_EntityType], Model):
+    """
+    Description of an update to an entity in iRODS.
+    """
+    def __init__(self, entity: _EntityType, timestamp: datetime, modification: _EntityType=None):
+        self.entity = entity
+        self.timestamp = timestamp
+        self.modification = modification
+
+
+class DataObjectUpdate(IrodsEntityUpdate[DataObject]):
+    """
+    Description of an update to an data object in iRODS.
+    """
+    def __init__(self, path: str, timestamp: datetime, modification: DataObjectModification=None):
+        modification = modification if modification is not None else DataObjectModification()
+        super().__init__(DataObject(path), timestamp, modification)
