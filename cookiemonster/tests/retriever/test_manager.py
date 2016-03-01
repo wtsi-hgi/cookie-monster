@@ -75,7 +75,6 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         self.assertEqual(retrieval_log.number_of_updates, len(self.updates))
         self.assertEqual(retrieval_log.latest_retrieved_timestamp, self.updates.get_most_recent()[0].timestamp)
 
-
     def test_run_without_updates(self):
         # Setup
         listener = MagicMock()
@@ -98,6 +97,7 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         self.assertGreaterEqual(retrieval_log.seconds_taken_to_complete_query, TIME_TAKEN_TO_DO_RETRIEVE)
         self.assertEqual(retrieval_log.number_of_updates, len(self.updates))
         self.assertEqual(retrieval_log.latest_retrieved_timestamp, None)
+
 
 class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
     """

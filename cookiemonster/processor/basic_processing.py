@@ -1,11 +1,10 @@
 import copy
 import logging
 import threading
-from threading import Lock, Thread
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Callable, Optional, Sequence, Iterable
 
 from hgicommon.data_source import DataSource
-from typing import Set
 
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
@@ -71,38 +70,14 @@ class BasicProcessorManager(ProcessorManager):
         self._notification_receivers_source = notification_receivers_source
         self._enrichment_loaders_source = enrichment_loader_source
         self._enrichment_manager = EnrichmentManager(self._enrichment_loaders_source)
-
-        self.max_cookies_to_process_simultaneously = max_cookies_to_process_simultaneously
-        self._number_of_cookies_being_processed = 0
-        self._number_of_cookies_being_processed_lock = Lock()
+        self._cookie_processing_thread_pool = ThreadPoolExecutor(max_workers=max_cookies_to_process_simultaneously)
 
     def process_any_cookies(self):
-        # Claim resource to process Cookie
-        processing_resource_claimed = self._claim_cookie_processing_resource()
-
-        if processing_resource_claimed:
-            # Claim cookie
-            cookie = self._cookie_jar.get_next_for_processing()
-
-            if cookie is not None:
-                def on_complete(rules_matched: bool, notifications: List[Notification]):
-                    self.on_cookie_processed(cookie, rules_matched, notifications)
-                    self._release_cookie_processing_resource()
-                    # One last thing before this thread dies...
-                    self.process_any_cookies()
-
-                logging.info("Starting processor for cookie with path \"%s\". (%s)"
-                             % (cookie.path, self.get_status_string()))
-                processor = BasicProcessor()
-                Thread(target=processor.process, args=(cookie, self._rules_source.get_all(), on_complete)).start()
-            else:
-                self._release_cookie_processing_resource()
-                logging.info("Triggered to process cookies - no cookies to process. (%s)" % self.get_status_string())
-        else:
-            logging.info("Triggered to process cookies but already processing maximum number simultaneously. (%s)"
-                          % self.get_status_string())
+        logging.info("Prompted to process any unprocessed cookies. (%s)" % self.get_status_string())
+        self._cookie_processing_thread_pool.submit(self._process_any_cookies)
 
     def on_cookie_processed(self, cookie: Cookie, stop_processing: bool, notifications: Iterable[Notification]=()):
+        # Broadcast notifications
         for notification in notifications:
             self._notify_notification_receivers(notification)
 
@@ -130,50 +105,40 @@ class BasicProcessorManager(ProcessorManager):
 
     def get_status_string(self) -> str:
         """
-        TODO
-        :return:
+        Gets string indicating the internal status of this manager.
+        :return: human readable string
         """
-        free_resources = self.max_cookies_to_process_simultaneously - self._number_of_cookies_being_processed
-
         return "%d/%d cookies being processed simultaneously, %d cookies queued for processing, %d active threads" \
-               % (self._number_of_cookies_being_processed, free_resources, self._cookie_jar.queue_length(),
-                  threading.active_count())
+               % (len(self._cookie_processing_thread_pool._threads),
+                  self._cookie_processing_thread_pool._max_workers,
+                  self._cookie_jar.queue_length(), threading.active_count())
+
+    def _process_any_cookies(self):
+        """
+        Process a cookie. Should be executed by a thead from the Cookie processing thread pool.
+        """
+        # Claim cookie
+        cookie = self._cookie_jar.get_next_for_processing()
+
+        if cookie is not None:
+            def on_complete(rules_matched: bool, notifications: List[Notification]):
+                self.on_cookie_processed(cookie, rules_matched, notifications)
+
+            processor = BasicProcessor()
+            logging.info("Processing cookie with path: %s. (%s)" % (cookie.path, self.get_status_string()))
+            processor.process(cookie, self._rules_source.get_all(), on_complete)
+        else:
+            logging.info("Triggered to process cookies - no cookies to process. (%s)" % self.get_status_string())
 
     def _notify_notification_receivers(self, notification: Notification):
         """
         Notifies the notification receivers of the given notification.
-
-        Notification receivers are ran concurrently in separate threads.
         :param notification: the notification to give to all notification receivers
         """
         notification_receivers = self._notification_receivers_source.get_all()
         logging.info("Notifying %d notification receiver(s) of notification about \"%s\""
                      % (len(notification_receivers), notification.about))
 
+        # TODO: This could be threaded
         for notification_receiver in notification_receivers:
-            Thread(target=notification_receiver.receive, args=(notification, )).start()
-
-    def _claim_cookie_processing_resource(self) -> bool:
-        """
-        Claims cookie processing resource.
-
-        Non-blocking, thread-safe.
-        :return: whether the resource has been successfully claimed
-        """
-        with self._number_of_cookies_being_processed_lock:
-            if self._number_of_cookies_being_processed == self.max_cookies_to_process_simultaneously:
-                return False
-            else:
-                self._number_of_cookies_being_processed += 1
-                assert self._number_of_cookies_being_processed <= self.max_cookies_to_process_simultaneously
-                return True
-
-    def _release_cookie_processing_resource(self):
-        """
-        Releases cookie processing resource
-
-        Thread-safe.
-        """
-        with self._number_of_cookies_being_processed_lock:
-            self._number_of_cookies_being_processed -= 1
-            assert self._number_of_cookies_being_processed >= 0
+            notification_receiver.receive(notification)

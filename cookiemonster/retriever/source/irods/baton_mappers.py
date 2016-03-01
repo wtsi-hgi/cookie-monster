@@ -57,8 +57,8 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectUpdate], UpdateMapper)
             try:
                 started_at = time.monotonic()
                 updates = self._get_with_prepared_specific_query(updates_query, zone=self.zone)
-                logging.info("Took %f seconds (wall time) to get and then parse iRODS updates using %s"
-                             % (time.monotonic() - started_at, alias))
+                logging.info("Took %f seconds (wall time) to get and then parse %d iRODS updates using `%s` query"
+                             % (time.monotonic() - started_at, len(updates), alias))
                 all_updates.extend(list(updates))
             except Exception as e:
                 nonlocal error
