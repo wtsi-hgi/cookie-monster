@@ -48,15 +48,18 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectUpdate], UpdateMapper)
 
         arguments = [since_timestamp, until_timestamp]
         aliases = [MODIFIED_DATA_QUERY_ALIAS, MODIFIED_METADATA_QUERY_ALIAS]
-        all_modifications = []  # type: List[DataObjectUpdate]
+        all_updates = []  # type: List[DataObjectUpdate]
         semaphore = Semaphore(0)
         error = None    # type: Optional(Exception)
 
         def run_threaded(alias: str):
             updates_query = PreparedSpecificQuery(alias, arguments)
             try:
-                modifications = self._get_with_prepared_specific_query(updates_query, zone=self.zone)
-                all_modifications.extend(list(modifications))
+                started_at = time.monotonic()
+                updates = self._get_with_prepared_specific_query(updates_query, zone=self.zone)
+                logging.info("Took %f seconds (wall time) to get and then parse iRODS updates using %s"
+                             % (time.monotonic() - started_at, alias))
+                all_updates.extend(list(updates))
             except Exception as e:
                 nonlocal error
                 error = e
@@ -71,9 +74,9 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectUpdate], UpdateMapper)
                 raise error
 
         started_at = time.monotonic()
-        combined_modifications = BatonUpdateMapper._combine_updates_for_same_entity(all_modifications)
+        combined_modifications = BatonUpdateMapper._combine_updates_for_same_entity(all_updates)
         logging.info("Took %f seconds (wall time) to merge %d updates related to %d data objects"
-                     % (time.monotonic() - started_at, len(all_modifications), len(combined_modifications)))
+                     % (time.monotonic() - started_at, len(all_updates), len(combined_modifications)))
 
         # Package modifications into `UpdateCollection`
         started_at = time.monotonic()
