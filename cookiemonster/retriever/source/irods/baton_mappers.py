@@ -30,6 +30,8 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectUpdate], UpdateMapper)
     """
     Retrieves updates from iRODS using baton.
     """
+    DATA_OBJECT_MODIFICATION_JSON_ENCODER = DataObjectModificationJSONEncoder()
+
     def __init__(self, baton_binaries_directory: str, zone: str=None):
         super().__init__(baton_binaries_directory)
         self.zone = zone
@@ -70,11 +72,14 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectUpdate], UpdateMapper)
 
         started_at = time.monotonic()
         combined_modifications = BatonUpdateMapper._combine_updates_for_same_entity(all_modifications)
-        logging.info("Took %f seconds (wall time) to merge %d modifications related to %d data objects"
+        logging.info("Took %f seconds (wall time) to merge %d updates related to %d data objects"
                      % (time.monotonic() - started_at, len(all_modifications), len(combined_modifications)))
 
         # Package modifications into `UpdateCollection`
-        updates = BatonUpdateMapper._modifications_to_update_collection(combined_modifications)
+        started_at = time.monotonic()
+        updates = BatonUpdateMapper._data_object_updates_to_generic_update_collection(combined_modifications)
+        logging.info("Took %f seconds (wall time) to convert %d updates to generic updates that can be stored in the "
+                     "knowledge base" % (time.monotonic() - started_at, len(combined_modifications)))
 
         return updates
 
@@ -146,15 +151,16 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectUpdate], UpdateMapper)
         return combined_updates_map.values()
 
     @staticmethod
-    def _modifications_to_update_collection(updates: Sequence[DataObjectUpdate]) -> UpdateCollection:
+    def _data_object_updates_to_generic_update_collection(updates: Sequence[DataObjectUpdate]) -> UpdateCollection:
         """
-        Converts given modifications to an equivalent collection of `Update` instances.
-        :param updates: the modifications to convert
-        :return: the equivalent updates
+        Converts the given data object updates to a generic collection of updates that can be stored in the knowledge
+        base (`CookieJar`).
+        :param updates: the data object updates to convert
+        :return: the equivalent generic updates
         """
         generic_update_collection = UpdateCollection()
         for update in updates:
-            modification_as_json = DataObjectModificationJSONEncoder().default(update.modification)
+            modification_as_json = BatonUpdateMapper.DATA_OBJECT_MODIFICATION_JSON_ENCODER.default(update.modification)
             metadata = Metadata(modification_as_json)
             update = Update(update.entity.path, update.timestamp, metadata)
             generic_update_collection.append(update)

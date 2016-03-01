@@ -1,5 +1,6 @@
 import copy
 import logging
+import threading
 from threading import Lock, Thread
 from typing import List, Callable, Optional, Sequence, Iterable
 
@@ -134,8 +135,9 @@ class BasicProcessorManager(ProcessorManager):
         """
         free_resources = self.max_cookies_to_process_simultaneously - self._number_of_cookies_being_processed
 
-        return "%d cookies being processed, %d more cookie(s) can be processed simultaneously, %d cookies queued for " \
-               "processing" % (self._number_of_cookies_being_processed, free_resources, self._cookie_jar.queue_length())
+        return "%d/%d cookies being processed simultaneously, %d cookies queued for processing, %d active threads" \
+               % (self._number_of_cookies_being_processed, free_resources, self._cookie_jar.queue_length(),
+                  threading.active_count())
 
     def _notify_notification_receivers(self, notification: Notification):
         """
