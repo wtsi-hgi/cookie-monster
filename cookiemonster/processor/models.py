@@ -10,7 +10,7 @@ class RuleAction(Model):
     """
     A model of the action that has outcome from matching a rule.
     """
-    def __init__(self, notifications: Iterable[Notification], terminate_processing: bool):
+    def __init__(self, notifications: Iterable[Notification], terminate_processing: bool=False):
         """
         Constructor.
         :param notifications: notifications for external processes
