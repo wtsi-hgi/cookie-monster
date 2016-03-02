@@ -1,9 +1,9 @@
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Optional, Callable, Iterable
+from typing import Optional, Callable, Iterable, Sequence
 
 from cookiemonster.common.models import Notification, Cookie
-from cookiemonster.processor.models import Rule
+from cookiemonster.processor.models import Rule, RuleAction
 
 ABOUT_NO_RULES_MATCH = "no rules matched"
 
@@ -12,15 +12,41 @@ class Processor(metaclass=ABCMeta):
     """
     Processor for a single Cookie - pushes the Cookie through the "rule engine".
     """
-    @abstractmethod
-    def process(self, cookie: Cookie, rules: Iterable[Rule],
-                on_complete: Callable[[bool, Optional[Iterable[Notification]]], None]):
+    def process_cookie(self, cookie: Cookie):
         """
-        Processes the given cookie.
-        :param cookie: the cookie that is to be processed
-        :param rules: the processor to use when processing the cookie
-        :param on_complete: called when the processing has completed. First argument indicates if at least one rule was
-        matched and the second is a set of notifications that were generated.
+        Proceses the given Cookie.
+        :param cookie: the Cookie to process
+        """
+        # Evaluate rules
+        rule_actions = self.evaluate_rules_with_cookie(cookie)
+
+        # Execute rule actions
+        self.execute_rule_actions(rule_actions)
+
+        # Enrich Cookie further if required
+        if True not in [rule_action.terminate_processing for rule_action in rule_actions]:
+            self.enrich_cookie(cookie)
+
+    @abstractmethod
+    def evaluate_rules_with_cookie(self, cookie: Cookie) -> Sequence[RuleAction]:
+        """
+        TODO
+        :param cookie:
+        :return:
+        """
+
+    @abstractmethod
+    def execute_rule_actions(self, rule_actions: Iterable[RuleAction]):
+        """
+        TODO
+        :param rule_actions:
+        """
+
+    @abstractmethod
+    def enrich_cookie(self, cookie: Cookie):
+        """
+        TODO
+        :param cookie:
         """
 
 
