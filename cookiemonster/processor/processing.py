@@ -30,23 +30,28 @@ class Processor(metaclass=ABCMeta):
     @abstractmethod
     def evaluate_rules_with_cookie(self, cookie: Cookie) -> Sequence[RuleAction]:
         """
-        TODO
-        :param cookie:
-        :return:
+        Evaluates the rules known by this processor with the given Cookie. Rules should be evaluated in order of
+        priority and evaluation should stop if a rule production signals no further processing is required. Rules must
+        not be allowed make changes to the Cookie.
+        :param cookie: the cookie to evaluate rules against
+        :return: the rule actions produced by rule matches
         """
 
     @abstractmethod
     def execute_rule_actions(self, rule_actions: Iterable[RuleAction]):
         """
-        TODO
-        :param rule_actions:
+        Executes the given rule actions produced by matching rules.
+        :param rule_actions: the rule actions to execute
         """
 
     @abstractmethod
     def handle_cookie_enrichment(self, cookie: Cookie):
         """
-        TODO
-        :param cookie:
+        Handle the enrichment of the given Cookie using the enrichment loaders known by the processor. If it is possible
+        to enrich the Cookie, the enrichment should be loaded and the Cookie should be enriched in the knowledge base
+        (Cookie Jar). If no enrichments can be loaded, this fact should be broadcast to all notification listeners
+        known by this processor.
+        :param cookie: the cookie to enrich
         """
 
 
