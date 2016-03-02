@@ -28,13 +28,13 @@ class BasicProcessor(Processor):
         :param enrichment_loaders:
         :param notification_receivers:
         """
-        self._cookie_jar = cookie_jar
-        self._rules = rules
-        self._notification_receivers = notification_receivers
-        self._enrichment_loaders = enrichment_loaders
+        self.cookie_jar = cookie_jar
+        self.rules = rules
+        self.notification_receivers = notification_receivers
+        self.enrichment_loaders = enrichment_loaders
 
     def evaluate_rules_with_cookie(self, cookie: Cookie) -> Sequence[RuleAction]:
-        rule_queue = RuleQueue(self._rules)
+        rule_queue = RuleQueue(self.rules)
 
         rule_actions = []
         terminate = False
@@ -59,23 +59,21 @@ class BasicProcessor(Processor):
             for notification in rule_action.notifications:
                 self._broadcast_notification(notification)
 
-    def enrich_cookie(self, cookie: Cookie):
+    def handle_cookie_enrichment(self, cookie: Cookie):
         logging.info("Checking if any of the %d enrichment loader(s) can load enrichment for cookie with path \"%s\""
-                     % (len(self._enrichment_loaders), cookie.path))
-
+                     % (len(self.enrichment_loaders), cookie.path))
         # FIXME: EnrichmentManager should take an iterable
-        enrichment_manager = EnrichmentManager(ListDataSource(self._enrichment_loaders))
+        enrichment_manager = EnrichmentManager(ListDataSource(self.enrichment_loaders))
         enrichment = enrichment_manager.next_enrichment(cookie)
 
         if enrichment is None:
             logging.info("Cannot enrich cookie with path \"%s\" any further - marking as complete" % cookie.path)
-            no_rules_match_notification = Notification(ABOUT_NO_RULES_MATCH, cookie.path,
-                                                       BasicProcessorManager.__qualname__)
+            no_rules_match_notification = Notification(ABOUT_NO_RULES_MATCH, cookie.path, BasicProcessor.__qualname__)
             self._broadcast_notification(no_rules_match_notification)
         else:
             logging.info("Applying enrichment from source \"%s\" to cookie with path \"%s\""
                          % (enrichment.source, cookie.path))
-            self._cookie_jar.enrich_cookie(cookie.path, enrichment)
+            self.cookie_jar.enrich_cookie(cookie.path, enrichment)
             # Enrichment method sets cookie for processing when enriched so no need to repeat that
 
     def _broadcast_notification(self, notification: Notification):
@@ -84,10 +82,10 @@ class BasicProcessor(Processor):
         :param notification: the notification to give to all notification receivers
         """
         logging.info("Notifying %d notification receiver(s) of notification about \"%s\""
-                     % (len(self._notification_receivers), notification.about))
+                     % (len(self.notification_receivers), notification.about))
 
         # TODO: This could be threaded
-        for notification_receiver in self._notification_receivers:
+        for notification_receiver in self.notification_receivers:
             notification_receiver.receive(notification)
 
 

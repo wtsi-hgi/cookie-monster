@@ -1,9 +1,11 @@
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, Iterable, Sequence
 
+from cookiemonster import RuleAction
 from cookiemonster.common.models import Notification, Enrichment, Cookie
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.notifications.notification_receiver import NotificationReceiver
+from cookiemonster.processor.processing import Processor
 
 
 class StubCookieJar(CookieJar):
@@ -37,4 +39,18 @@ class StubNotificationReceiver(NotificationReceiver):
         super().__init__(lambda notification: None)
 
     def receive(self, notification: Notification):
+        pass
+
+
+class StubProcessor(Processor):
+    """
+    Stub implementation of `Processor`.
+    """
+    def execute_rule_actions(self, rule_actions: Iterable[RuleAction]):
+        pass
+
+    def evaluate_rules_with_cookie(self, cookie: Cookie) -> Sequence[RuleAction]:
+        pass
+
+    def handle_cookie_enrichment(self, cookie: Cookie):
         pass
