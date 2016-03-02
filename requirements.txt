@@ -1,5 +1,6 @@
 SQLAlchemy==1.0.11
 pycouchdb==1.14
+requests==2.8.1
 Flask==0.10.1
 pytz==2015.7
 APScheduler==3.0.5

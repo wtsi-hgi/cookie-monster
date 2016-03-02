@@ -4,55 +4,46 @@ Database Interface
 Abstraction layer over a revisionable document-based database (i.e.,
 CouchDB)
 
-Exportable classes: `Bert`, `Ernie`
+Exportable classes: `Sofabed`, `Bert`, `Ernie`
 
 `Bert` and `Ernie` are the queue management and metadata repository
 database interfaces, respectively. They are two halves of the same
 whole, share data together and love each other...which is cool, man.
 Which is cool.
 
-_Couch
-------
+Sofabed
+-------
+`Sofabed` is a CouchDB interface that provides automatic buffering of
+inserts and updates. It is instantiated per pycouchdb.client.Server,
+with the additional options of maximum buffer size and discharge
+latency, and ought to be passed into classes that represent document
+models.
 
-`_Couch` is the CouchDB class used to provide a common interface
-with the database instance. It should be composed into any instantiable
-classes, which should define any view and/or update handlers and connect
-at instantiation. Upon which, it will acquire a connection and create
-the database, if it does not already exist, and create/update the
-predefined design documents.
+Each insert/update will be added to a buffer. If the time between that
+and the next is less than the discharge latency, then the next will be
+added to the same buffer. This will continue until either the latency
+between updates exceeds the discharge latency or the maximum buffer size
+(number of documents, rather than bytes): At which point, that buffer
+will be discharged into an update queue and ultimately, presuming it's
+available, batch pushed into the database.
+
+The Sofabed object will gracefully manage document conflicts and any
+connection problems it may have with the database.
 
 Methods:
 
-* `connect` Connect to the specified CouchDB host and database, creating
-  it if it does not exist, and push all predefined design documents
+* `fetch` Fetch a document by its ID and, optionally, revision
 
-* `fetch` Fetch a document by its ID and, optional, revision
-
-* `upsert` Invoke an update handler to create or update a document (note
-  that all update handlers are expected to conform to a consistent
-  interface; see below)
+* `upsert` Insert or update a document into the database, via the buffer
+  and upsert queue; note that buffered and queued documents only exist
+  in memory until they are pushed to the database
 
 * `query` Query a predefined view
 
 * `define_view` Define a MapReduce view
 
-* `define_update` Define an update handler
-
-Composition classes are expected to use these functions to build an
-interface for a particular type of document.
-
-Update handler interface:
-
-* On creation, the response body will be `created`
-* On update, the response body will be `updated` and the revision ID can
-  be got from the `X-Couch-Update-NewRev` response header
-* On failure, the response body will be `failed`
-
-...it's up to the developer to write the function correctly!
-
-FIXME This is a rather messy abstraction interface! The idea is that
-subclasses represent schema'd documents with handy manipulation
-functions. The couchdb.mapping stuff is similar...
+Bert and Ernie can share a sofabed (i.e., use the same database), or
+sleep separately...it's all part of life's rich tapestry.
 
 Bert (Queue Management DBI)
 ---------------------------
@@ -116,105 +107,283 @@ GPLv3 or later
 Copyright (c) 2015, 2016 Genome Research Limited
 '''
 
-from collections import defaultdict
+# from json import JSONEncoder
+# from time import time, mktime
+# from typing import Any, Callable, Iterable, Optional, Generator
+# 
+# from hgicommon.collections import Metadata
+# from cookiemonster.common.models import Enrichment
+#
+#
+#def _now() -> int:
+#    '''
+#    @return The current Unix time
+#    '''
+#    return int(time())
+#
+#
+#class _EnrichmentEncoder(JSONEncoder):
+#    ''' JSON encoder for Enrichment models '''
+#    def default(self, enrichment: Enrichment) -> dict:
+#        return {
+#            'source':    enrichment.source,
+#            'timestamp': int(mktime(enrichment.timestamp.timetuple())),
+#            'metadata':  enrichment.metadata._data
+#        }
+
+from typing import Any, Callable, Optional, Generator
+from collections import deque
 from datetime import datetime, timedelta
-from json import JSONEncoder
-from threading import Lock
-from time import time, mktime
-from typing import Any, Callable, Iterable, Optional, Generator
+from threading import Lock, Thread
+from copy import deepcopy
+from time import sleep
 from uuid import uuid4
+
+from requests import head, Timeout
 
 from pycouchdb.client import Server, Database
 from pycouchdb.exceptions import NotFound, Conflict
 
-from hgicommon.collections import Metadata
-from cookiemonster.common.models import Enrichment
+from hgicommon.mixable import Listenable
 
 
-def _decouch(document: Optional[dict]) -> dict:
-    '''
-    Strip out the CouchDB keys (anything prefixed with an underscore)
-    from a document and return a plain dictionary
-
-    @param  document  CouchDB document dictionary
-    @return Stripped dictionary
-    '''
-    if not document:
-        return {}
-
-    return {
-        key: value
-        for key, value in document.items()
-        if  key[0] != '_'
-    }
+# TODO Make this configurable?
+_COUCHDB_TIMEOUT = timedelta(milliseconds=200)
 
 
-def _now() -> int:
-    '''
-    @return The current Unix time
-    '''
-    return int(time())
+class _UnresponsiveCouchDB(Exception):
+    ''' Unresponsive (i.e., down/busy) database exception '''
+    pass
 
 
-class _EnrichmentEncoder(JSONEncoder):
-    ''' JSON encoder for Enrichment models '''
-    def default(self, enrichment: Enrichment) -> dict:
-        return {
-            'source':    enrichment.source,
-            'timestamp': int(mktime(enrichment.timestamp.timetuple())),
-            'metadata':  enrichment.metadata._data
-        }
+class _ErroneousCouchDB(Exception):
+    ''' Erroneous (i.e., bad state) database exception '''
+    pass
 
 
-class _Couch(object):
-    ''' CouchDB abstraction class '''
-    def __init__(self, host: str, database: str):
+class _SofterCouchDB(object):
+    ''' A CouchDB client interface with a gentle touch '''
+    def __init__(self, url:str, database:str, timeout:timedelta, **kwargs):
         '''
-        Initialise the CouchDB interface
+        Acquire a connection with the CouchDB database
 
-        @param  host      CouchDB host URL
-        @param  database  Database name
+        @param   url       CouchDB server URL
+        @param   database  Database name
+        @param   timeout   Connection timeout
+        @kwargs  Additional constructor parameters to
+                 pycouchdb.client.Server should be passed through here
         '''
-        self.host     = host
-        self.database = database
+        self._url = url
+        self._timeout = timeout.total_seconds()
 
-        self._couch   = None
-        self._db      = None
-        self._designs = {}
+        # Set up pycouchdb constructor arguments and instantiate
+        self._server = Server(**{
+            'base_url':    url,
+            'verify':      False,
+            'full_commit': True,
+            'authmethod':  'basic',
+            **kwargs
+        })
 
-        # Thread locks for CouchDB documents
-        self._doclox = defaultdict(Lock)
+        # Connect
+        self._db = self._make_it_check(self._connect)(self, database)
 
-    def connect(self):
+        # Monkey-patch the available database methods,
+        # decorated with connection checking
+        for member in dir(self._db):
+            if callable(getattr(self._db, member)) and not member.startswith('_'):
+                setattr(self.__class__, member, self._make_it_check(getattr(self._db, member)))
+
+    def _connect(self, database:str) -> Database:
         '''
-        Acquire connection with the CouchDB host and use (and create)
-        the database and any predefined design documents
-        '''
-        if not self._db:
-            self._couch = Server(self.host)
+        Connect to (or create, if it doesn't exist) a database
 
+        @param   database  Database name
+        @return  Database object
+        '''
+        try:
+            db = self._server.database(database)
+        except NotFound:
+            db = self._server.create(database)
+
+        return db
+
+    def _make_it_check(self, fn:Callable[..., Any]) -> Callable[..., Any]:
+        '''
+        Decorator that checks the database connection before executing
+        the function; if the connection is unresponsive or otherwise
+        invalid, an exception is thrown instead
+
+        @param   fn  Function to decorate
+        @return  Decorated function
+        '''
+        def wrapper(cls, *args, **kwargs):
             try:
-                self._db = self._couch.create(self.database)
-            except Conflict:
-                self._db = self._couch.database(self.database)
+                # FIXME? What about authenticated services?
+                response = head(self._url, timeout=self._timeout)
+            except Timeout:
+                raise _UnresponsiveCouchDB
+            except:
+                raise _ErroneousCouchDB
 
-        self._push_designs()
+            if response.status_code != 200:
+                raise _ErroneousCouchDB
 
-    def _check_connection(self):
-        ''' Raise an exception if there is no connection '''
-        if not self._db:
-            raise ConnectionError('Not connected to any database')
+            return fn(*args, **kwargs)
 
-    def fetch(self, key: str, revision: Optional[str] = None) -> Optional[dict]:
+        return wrapper
+
+
+class _UpsertBuffer(Listenable):
+    ''' Document buffer '''
+    def __init__(self, max_size:int = 100, latency:timedelta = timedelta(milliseconds=50)):
+        super().__init__()
+
+        if max_size == 0 or latency == timedelta(0):
+            raise TypeError('Buffer must have a non-trivial maximum size and latency')
+
+        self._max_size = max_size
+        self._latency = latency
+
+        self._lock = Lock()
+        self.data = []
+        self.last_updated = datetime.now()
+
+        # Start the watcher
+        self._watcher_thread = Thread(target=self._watcher, daemon=True)
+        self._thread_running = True
+        self._watcher_thread.start()
+
+    def __del__(self):
+        self._thread_running = False
+
+    def _discharge(self):
+        '''
+        Discharge the buffer (by pushing the data to listeners) when its
+        state requires so; i.e., when there is something listening and
+        either the buffer size or latency is exceeded
+        '''
+        with self._lock:
+            if len(self._listeners) and len(self.data):
+                latency = datetime.now() - self.last_updated
+                if len(self.data) >= self._max_size or latency >= self._latency:
+                    self.notify_listeners(deepcopy(self.data))
+                    self.data[:] = []
+                    self.last_updated = datetime.now()
+
+    def _watcher(self):
+        ''' Watcher thread for time-based discharging '''
+        zzz = self._latency.total_seconds() / 2
+
+        while self._thread_running:
+            self._discharge()
+            sleep(zzz)
+
+    def append(self, document:dict):
+        ''' Add a document to the buffer '''
+        with self._lock:
+            self.data.append(document)
+            self.last_updated = datetime.now()
+
+        # Force size-based discharging
+        self._discharge()
+
+
+class Sofabed(object):
+    ''' Buffered, append-optimised CouchDB interface '''
+    def __init__(self, url:str, database:str, max_buffer_size:int = 100,
+                                              buffer_latency:timedelta = timedelta(milliseconds=50),
+                                              **kwargs):
+        '''
+        Acquire a connection with the CouchDB server and initialise the
+        buffering queue
+
+        @param   url              CouchDB server URL
+        @param   database         Database name
+        @param   max_buffer_size  Maximum buffer size (no. of documents)
+        @param   buffer_latency   Buffer latency before discharge
+        @kwargs  Additional constructor parameters to
+                 pycouchdb.client.Server should be passed through here
+        '''
+        self._db = _SofterCouchDB(url, database, _COUCHDB_TIMEOUT, **kwargs)
+
+        self._queue_lock = Lock()
+        self._upsert_queue = deque()
+
+        self._buffer_lock = Lock()
+        self._buffer = _UpsertBuffer(max_buffer_size, buffer_latency)
+        self._buffer.add_listener(self._enqueue_buffer)
+
+        self._watcher_thread = Thread(target=self._watcher, daemon=True)
+        self._thread_running = True
+        self._watcher_thread.start()
+
+    def __del__(self):
+        self._thread_running = False
+
+    def _enqueue_buffer(self, data:Any):
+        '''
+        Enqueue discharged buffer data to the upsert queue; should be
+        used as the buffer's listener
+
+        @param   data  Buffer data
+
+        WARNING The upsert queue only exists in memory; if the
+        application were to fail, the discharged buffers that are
+        waiting would be lost
+        '''
+        with self._queue_lock:
+            self._upsert_queue.append(data)
+
+        # Force upsert attempt
+        self._upsert_from_queue()
+
+    def _upsert_from_queue(self):
+        '''
+        Attempt to dequeue and upsert the data from the upsert queue
+        into CouchDB; if the upsert fails, then the data is requeued
+        '''
+        with self._queue_lock:
+            if len(self._upsert_queue):
+                documents = self._upsert_queue.popleft()
+
+                # Get revision IDs of documents
+                document_ids = [x['_id'] for x in documents]
+                revision_ids = {
+                    x['id']: x['value']['rev']
+                    for x in self._db.all(keys=document_ids, include_docs=False)
+                    if 'id' in x
+                }
+
+                # Merge revision IDs to avoid resource conflicts
+                to_upload = deepcopy(documents)
+                for document in to_upload:
+                    if document['_id'] in revision_ids:
+                        document['_rev'] = revision_ids[document['_id']]
+
+                # Upload, or requeue on failure
+                try:
+                    _ = self._db.save_bulk(to_upload)
+                    # TODO? Requeue difference, if there is any
+                except _UnresponsiveCouchDB:
+                    self._upsert_queue.appendleft(documents)
+
+    def _watcher(self):
+        ''' Periodically check the queue for pending upserts '''
+        zzz = _COUCHDB_TIMEOUT.total_seconds() * 2
+
+        while self._thread_running:
+            self._upsert_from_queue()
+            sleep(zzz)
+
+    def fetch(self, key:str, revision:Optional[str] = None) -> Optional[dict]:
         '''
         Get a database document by its ID and, optionally, revision
 
-        @param  key       Document ID
-        @param  revision  Revision ID
-        @return Database document (or None, if not found)
+        @param   key       Document ID
+        @param   revision  Revision ID
+        @return  Database document (or None, if not found)
         '''
-        self._check_connection()
-
         try:
             if not revision:
                 output = self._db.get(key)
@@ -231,483 +400,383 @@ class _Couch(object):
 
         return output
 
-    def _upsert_raw(self, key: str, data: dict) -> str:
+    def upsert(self, data:dict, key:Optional[str] = None):
         '''
-        Insert or update raw data by ID
+        Upsert document into CouchDB, via the buffer and upsert queue
 
-        @param  key   Document ID
-        @param  data  Data dictionary
-        @return The revision ID for the document
+        @param   data  Document data
+        @param   key   Document ID
 
-        n.b., If the document hasn't changed since the current revision,
-        then no insert is performed and that revision's ID will be
-        returned
-
-        n.b., The `update` method, which uses a defined update handler,
-        should be used in most cases
+        NOTE If the document ID is not provided and the document data
+        does not contain an '_id' member, then a key will be generated
         '''
-        self._check_connection()
-        new_data = _decouch(data)
+        with self._buffer_lock:
+            if '_rev' in data:
+                del data['_rev']
 
-        with self._doclox[key]:
-            try:
-                current_doc  = self._db.get(key)
+            self._buffer.append({'_id':key or uuid4().hex, **data})
 
-                if new_data != _decouch(current_doc):
-                    # To avoid update conflicts, we must explicitly set
-                    # the revision key to the latest
-                    new_data['_id']  = key
-                    new_data['_rev'] = current_doc['_rev']
-
-                    new_data = self._db.save(new_data)
-
-                else:
-                    # No change required
-                    new_data = current_doc
-
-            except NotFound:
-                # Insert
-                new_data['_id'] = key
-                new_data = self._db.save(new_data)
-
-        return new_data['_rev']
-
-    #### BROKEN ########################################################
-    # pycouchdb does not support update handlers
-    def upsert(self, design: str, update: str, key: Optional[str] = None, **options) -> Optional[dict]:
-        '''
-        Invoke an update handler
-
-        @param  design   Design document name
-        @param  view     View name
-        @param  key      Document ID to update (None for insert)
-        @param  options  Query string options for CouchDB
-        @return Updated document (or None, on failure)
-        '''
-        self._check_connection()
-
-        # Check handler exists
-        doc = self.fetch('_design/{}'.format(design))
-        if not doc or 'updates' not in doc or update not in doc['updates']:
-            return None
-
-        # A new key for a new document
-        if not key:
-            key = uuid4().hex
-
-        with self._doclox[key]:
-            update_name = '{}/{}'.format(design, update)
-            res_headers, res_body = self._db.update_doc(update_name, key, **options)
-
-        # Decode the response body
-        charset = res_headers.get_content_charset() or 'UTF8'
-        response = res_body.getvalue().decode(charset)
-
-        if response == 'created':
-            return self.fetch(key)
-
-        elif response == 'changed':
-            revision = res_headers.get('X-Couch-Update-NewRev')
-            return self.fetch(key, revision)
-
-        else:
-            return None
-    ####################################################################
-
-    def query(self, design: str, view: str, wrapper: Optional[Callable[Generator, Any]] = None, **options) -> Optional[Generator]:
+    def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Optional[Generator]:
         '''
         Query a predefined view
 
-        @param  design   Design document name
-        @param  view     View name
-        @param  wrapper  Wrapper function applied over result rows
-        @param  options  Query string options for CouchDB
-        @return ViewResults iterable (or None, if no such view)
+        @param   design   Design document name
+        @param   view     View name
+        @param   wrapper  Wrapper function applied over result rows
+        @kwargs  Query string options for CouchDB
+        @return  Results generator
         '''
-        self._check_connection()
-
         # Check view exists
         doc = self.fetch('_design/{}'.format(design))
         if not doc or 'views' not in doc or view not in doc['views']:
             return None
 
         view_name = '{}/{}'.format(design, view)
-        return self._db.query(view_name, wrapper, **options)
+        return self._db.query(view_name, wrapper=wrapper, **kwargs)
 
-    def _define_design(self, name: str) -> dict:
+    def define_view(self, design:str, view:str, map_fn:str, reduce_fn:Optional[str] = None, language:Optional[str] = 'javascript'):
         '''
-        Define a JavaScript design document
+        Define and upsert a MapReduce view
 
-        @param  name  Design document name
+        @param   design     Design document name
+        @param   view       View name
+        @param   map_fn     Map function
+        @param   reduce_fn  Reduce function (optional)
+        @param   language   MapReduce function language (optional)
         '''
-        if name not in self._designs:
-            self._designs[name] = {'language': 'javascript'}
-        return self._designs[name]
+        design_doc_id = '_design/{}'.format(design)
 
-    def _push_designs(self):
-        ''' Push local design documents to the server '''
-        for name, design in self._designs.items():
-            # Upsert won't do anything if there are no changes...which
-            # is good, as it avoids CouchDB unnecessarily recalculating
-            # view indices
-            self._upsert_raw('_design/{}'.format(name), design)
+        design_doc = {
+            **(self.fetch(design_doc_id) or {}),
+            '_id': design_doc_id,
+            'language': language
+        }
 
-    def define_view(self, design: str, name: str, map_fn: str, reduce_fn: Optional[str] = None):
-        '''
-        Define a MapReduce view
+        if 'views' not in design_doc:
+            design_doc['views'] = {}
 
-        @param  design     Design document name
-        @param  name       View name
-        @param  map_fn     Map JavaScript function
-        @param  reduce_fn  Reduce JavaScript function (optional)
-        '''
-        doc = self._define_design(design)
-
-        # Make sure we have a `views` item
-        if 'views' not in doc:
-            doc['views'] = {}
-
-        # Create/overwrite view
-        doc['views'][name] = {'map': map_fn}
+        design_doc['views'][view] = {'map': map_fn}
         if reduce_fn:
-            doc['views'][name]['reduce'] = reduce_fn
+            design_doc['views'][view]['reduce'] = reduce_fn
 
-    #### BROKEN ########################################################
-    # This isn't broken, but it's no longer relevant
-    def define_update(self, design: str, name: str, handler_fn: str):
-        '''
-        Define an update handler
-
-        @param  design      Design document name
-        @param  name        Update handler name
-        @param  handler_fn  Update handler JavaScript function
-        '''
-        doc = self._define_design(design)
-
-        # Make sure we have an `updates` item
-        if 'updates' not in doc:
-            doc['updates'] = {}
-
-        # Create/overwrite update handler
-        doc['updates'][name] = handler_fn
-    ####################################################################
+        self.upsert(design_doc)
 
 
-class Bert(object):
-    ''' Interface to the queue database documents '''
-    @staticmethod
-    def _reset_processing(query_row: Row) -> Document:
-        '''
-        Wrapper function to query that converts returned result rows
-        into documents with their processing state reset
-        '''
-        doc = Document(query_row['value'])
-        doc['dirty']      = True
-        doc['processing'] = False
-        doc['queue_from'] = _now()
-
-        return doc
-
-    def __init__(self, host: str, database: str):
-        '''
-        Constructor: Connect to the database and create, wherever
-        necessary, the views and update handlers to provide the queue
-        management interface
-
-        @param  host      CouchDB host URL
-        @param  database  Database name
-        '''
-        self.db = _Couch(host, database)
-        self._define_schema()
-        self.db.connect()
-
-        # If there are any files marked as currently processing, this
-        # must be due to a previous failure. Reset all of these for
-        # immediate reprocessing
-        in_progress = self.db.query('queue', 'in_progress', Bert._reset_processing, reduce=False)
-        if len(in_progress):
-            # Use bulk update (i.e., single HTTP request) rather than
-            # invoking update handlers for each
-            self.db._db.update(in_progress.rows)
-
-    def _get_id(self, path: str) -> Optional[str]:
-        '''
-        Get queue document ID by file path
-
-        @param  path  File path
-        '''
-        results = self.db.query('queue', 'get_id', key=path, reduce=False)
-        return results.rows[0].value if len(results) else None
-
-    def queue_length(self) -> int:
-        '''
-        @return The current (for-processing) queue length
-        '''
-        results = self.db.query('queue', 'to_process', endkey = _now(),
-                                                       reduce = True,
-                                                       group  = False)
-
-        return results.rows[0].value if len(results) else 0
-
-    def mark_dirty(self, path: str, lead_time: timedelta = None):
-        '''
-        Mark a file as requiring, potentially delayed, (re)processing
-
-        @param  path       File path
-        @param  lead_time  Requeue lead time
-        '''
-        # Get document ID
-        doc_id = self._get_id(path)
-
-        if doc_id:
-            # Determine queue time
-            queue_from = _now()
-            if lead_time:
-                queue_from += lead_time.total_seconds()
-
-            self.db.upsert('queue', 'set_state', doc_id, dirty      = True,
-                                                         queue_from = queue_from)
-        else:
-            self.db.upsert('queue', 'set_state', location   = path,
-                                                 queue_from = _now())
-
-    def dequeue(self) -> Optional[str]:
-        '''
-        Get the next document on the queue and mark it as processing
-
-        @return File path (None, if empty queue)
-        '''
-        results = self.db.query('queue', 'to_process', endkey = _now(),
-                                                       reduce = False,
-                                                       limit  = 1)
-        if len(results):
-            latest    = results.rows[0]
-            key, path = latest.id, latest.value
-
-            self.db.upsert('queue', 'set_processing', key, processing=True)
-            return path
-    
-    def mark_finished(self, path: str):
-        '''
-        Mark a file as finished processing
-
-        @param  path  File path
-        '''
-        # Get document ID
-        doc_id = self._get_id(path)
-
-        if doc_id:
-            self.db.upsert('queue', 'set_processing', doc_id, processing=False)
-
-    def _define_schema(self):
-        ''' Define views and update handlers '''
-        # View: queue/to_process
-        # Queue documents marked as dirty and not currently processing
-        # Keyed by `queue_from`, set the endkey in queries appropriately
-        # Reduce to the number of items in the queue
-        self.db.define_view('queue', 'to_process',
-            map_fn = '''
-                function(doc) {
-                    if (doc.$queue && doc.dirty && !doc.processing) {
-                        emit(doc.queue_from, doc.location);
-                    }
-                }
-            ''',
-            reduce_fn = '_count'
-        )
-
-        # View: queue/in_progress
-        # Queue documents marked as currently processing
-        self.db.define_view('queue', 'in_progress',
-            map_fn = '''
-                function(doc) {
-                    if (doc.$queue && doc.processing) {
-                        emit(doc._id, doc)
-                    }
-                }
-            '''
-        )
-
-        # View: queue/get_id
-        # Queue documents, keyed by their file path
-        self.db.define_view('queue', 'get_id',
-            map_fn = '''
-                function (doc) {
-                    if (doc.$queue) {
-                        emit(doc.location, doc._id);
-                    }
-                }
-            '''
-        )
-
-        # Update handler: queue/set_state
-        # Create a new queue document (expects `location` in the query
-        # string), or update a queue document's dirty status (expects
-        # `dirty` in the query string and an optional `queue_from`)
-        self.db.define_update('queue', 'set_state',
-            handler_fn = '''
-                function(doc, req) {
-                    var q   = req.query || {},
-                        now = parseInt(q.queue_from || (Date.now() / 1000), 10);
-
-                    // Create new item in queue
-                    if (!doc && req.id && 'location' in q) {
-                        return [{
-                            _id:        req.id,
-                            $queue:     true,
-                            location:   q.location,
-                            dirty:      true,
-                            processing: false,
-                            queue_from: now
-                        }, 'created'];
-                    }
-
-                    // Update
-                    if (doc.$queue && 'dirty' in q) {
-                        doc.dirty      = (q.dirty == 'true');
-                        doc.queue_from = doc.dirty ? now : null;
-
-                        return [doc, 'changed'];
-                    }
-
-                    // Failure
-                    return [null, 'failed'];
-                }
-            '''
-        )
-
-        # Update handler: queue/set_processing
-        # Update a queue document's processing status
-        self.db.define_update('queue', 'set_processing',
-            handler_fn = '''
-                function(doc, req) {
-                    var q = req.query || {};
-
-                    // Update
-                    if (doc && doc.$queue && 'processing' in q) {
-                        doc.processing = (q.processing == 'true');
-                        if (doc.processing) {
-                            doc.dirty      = false;
-                            doc.queue_from = null;
-                        }
-
-                        return [doc, 'changed'];
-                    }
-
-                    // Failure
-                    return [null, 'failed'];
-                }
-            '''
-        )
-
-
-class Ernie(object):
-    ''' Interface to the metadata database documents '''
-    def __init__(self, host: str, database: str):
-        '''
-        Constructor: Connect to the database and create, wherever
-        necessary, the views and update handlers to provide the metadata
-        repository interface
-
-        @param  host      CouchDB host URL
-        @param  database  Database name
-        '''
-        self.db = _Couch(host, database)
-        self._define_schema()
-        self.db.connect()
-
-    def enrich(self, path: str, metadata: Enrichment):
-        '''
-        Add a metadata enrichment document to the repository for a file
-
-        @param  path      File path
-        @param  metadata  Metadata model
-        '''
-        req_body = _EnrichmentEncoder().encode(metadata)
-        self.db.upsert('metadata', 'append', location=path, body=req_body)
-
-    def get_metadata(self, path: str) -> Iterable:
-        '''
-        Get all the collected enrichments for a file
-
-        @param  path  File path
-        @return Iterable[Enrichment]
-        '''
-        results = self.db.query('metadata', 'collate', key=path, reduce=False)
-
-        output = [
-            Enrichment(source    = enrichment.value['source'],
-                       timestamp = datetime.fromtimestamp(enrichment.value['timestamp']),
-                       metadata  = Metadata(enrichment.value['metadata']))
-            for enrichment in results
-        ]
-
-        return sorted(output)
-
-    def _define_schema(self):
-        ''' Define views and update handlers '''
-        # View: metadata/collate
-        # Metadata (Enrichment) documents keyed by `location`
-        self.db.define_view('metadata', 'collate',
-            map_fn = '''
-                function(doc) {
-                    if (doc.$metadata) {
-                        emit(doc.location, {
-                            source:    doc.source,
-                            timestamp: doc.timestamp,
-                            metadata:  doc.metadata
-                        });
-                    }
-                }
-            '''
-        )
-
-        # Update handler: metadata/append
-        # Create a new metadata document from POST body, which is
-        # expected to be a JSON object containing `source`, `timestamp`
-        # and `metadata` members, assigned to the `location` from the
-        # query string
-        self.db.define_update('metadata', 'append',
-            handler_fn = '''
-                function(doc, req) {
-                    var q = req.query || {};
-
-                    // Create a new item in the repository
-                    if (!doc && req.id && 'location' in q) {
-                        var req_data,
-                            failure = false;
-
-                        // Parse request body
-                        try      { req_data = JSON.parse(req.body); }
-                        catch(e) { failure = true; }
-
-                        // Check keys exist
-                        if (req_data) {
-                            try {
-                                failure = !('source'    in req_data) ||
-                                          !('timestamp' in req_data) ||
-                                          !('metadata'  in req_data) ||
-                                          !(req_data.metadata instanceof Object);
-                            }
-                            catch(e) {
-                                failure = true;
-                            }
-                        }
-
-                        if (!failure) {
-                            return [{
-                                _id:       req.id,
-                                $metadata: true,
-                                location:  q.location,
-                                source:    req_data.source,
-                                timestamp: req_data.timestamp,
-                                metadata:  req_data.metadata
-                            }, 'created'];
-                        }
-                    }
-
-                    // Failure
-                    return [null, 'failed'];
-                }
-            '''
-        )
+#class Bert(object):
+#    ''' Interface to the queue database documents '''
+#    @staticmethod
+#    def _reset_processing(query_row: Row) -> Document:
+#        '''
+#        Wrapper function to query that converts returned result rows
+#        into documents with their processing state reset
+#        '''
+#        doc = Document(query_row['value'])
+#        doc['dirty']      = True
+#        doc['processing'] = False
+#        doc['queue_from'] = _now()
+#
+#        return doc
+#
+#    def __init__(self, host: str, database: str):
+#        '''
+#        Constructor: Connect to the database and create, wherever
+#        necessary, the views and update handlers to provide the queue
+#        management interface
+#
+#        @param  host      CouchDB host URL
+#        @param  database  Database name
+#        '''
+#        self.db = _Couch(host, database)
+#        self._define_schema()
+#        self.db.connect()
+#
+#        # If there are any files marked as currently processing, this
+#        # must be due to a previous failure. Reset all of these for
+#        # immediate reprocessing
+#        in_progress = self.db.query('queue', 'in_progress', Bert._reset_processing, reduce=False)
+#        if len(in_progress):
+#            # Use bulk update (i.e., single HTTP request) rather than
+#            # invoking update handlers for each
+#            self.db._db.update(in_progress.rows)
+#
+#    def _get_id(self, path: str) -> Optional[str]:
+#        '''
+#        Get queue document ID by file path
+#
+#        @param  path  File path
+#        '''
+#        results = self.db.query('queue', 'get_id', key=path, reduce=False)
+#        return results.rows[0].value if len(results) else None
+#
+#    def queue_length(self) -> int:
+#        '''
+#        @return The current (for-processing) queue length
+#        '''
+#        results = self.db.query('queue', 'to_process', endkey = _now(),
+#                                                       reduce = True,
+#                                                       group  = False)
+#
+#        return results.rows[0].value if len(results) else 0
+#
+#    def mark_dirty(self, path: str, lead_time: timedelta = None):
+#        '''
+#        Mark a file as requiring, potentially delayed, (re)processing
+#
+#        @param  path       File path
+#        @param  lead_time  Requeue lead time
+#        '''
+#        # Get document ID
+#        doc_id = self._get_id(path)
+#
+#        if doc_id:
+#            # Determine queue time
+#            queue_from = _now()
+#            if lead_time:
+#                queue_from += lead_time.total_seconds()
+#
+#            self.db.upsert('queue', 'set_state', doc_id, dirty      = True,
+#                                                         queue_from = queue_from)
+#        else:
+#            self.db.upsert('queue', 'set_state', location   = path,
+#                                                 queue_from = _now())
+#
+#    def dequeue(self) -> Optional[str]:
+#        '''
+#        Get the next document on the queue and mark it as processing
+#
+#        @return File path (None, if empty queue)
+#        '''
+#        results = self.db.query('queue', 'to_process', endkey = _now(),
+#                                                       reduce = False,
+#                                                       limit  = 1)
+#        if len(results):
+#            latest    = results.rows[0]
+#            key, path = latest.id, latest.value
+#
+#            self.db.upsert('queue', 'set_processing', key, processing=True)
+#            return path
+#    
+#    def mark_finished(self, path: str):
+#        '''
+#        Mark a file as finished processing
+#
+#        @param  path  File path
+#        '''
+#        # Get document ID
+#        doc_id = self._get_id(path)
+#
+#        if doc_id:
+#            self.db.upsert('queue', 'set_processing', doc_id, processing=False)
+#
+#    def _define_schema(self):
+#        ''' Define views and update handlers '''
+#        # View: queue/to_process
+#        # Queue documents marked as dirty and not currently processing
+#        # Keyed by `queue_from`, set the endkey in queries appropriately
+#        # Reduce to the number of items in the queue
+#        self.db.define_view('queue', 'to_process',
+#            map_fn = '''
+#                function(doc) {
+#                    if (doc.$queue && doc.dirty && !doc.processing) {
+#                        emit(doc.queue_from, doc.location);
+#                    }
+#                }
+#            ''',
+#            reduce_fn = '_count'
+#        )
+#
+#        # View: queue/in_progress
+#        # Queue documents marked as currently processing
+#        self.db.define_view('queue', 'in_progress',
+#            map_fn = '''
+#                function(doc) {
+#                    if (doc.$queue && doc.processing) {
+#                        emit(doc._id, doc)
+#                    }
+#                }
+#            '''
+#        )
+#
+#        # View: queue/get_id
+#        # Queue documents, keyed by their file path
+#        self.db.define_view('queue', 'get_id',
+#            map_fn = '''
+#                function (doc) {
+#                    if (doc.$queue) {
+#                        emit(doc.location, doc._id);
+#                    }
+#                }
+#            '''
+#        )
+#
+#        # Update handler: queue/set_state
+#        # Create a new queue document (expects `location` in the query
+#        # string), or update a queue document's dirty status (expects
+#        # `dirty` in the query string and an optional `queue_from`)
+#        self.db.define_update('queue', 'set_state',
+#            handler_fn = '''
+#                function(doc, req) {
+#                    var q   = req.query || {},
+#                        now = parseInt(q.queue_from || (Date.now() / 1000), 10);
+#
+#                    // Create new item in queue
+#                    if (!doc && req.id && 'location' in q) {
+#                        return [{
+#                            _id:        req.id,
+#                            $queue:     true,
+#                            location:   q.location,
+#                            dirty:      true,
+#                            processing: false,
+#                            queue_from: now
+#                        }, 'created'];
+#                    }
+#
+#                    // Update
+#                    if (doc.$queue && 'dirty' in q) {
+#                        doc.dirty      = (q.dirty == 'true');
+#                        doc.queue_from = doc.dirty ? now : null;
+#
+#                        return [doc, 'changed'];
+#                    }
+#
+#                    // Failure
+#                    return [null, 'failed'];
+#                }
+#            '''
+#        )
+#
+#        # Update handler: queue/set_processing
+#        # Update a queue document's processing status
+#        self.db.define_update('queue', 'set_processing',
+#            handler_fn = '''
+#                function(doc, req) {
+#                    var q = req.query || {};
+#
+#                    // Update
+#                    if (doc && doc.$queue && 'processing' in q) {
+#                        doc.processing = (q.processing == 'true');
+#                        if (doc.processing) {
+#                            doc.dirty      = false;
+#                            doc.queue_from = null;
+#                        }
+#
+#                        return [doc, 'changed'];
+#                    }
+#
+#                    // Failure
+#                    return [null, 'failed'];
+#                }
+#            '''
+#        )
+#
+#
+#class Ernie(object):
+#    ''' Interface to the metadata database documents '''
+#    def __init__(self, host: str, database: str):
+#        '''
+#        Constructor: Connect to the database and create, wherever
+#        necessary, the views and update handlers to provide the metadata
+#        repository interface
+#
+#        @param  host      CouchDB host URL
+#        @param  database  Database name
+#        '''
+#        self.db = _Couch(host, database)
+#        self._define_schema()
+#        self.db.connect()
+#
+#    def enrich(self, path: str, metadata: Enrichment):
+#        '''
+#        Add a metadata enrichment document to the repository for a file
+#
+#        @param  path      File path
+#        @param  metadata  Metadata model
+#        '''
+#        req_body = _EnrichmentEncoder().encode(metadata)
+#        self.db.upsert('metadata', 'append', location=path, body=req_body)
+#
+#    def get_metadata(self, path: str) -> Iterable:
+#        '''
+#        Get all the collected enrichments for a file
+#
+#        @param  path  File path
+#        @return Iterable[Enrichment]
+#        '''
+#        results = self.db.query('metadata', 'collate', key=path, reduce=False)
+#
+#        output = [
+#            Enrichment(source    = enrichment.value['source'],
+#                       timestamp = datetime.fromtimestamp(enrichment.value['timestamp']),
+#                       metadata  = Metadata(enrichment.value['metadata']))
+#            for enrichment in results
+#        ]
+#
+#        return sorted(output)
+#
+#    def _define_schema(self):
+#        ''' Define views and update handlers '''
+#        # View: metadata/collate
+#        # Metadata (Enrichment) documents keyed by `location`
+#        self.db.define_view('metadata', 'collate',
+#            map_fn = '''
+#                function(doc) {
+#                    if (doc.$metadata) {
+#                        emit(doc.location, {
+#                            source:    doc.source,
+#                            timestamp: doc.timestamp,
+#                            metadata:  doc.metadata
+#                        });
+#                    }
+#                }
+#            '''
+#        )
+#
+#        # Update handler: metadata/append
+#        # Create a new metadata document from POST body, which is
+#        # expected to be a JSON object containing `source`, `timestamp`
+#        # and `metadata` members, assigned to the `location` from the
+#        # query string
+#        self.db.define_update('metadata', 'append',
+#            handler_fn = '''
+#                function(doc, req) {
+#                    var q = req.query || {};
+#
+#                    // Create a new item in the repository
+#                    if (!doc && req.id && 'location' in q) {
+#                        var req_data,
+#                            failure = false;
+#
+#                        // Parse request body
+#                        try      { req_data = JSON.parse(req.body); }
+#                        catch(e) { failure = true; }
+#
+#                        // Check keys exist
+#                        if (req_data) {
+#                            try {
+#                                failure = !('source'    in req_data) ||
+#                                          !('timestamp' in req_data) ||
+#                                          !('metadata'  in req_data) ||
+#                                          !(req_data.metadata instanceof Object);
+#                            }
+#                            catch(e) {
+#                                failure = true;
+#                            }
+#                        }
+#
+#                        if (!failure) {
+#                            return [{
+#                                _id:       req.id,
+#                                $metadata: true,
+#                                location:  q.location,
+#                                source:    req_data.source,
+#                                timestamp: req_data.timestamp,
+#                                metadata:  req_data.metadata
+#                            }, 'created'];
+#                        }
+#                    }
+#
+#                    // Failure
+#                    return [null, 'failed'];
+#                }
+#            '''
+#        )
