@@ -62,8 +62,7 @@ class BasicProcessor(Processor):
     def handle_cookie_enrichment(self, cookie: Cookie):
         logging.info("Checking if any of the %d enrichment loader(s) can load enrichment for cookie with path \"%s\""
                      % (len(self.enrichment_loaders), cookie.path))
-        # FIXME: EnrichmentManager should take an iterable
-        enrichment_manager = EnrichmentManager(ListDataSource(self.enrichment_loaders))
+        enrichment_manager = EnrichmentManager(self.enrichment_loaders)
         enrichment = enrichment_manager.next_enrichment(cookie)
 
         if enrichment is None:

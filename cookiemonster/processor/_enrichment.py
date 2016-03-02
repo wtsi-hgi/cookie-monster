@@ -1,7 +1,7 @@
 import logging
 import re
 from queue import PriorityQueue
-from typing import Optional
+from typing import Optional, Iterable
 
 from hgicommon.data_source import DataSource, ListDataSource, RegisteringDataSource
 
@@ -13,12 +13,12 @@ class EnrichmentManager:
     """
     Manages the enrichment of cookies.
     """
-    def __init__(self, enrichment_loader_source: DataSource[EnrichmentLoader]=ListDataSource([])):
+    def __init__(self, enrichment_loaders: Iterable[EnrichmentLoader]=()):
         """
         Constructor.
-        :param enrichment_loader_source: the source of enrichment loaders
+        :param enrichment_loaders: the source of enrichment loaders
         """
-        self.enrichment_loader_source = enrichment_loader_source
+        self.enrichment_loaders = enrichment_loaders
 
     def next_enrichment(self, cookie: Cookie) -> Optional[Enrichment]:
         """
@@ -28,9 +28,8 @@ class EnrichmentManager:
         :param cookie: the data already known
         :return: the loaded enrichment
         """
-        enrichment_loaders = self.enrichment_loader_source.get_all()
         enrichment_loaders_priority_queue = PriorityQueue()
-        for enrichment_loader in enrichment_loaders:
+        for enrichment_loader in self.enrichment_loaders:
             enrichment_loaders_priority_queue.put(enrichment_loader)
 
         while not enrichment_loaders_priority_queue.empty():

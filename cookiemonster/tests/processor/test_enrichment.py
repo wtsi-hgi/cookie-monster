@@ -6,7 +6,6 @@ from typing import Iterable
 from unittest.mock import MagicMock
 
 from hgicommon.collections import Metadata
-from hgicommon.data_source import ListDataSource
 
 from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.processor._enrichment import EnrichmentManager, EnrichmentLoaderSource
@@ -26,7 +25,7 @@ class TestEnrichmentManager(unittest.TestCase):
         ]
 
     def test_next_enrichment(self):
-        enrichment_manager = EnrichmentManager(ListDataSource(self.enrichment_loaders))
+        enrichment_manager = EnrichmentManager(self.enrichment_loaders)
         self._test_loaded_in_correct_order(enrichment_manager, self.enrichment_loaders)
 
     def test_resilience_to_broken_enrichment_loaders(self):
@@ -42,7 +41,7 @@ class TestEnrichmentManager(unittest.TestCase):
                     lambda *args: faulty_can_enrich(1), lambda *args: Enrichment("", datetime.min, Metadata()), 5),
             EnrichmentLoader(lambda *args: True, lambda *args: faulty_load_enrichment(2), 15)
         ]
-        enrichment_manager = EnrichmentManager(ListDataSource(additional_enrichment_loaders + self.enrichment_loaders))
+        enrichment_manager = EnrichmentManager(additional_enrichment_loaders + self.enrichment_loaders)
 
         self._test_loaded_in_correct_order(enrichment_manager, self.enrichment_loaders)
 

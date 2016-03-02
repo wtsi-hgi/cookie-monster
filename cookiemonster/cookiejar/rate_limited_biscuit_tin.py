@@ -1,4 +1,3 @@
-import logging
 from datetime import timedelta
 from threading import Semaphore, Timer
 from typing import Optional

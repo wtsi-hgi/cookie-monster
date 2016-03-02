@@ -6,7 +6,7 @@ Simply deciding what Cookies to eat...
 
 
 ## Summary
-1. Data retrievers can be setup to periodically pull information into the system.
+1. Data retrievers can be setup to pull information into the system.
 2. The information is aggregated in a knowledge base, grouped by its relation to a distinct data object.
 3. When more information becomes known about a data object, a production rule system is ran using rules that may have 
 arbitrarily complex preconditions and have productions that can trigger arbitrarily complex processing, via a 
@@ -60,7 +60,8 @@ have been enriched. Processors essentially implement a production rule system, w
 order of priority. If a rule's precondition is matched, its action is triggered: this action may specify a set of
 Notifications that are broadcast to any Notification Receivers, in addition to whether any more rules should be 
 evaluated. Notification Receivers can be used to take any action upon been given a notification. In the case where no 
-rules are matched, the Processor will check if the Cookie can be enriched further using an Enrichment Loader.
+rules are matched, the Processor will check if the Cookie can be enriched further using an Enrichment Loader and put 
+any extra information into the knowledge base.
 
 A simple implementation of a Processor Manager (named `BasicProcessorManager`) is supplied. This can be constructed as
 such:
@@ -110,7 +111,8 @@ To delete a pre-existing rule, delete the file containing it or remove the relev
 rule, simply change its code and it will be updated in Cookie Monster when it is saved.
 
 ##### Examples
-Please see the [rules used in the HGI Cookie Monster setup](https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/rules).
+Please see the [rules used in the HGI Cookie Monster setup]
+(https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/rules).
 
 
 #### Notification Receivers
@@ -134,7 +136,8 @@ register(_notification_receiver)
 ```
 
 ##### Examples
-Please see the [notification receivers used in the HGI Cookie Monster setup](https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/notification_receivers).
+Please see the [notification receivers used in the HGI Cookie Monster setup]
+(https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/notification_receivers).
 
 
 #### Cookie Enrichments
@@ -162,7 +165,8 @@ register(_enrichment_loader)
 ```
 
 ##### Examples
-Please see the [enrichment loaders used in the HGI Cookie Monster setup](https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/enrichment_loaders).
+Please see the [enrichment loaders used in the HGI Cookie Monster setup]
+(https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/enrichment_loaders).
 
 
 ### Data retrievers
@@ -184,9 +188,10 @@ retrieval_manager = PeriodicRetrievalManager(retrieval_period, update_mapper, re
 Then linked to a CookieJar by:
 ```python
 def put_updates_in_cookie_jar(update_collection: UpdateCollection):
-    for update in update_collection:
-        enrichment = Enrichment("irods_update", datetime.now(), update.metadata)
-        Thread(target=cookie_jar.enrich_cookie, args=(update.target, enrichment)).start()
+    with ThreadPoolExecutor(max_workers=number_of_threads) as executor:
+        for update in update_collection:
+            enrichment = Enrichment("irods_update", datetime.now(), update.metadata)
+            executor.submit(timed_enrichment, update.target, enrichment)
 retrieval_manager.add_listener(put_updates_in_cookie_jar)
 ```
 
