@@ -48,8 +48,7 @@ sleep separately...it's all part of life's rich tapestry.
 Bert (Queue Management DBI)
 ---------------------------
 `Bert` provides an interface with queue management documents on a
-CouchDB database and should be instantiated with the database host and
-name.
+CouchDB database and should be instantiated with a Sofabed.
 
 Methods:
 
@@ -74,7 +73,7 @@ Document schema:
 Ernie (Metadata Repository DBI)
 -------------------------------
 `Ernie` provides an interface with metadata documents on a CouchDB
-database and should be instantiated with the database host and name.
+database and should be instantiated with a Sofabed.
 
 Methods:
 
@@ -131,12 +130,12 @@ Copyright (c) 2015, 2016 Genome Research Limited
 #            'metadata':  enrichment.metadata._data
 #        }
 
-from typing import Any, Callable, Optional, Generator
 from collections import deque
+from copy import deepcopy
 from datetime import datetime, timedelta
 from threading import Lock, Thread
-from copy import deepcopy
 from time import sleep
+from typing import Any, Callable, Generator, Optional
 from uuid import uuid4
 
 from requests import head, Timeout
@@ -416,7 +415,7 @@ class Sofabed(object):
 
             self._buffer.append({'_id':key or uuid4().hex, **data})
 
-    def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Optional[Generator]:
+    def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Generator:
         '''
         Query a predefined view
 
@@ -429,7 +428,7 @@ class Sofabed(object):
         # Check view exists
         doc = self.fetch('_design/{}'.format(design))
         if not doc or 'views' not in doc or view not in doc['views']:
-            return None
+            raise NotFound
 
         view_name = '{}/{}'.format(design, view)
         return self._db.query(view_name, wrapper=wrapper, **kwargs)
