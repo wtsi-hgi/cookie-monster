@@ -23,9 +23,9 @@ Each insert/update will be added to a buffer. If the time between that
 and the next is less than the discharge latency, then the next will be
 added to the same buffer. This will continue until either the latency
 between updates exceeds the discharge latency or the maximum buffer size
-(number of documents, rather than bytes): At which point, that buffer
-will be discharged into an update queue and ultimately, presuming it's
-available, batch pushed into the database.
+(number of documents, rather than bytes) has been reached: At which
+point, that buffer will be discharged into an update queue and
+ultimately, presuming it's available, batch pushed into the database.
 
 The Sofabed object will gracefully manage document conflicts and any
 connection problems it may have with the database.
@@ -40,10 +40,28 @@ Methods:
 
 * `query` Query a predefined view
 
-* `define_view` Define a MapReduce view
+* `create_design` Create a new, in-memory design document
+
+* `get_design` Get an in-memory design document by name
+
+* `commit_designs` Commit all in-memory designs to the database
 
 Bert and Ernie can share a sofabed (i.e., use the same database), or
 sleep separately...it's all part of life's rich tapestry.
+
+_DesignDocument
+---------------
+Design documents, managed per the Sofabed.*_designs? methods, are
+represented in-memory via this class. This allows you to build up a
+design document in bits and commit it to the database all as one.
+
+Methods:
+
+* `define_view` Define a MapReduce view
+
+Note that design documents are committed to the database on demand and
+as needed (i.e., when a change is detected), rather than through any
+batching process.
 
 Bert (Queue Management DBI)
 ---------------------------
@@ -237,6 +255,66 @@ class _SofterCouchDB(object):
         return wrapper
 
 
+class _DesignDocument(object):
+    ''' Design document model '''
+    def __init__(self, db:_SofterCouchDB, name:str, language='javascript'):
+        self._db = db
+        self.design_id = '_design/{}'.format(name)
+
+        # Synchronise the design with what already exists
+        try:
+            current_design = self._db.get(self.design_id)
+        except NotFound:
+            current_design = {}
+
+        self._design = {
+            **current_design,
+            '_id': self.design_id,
+            'language': language
+        }
+
+        self._design_dirty = (self._design != current_design)
+
+    def _commit(self):
+        ''' Commit the design to the database, if it has changed '''
+        if self._design_dirty:
+            do_update = True
+
+            try:
+                current_doc = self._db.get(self.design_id)
+
+                # Update, if changed
+                self._design['_rev'] = current_doc['_rev']
+                do_update = (current_doc != self._design)
+
+            except NotFound:
+                # Insert new
+                if '_rev' in self._design:
+                    del self._design['_rev']
+
+            if do_update:
+                self._db.save(self._design)
+
+    def define_view(self, name:str, map_fn:str, reduce_fn:Optional[str] = None):
+        '''
+        Define a MapReduce view
+
+        @param   name       View name
+        @param   map_fn     Map function
+        @param   reduce_fn  Reduce function (optional)
+        '''
+        # Ensure the design document has a `views` member
+        if 'views' not in self._design:
+            self._design['views'] = {}
+
+        self._design['views'][name] = {'map': map_fn}
+        if reduce_fn:
+            self._design['views'][name]['reduce'] = reduce_fn
+
+        # This is probably true
+        self._design_dirty = True
+
+
 class _UpsertBuffer(Listenable):
     ''' Document buffer '''
     def __init__(self, max_size:int = 100, latency:timedelta = timedelta(milliseconds=50)):
@@ -307,6 +385,9 @@ class Sofabed(object):
         '''
         self._db = _SofterCouchDB(url, database, _COUCHDB_TIMEOUT, **kwargs)
 
+        self._designs = []
+        self._designs_dirty = False
+
         self._queue_lock = Lock()
         self._upsert_queue = deque()
 
@@ -355,7 +436,7 @@ class Sofabed(object):
                     if 'id' in x
                 }
 
-                # Merge revision IDs to avoid resource conflicts
+                # Merge revision IDs to avoid update conflicts
                 to_upload = deepcopy(documents)
                 for document in to_upload:
                     if document['_id'] in revision_ids:
@@ -363,8 +444,8 @@ class Sofabed(object):
 
                 # Upload, or requeue on failure
                 try:
-                    _ = self._db.save_bulk(to_upload)
-                    # TODO? Requeue difference, if there is any
+                    _ = self._db.save_bulk(to_upload, transaction=True)
+                    # TODO? Requeue on transaction failure
                 except _UnresponsiveCouchDB:
                     self._upsert_queue.appendleft(documents)
 
@@ -434,71 +515,121 @@ class Sofabed(object):
         view_name = '{}/{}'.format(design, view)
         return self._db.query(view_name, wrapper=wrapper, **kwargs)
 
-    def define_view(self, design:str, view:str, map_fn:str, reduce_fn:Optional[str] = None, language:Optional[str] = 'javascript'):
+    def create_design(self, name:str) -> _DesignDocument:
         '''
-        Define and upsert a MapReduce view
+        Append a new design document
 
-        @param   design     Design document name
-        @param   view       View name
-        @param   map_fn     Map function
-        @param   reduce_fn  Reduce function (optional)
-        @param   language   MapReduce function language (optional)
+        @param   name  Design document name
+        @return  The design document
         '''
-        design_doc_id = '_design/{}'.format(design)
+        new_design = _DesignDocument(self._db, name)
+        self._designs.append(new_design)
+        self._designs_dirty = True
+        return new_design
 
-        design_doc = {
-            **(self.fetch(design_doc_id) or {}),
-            '_id': design_doc_id,
-            'language': language
+    def get_design(self, name:str) -> Optional[_DesignDocument]:
+        '''
+        Get an in-memory design document by name
+
+        @param   name  Design document name
+        @return  The design document (None, if not found)
+        '''
+        design_id = '_design/{}'.format(name)
+        return next((
+            design
+            for design in self._designs
+            if  design.design_id == design_id
+        ), None)
+
+    def commit_designs(self):
+        '''
+        Commit all design documents to the database
+        '''
+        if self._designs_dirty:
+            for design in self._designs:
+                design._commit()
+            self._designs_dirty = False
+
+
+class Bert(object):
+    ''' Interface to the queue database documents '''
+    @staticmethod
+    def _reset_processing(row:dict) -> dict:
+        '''
+        Wrapper function that resets the processing state of the results
+        returned from the queue/in_progress view
+        '''
+        return {
+            **row['value'],
+            'dirty':      True,
+            'processing': False,
+            'queue_from': _now()
         }
 
-        if 'views' not in design_doc:
-            design_doc['views'] = {}
+    def __init__(self, sofa:Sofabed):
+        '''
+        Constructor: Create/update the views to provide the queue
+        management interface
 
-        design_doc['views'][view] = {'map': map_fn}
-        if reduce_fn:
-            design_doc['views'][view]['reduce'] = reduce_fn
+        @param   sofa  Sofabed object
+        '''
+        self.db = sofa
+        self._define_schema()
 
-        self.upsert(design_doc)
+        # If there are any files marked as currently processing, this
+        # must be due to a previous failure. Reset all of these for
+        # immediate reprocessing
+        in_progress = self.db.query('queue', 'in_progress', Bert._reset_processing, reduce=False)
+        for doc in in_progress:
+            self.db.upsert(doc)
+
+    def _define_schema(self):
+        ''' Define views '''
+        queue = self.db.create_design('queue')
+
+        # View: queue/to_process
+        # Queue documents marked as dirty and not currently processing
+        # Keyed by `queue_from`, set the endkey in queries appropriately
+        # Reduce to the number of items in the queue
+        queue.define_view('to_process',
+            map_fn = '''
+                function(doc) {
+                    if (doc.$queue && doc.dirty && !doc.processing) {
+                        emit(doc.queue_from, doc.location);
+                    }
+                }
+            ''',
+            reduce_fn = '_count'
+        )
+
+        # View: queue/in_progress
+        # Queue documents marked as currently processing
+        queue.define_view('in_progress',
+            map_fn = '''
+                function(doc) {
+                    if (doc.$queue && doc.processing) {
+                        emit(doc._id, doc)
+                    }
+                }
+            '''
+        )
+
+        # View: queue/get_id
+        # Queue documents, keyed by their file path
+        queue.define_view('get_id',
+            map_fn = '''
+                function (doc) {
+                    if (doc.$queue) {
+                        emit(doc.location, doc._id);
+                    }
+                }
+            '''
+        )
+
+        self.db.commit_designs()
 
 
 #class Bert(object):
-#    ''' Interface to the queue database documents '''
-#    @staticmethod
-#    def _reset_processing(query_row: Row) -> Document:
-#        '''
-#        Wrapper function to query that converts returned result rows
-#        into documents with their processing state reset
-#        '''
-#        doc = Document(query_row['value'])
-#        doc['dirty']      = True
-#        doc['processing'] = False
-#        doc['queue_from'] = _now()
-#
-#        return doc
-#
-#    def __init__(self, host: str, database: str):
-#        '''
-#        Constructor: Connect to the database and create, wherever
-#        necessary, the views and update handlers to provide the queue
-#        management interface
-#
-#        @param  host      CouchDB host URL
-#        @param  database  Database name
-#        '''
-#        self.db = _Couch(host, database)
-#        self._define_schema()
-#        self.db.connect()
-#
-#        # If there are any files marked as currently processing, this
-#        # must be due to a previous failure. Reset all of these for
-#        # immediate reprocessing
-#        in_progress = self.db.query('queue', 'in_progress', Bert._reset_processing, reduce=False)
-#        if len(in_progress):
-#            # Use bulk update (i.e., single HTTP request) rather than
-#            # invoking update handlers for each
-#            self.db._db.update(in_progress.rows)
-#
 #    def _get_id(self, path: str) -> Optional[str]:
 #        '''
 #        Get queue document ID by file path
@@ -568,106 +699,6 @@ class Sofabed(object):
 #        if doc_id:
 #            self.db.upsert('queue', 'set_processing', doc_id, processing=False)
 #
-#    def _define_schema(self):
-#        ''' Define views and update handlers '''
-#        # View: queue/to_process
-#        # Queue documents marked as dirty and not currently processing
-#        # Keyed by `queue_from`, set the endkey in queries appropriately
-#        # Reduce to the number of items in the queue
-#        self.db.define_view('queue', 'to_process',
-#            map_fn = '''
-#                function(doc) {
-#                    if (doc.$queue && doc.dirty && !doc.processing) {
-#                        emit(doc.queue_from, doc.location);
-#                    }
-#                }
-#            ''',
-#            reduce_fn = '_count'
-#        )
-#
-#        # View: queue/in_progress
-#        # Queue documents marked as currently processing
-#        self.db.define_view('queue', 'in_progress',
-#            map_fn = '''
-#                function(doc) {
-#                    if (doc.$queue && doc.processing) {
-#                        emit(doc._id, doc)
-#                    }
-#                }
-#            '''
-#        )
-#
-#        # View: queue/get_id
-#        # Queue documents, keyed by their file path
-#        self.db.define_view('queue', 'get_id',
-#            map_fn = '''
-#                function (doc) {
-#                    if (doc.$queue) {
-#                        emit(doc.location, doc._id);
-#                    }
-#                }
-#            '''
-#        )
-#
-#        # Update handler: queue/set_state
-#        # Create a new queue document (expects `location` in the query
-#        # string), or update a queue document's dirty status (expects
-#        # `dirty` in the query string and an optional `queue_from`)
-#        self.db.define_update('queue', 'set_state',
-#            handler_fn = '''
-#                function(doc, req) {
-#                    var q   = req.query || {},
-#                        now = parseInt(q.queue_from || (Date.now() / 1000), 10);
-#
-#                    // Create new item in queue
-#                    if (!doc && req.id && 'location' in q) {
-#                        return [{
-#                            _id:        req.id,
-#                            $queue:     true,
-#                            location:   q.location,
-#                            dirty:      true,
-#                            processing: false,
-#                            queue_from: now
-#                        }, 'created'];
-#                    }
-#
-#                    // Update
-#                    if (doc.$queue && 'dirty' in q) {
-#                        doc.dirty      = (q.dirty == 'true');
-#                        doc.queue_from = doc.dirty ? now : null;
-#
-#                        return [doc, 'changed'];
-#                    }
-#
-#                    // Failure
-#                    return [null, 'failed'];
-#                }
-#            '''
-#        )
-#
-#        # Update handler: queue/set_processing
-#        # Update a queue document's processing status
-#        self.db.define_update('queue', 'set_processing',
-#            handler_fn = '''
-#                function(doc, req) {
-#                    var q = req.query || {};
-#
-#                    // Update
-#                    if (doc && doc.$queue && 'processing' in q) {
-#                        doc.processing = (q.processing == 'true');
-#                        if (doc.processing) {
-#                            doc.dirty      = false;
-#                            doc.queue_from = null;
-#                        }
-#
-#                        return [doc, 'changed'];
-#                    }
-#
-#                    // Failure
-#                    return [null, 'failed'];
-#                }
-#            '''
-#        )
 #
 #
 #class Ernie(object):
