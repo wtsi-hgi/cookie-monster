@@ -124,7 +124,7 @@ GPLv3 or later
 Copyright (c) 2015, 2016 Genome Research Limited
 '''
 import json
-from collections import deque
+from collections import deque, OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
 from threading import Lock, Thread
@@ -429,27 +429,53 @@ class Sofabed(object):
         with self._queue_lock:
             if len(self._upsert_queue):
                 documents = self._upsert_queue.popleft()
+                to_rebuffer = []
 
-                # Get revision IDs of documents
-                document_ids = [x['_id'] for x in documents]
+                # Get unique documents (by ID) and find duplicates
+                document_ids = OrderedDict()
+                for index, doc in enumerate(documents):
+                    doc_id = doc['_id']
+
+                    if doc_id not in document_ids:
+                        document_ids[doc_id] = index
+
+                    else:
+                        # Duplicates should be requeued (rebuffering,
+                        # via upsert, would cause a deadlock)
+                        to_rebuffer.append(doc)
+
+                # Get revision IDs of unique documents
                 revision_ids = {
                     x['id']: x['value']['rev']
-                    for x in self._db.all(keys=document_ids, include_docs=False)
+                    for x in self._db.all(keys=list(document_ids.keys()), include_docs=False)
                     if 'id' in x
                 }
 
-                # Merge revision IDs to avoid update conflicts
-                to_upload = deepcopy(documents)
-                for document in to_upload:
-                    if document['_id'] in revision_ids:
-                        document['_rev'] = revision_ids[document['_id']]
+                # Unique documents with merged revision IDs where they
+                # already exist (to avoid update conflicts)
+                to_upload = [
+                    {
+                        **documents[index],
+                        **({'_rev': revision_ids[doc_id]} if doc_id in revision_ids else {})
+                    }
+                    for doc_id, index in document_ids.items()
+                ]
+
+                # Requeue duplicates
+                if len(to_rebuffer):
+                    self._upsert_queue.appendleft(to_rebuffer)
 
                 # Upload, or requeue on failure
                 try:
                     _ = self._db.save_bulk(to_upload, transaction=True)
                     # TODO? Requeue on transaction failure
+
                 except _UnresponsiveCouchDB:
-                    self._upsert_queue.appendleft(documents)
+                    # We don't want to requeue any revision IDs
+                    self._upsert_queue.appendleft([
+                        documents[index]
+                        for index in document_ids.values()
+                    ])
 
     def _watcher(self):
         ''' Periodically check the queue for pending upserts '''
@@ -575,19 +601,19 @@ class Bert(object):
 
         @param   sofa  Sofabed object
         '''
-        self.db = sofa
+        self._db = sofa
         self._define_schema()
 
         # If there are any files marked as currently processing, this
         # must be due to a previous failure. Reset all of these for
         # immediate reprocessing
-        in_progress = self.db.query('queue', 'in_progress', Bert._reset_processing, reduce=False)
+        in_progress = self._db.query('queue', 'in_progress', Bert._reset_processing, reduce=False)
         for doc in in_progress:
-            self.db.upsert(doc)
+            self._db.upsert(doc)
 
     def _define_schema(self):
         ''' Define views '''
-        queue = self.db.create_design('queue')
+        queue = self._db.create_design('queue')
 
         # View: queue/to_process
         # Queue documents marked as dirty and not currently processing
@@ -628,7 +654,7 @@ class Bert(object):
             '''
         )
 
-        self.db.commit_designs()
+        self._db.commit_designs()
 
 
 #class Bert(object):
