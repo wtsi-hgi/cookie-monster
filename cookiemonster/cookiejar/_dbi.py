@@ -105,36 +105,12 @@ License
 GPLv3 or later
 Copyright (c) 2015, 2016 Genome Research Limited
 '''
-
-# from json import JSONEncoder
-# from time import time, mktime
-# from typing import Any, Callable, Iterable, Optional, Generator
-# 
-# from hgicommon.collections import Metadata
-# from cookiemonster.common.models import Enrichment
-#
-#
-#def _now() -> int:
-#    '''
-#    @return The current Unix time
-#    '''
-#    return int(time())
-#
-#
-#class _EnrichmentEncoder(JSONEncoder):
-#    ''' JSON encoder for Enrichment models '''
-#    def default(self, enrichment: Enrichment) -> dict:
-#        return {
-#            'source':    enrichment.source,
-#            'timestamp': int(mktime(enrichment.timestamp.timetuple())),
-#            'metadata':  enrichment.metadata._data
-#        }
-
+import json
 from collections import deque
 from copy import deepcopy
 from datetime import datetime, timedelta
 from threading import Lock, Thread
-from time import sleep
+from time import sleep, time
 from typing import Any, Callable, Generator, Optional
 from uuid import uuid4
 
@@ -144,10 +120,38 @@ from pycouchdb.client import Server, Database
 from pycouchdb.exceptions import NotFound, Conflict
 
 from hgicommon.mixable import Listenable
+from hgicommon.collections import Metadata
+
+from cookiemonster.common.models import Enrichment
+
+from hgijson.json.models import JsonPropertyMapping
+from hgijson.json.primitive import DatetimeEpochJSONEncoder, DatetimeEpochJSONDecoder
+from hgijson.json.builders import MappingJSONEncoderClassBuilder, MappingJSONDecoderClassBuilder
 
 
 # TODO Make this configurable?
 _COUCHDB_TIMEOUT = timedelta(milliseconds=200)
+
+
+_ENRICHMENT_JSON_MAPPING = [
+    JsonPropertyMapping('source',    'source',
+                                     object_constructor_parameter_name='source'),
+    JsonPropertyMapping('timestamp', 'timestamp',
+                                     object_constructor_parameter_name='timestamp',
+                                     encoder_cls=DatetimeEpochJSONEncoder,
+                                     decoder_cls=DatetimeEpochJSONDecoder),
+    JsonPropertyMapping('metadata',  object_constructor_parameter_name='metadata',
+                                     object_constructor_argument_modifier=Metadata,
+                                     object_property_getter=lambda enrichment: dict(enrichment.metadata.items()))
+]
+
+_EnrichmentJSONEncoder = MappingJSONEncoderClassBuilder(Enrichment, _ENRICHMENT_JSON_MAPPING).build()
+_EnrichmentJSONDecoder = MappingJSONDecoderClassBuilder(Enrichment, _ENRICHMENT_JSON_MAPPING).build()
+
+
+def _now() -> int:
+    ''' @return The current Unix time '''
+    return int(time())
 
 
 class _UnresponsiveCouchDB(Exception):
