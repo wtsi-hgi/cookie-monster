@@ -295,6 +295,8 @@ class _DesignDocument(object):
             if do_update:
                 self._db.save(self._design)
 
+            self._design_dirty = False
+
     def define_view(self, name:str, map_fn:str, reduce_fn:Optional[str] = None):
         '''
         Define a MapReduce view
