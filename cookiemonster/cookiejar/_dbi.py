@@ -242,10 +242,7 @@ class _UpsertBuffer(Listenable):
     def __init__(self, max_size:int = 100, latency:timedelta = timedelta(milliseconds=50)):
         super().__init__()
 
-        if max_size == 0 or latency == timedelta(0):
-            raise TypeError('Buffer must have a non-trivial maximum size and latency')
-
-        self._max_size = max_size
+        self._max_size = max_size if max_size > 0 else 1
         self._latency = latency
 
         self._lock = Lock()
