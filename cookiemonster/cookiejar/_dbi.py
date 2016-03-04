@@ -779,7 +779,7 @@ class Ernie(object):
         Wrapper function that decodes enrichment data from the database
         into its respective Enrichment object
         '''
-        # Annoyingly, we have to re-encode the data back into JSON
+        # FIXME? Annoyingly, we have to re-encode the data back to JSON
         row_json = json.dumps(row['doc'])
         return json.loads(row_json, cls=_EnrichmentJSONDecoder)
 
@@ -809,7 +809,7 @@ class Ernie(object):
         @param  path        File path
         @param  enrichment  Enrichment model
         '''
-        # Annoyingly, we have to convert back and forth
+        # FIXME? Annoyingly, we have to convert back and forth
         enrichment_dict = json.loads(json.dumps(enrichment, cls=_EnrichmentJSONEncoder))
 
         enrichment_doc = {
