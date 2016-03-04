@@ -427,9 +427,10 @@ class Sofabed(object):
         into CouchDB; if the upsert fails, then the data is requeued
         '''
         with self._queue_lock:
+            duplicates_to_requeue = False
             if len(self._upsert_queue):
                 documents = self._upsert_queue.popleft()
-                to_rebuffer = []
+                to_requeue = []
 
                 # Get unique documents (by ID) and find duplicates
                 document_ids = OrderedDict()
@@ -442,7 +443,7 @@ class Sofabed(object):
                     else:
                         # Duplicates should be requeued (rebuffering,
                         # via upsert, would cause a deadlock)
-                        to_rebuffer.append(doc)
+                        to_requeue.append(doc)
 
                 # Get revision IDs of unique documents
                 revision_ids = {
@@ -462,10 +463,9 @@ class Sofabed(object):
                 ]
 
                 # Requeue duplicates
-                # NOTE Due to the latency of the queue watcher, this
-                # could take some time: duplicates * latency time
-                if len(to_rebuffer):
-                    self._upsert_queue.appendleft(to_rebuffer)
+                if len(to_requeue):
+                    duplicates_to_requeue = True
+                    self._upsert_queue.appendleft(to_requeue)
 
                 # Upload, or requeue on failure
                 try:
@@ -478,6 +478,11 @@ class Sofabed(object):
                         documents[index]
                         for index in document_ids.values()
                     ])
+
+        # This must be outside the lock to avoid deadlock
+        # (A reentrant lock wouldn't work in this case)
+        if duplicates_to_requeue:
+            self._upsert_from_queue()
 
     def _watcher(self):
         ''' Periodically check the queue for pending upserts '''
