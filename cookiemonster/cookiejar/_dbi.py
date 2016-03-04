@@ -676,6 +676,33 @@ class Bert(object):
 
         self._db.upsert(dirty_doc)
 
+    def dequeue(self) -> Optional[str]:
+        '''
+        Get the next document on the queue and mark it as processing
+
+        @return File path (None, if empty queue)
+        '''
+        results = self._db.query('queue', 'to_process', endkey       = _now(),
+                                                        include_docs = True,
+                                                        reduce       = False,
+                                                        limit        = 1)
+        try:
+            latest = next(results)
+            path, current_doc = latest['value'], latest['doc']
+
+            processing_doc = {
+                **current_doc,
+                'dirty':      False,
+                'processing': True,
+                'queue_from': None
+            }
+
+            self._db.upsert(processing_doc)
+            return path
+
+        except StopIteration:
+            return None
+
     def mark_finished(self, path:str):
         '''
         Mark a file as finished processing
@@ -739,24 +766,6 @@ class Bert(object):
         self._db.commit_designs()
 
 
-#class Bert(object):
-#    def dequeue(self) -> Optional[str]:
-#        '''
-#        Get the next document on the queue and mark it as processing
-#
-#        @return File path (None, if empty queue)
-#        '''
-#        results = self.db.query('queue', 'to_process', endkey = _now(),
-#                                                       reduce = False,
-#                                                       limit  = 1)
-#        if len(results):
-#            latest    = results.rows[0]
-#            key, path = latest.id, latest.value
-#
-#            self.db.upsert('queue', 'set_processing', key, processing=True)
-#            return path
-#
-#
 #class Ernie(object):
 #    ''' Interface to the metadata database documents '''
 #    def __init__(self, host: str, database: str):
