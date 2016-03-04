@@ -149,8 +149,6 @@ class TestBasicProcessorManager(unittest.TestCase):
     """
     Tests for `BasicProcessorManager`.
     """
-    _NUMBER_OF_PROCESSORS = 5
-
     def setUp(self):
         self.cookie_jar = create_magic_mock_cookie_jar()
 
@@ -165,12 +163,12 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         self.enrichment_loaders = self.enrichment_loaders
         self.processor_manager = BasicProcessorManager(
-            TestBasicProcessorManager._NUMBER_OF_PROCESSORS, self.cookie_jar, ListDataSource(self.rules),
-            ListDataSource(self.enrichment_loaders), ListDataSource([self.notification_receiver]))
+            self.cookie_jar, ListDataSource(self.rules), ListDataSource(self.enrichment_loaders),
+            ListDataSource([self.notification_receiver]))
 
-    def test_init_with_less_than_one_processing_resource(self):
-        self.assertRaises(ValueError, BasicProcessorManager, 0, self.cookie_jar, ListDataSource(self.rules),
-                          self.enrichment_loaders, self.notification_receiver)
+    def test_init_with_less_than_one_thread(self):
+        self.assertRaises(ValueError, BasicProcessorManager, self.cookie_jar, ListDataSource(self.rules),
+                          self.enrichment_loaders, self.notification_receiver, 0)
 
     def test_process_any_cookies_when_no_jobs(self):
         self.processor_manager.process_any_cookies()
@@ -200,7 +198,7 @@ class TestBasicProcessorManager(unittest.TestCase):
             completed += 1
 
     def test_process_any_cookies_when_no_processing_resources(self):
-        processor_manager = BasicProcessorManager(1, self.cookie_jar, ListDataSource(self.rules),
+        processor_manager = BasicProcessorManager(self.cookie_jar, ListDataSource(self.rules),
                                                   ListDataSource(self.enrichment_loaders),
                                                   ListDataSource([self.notification_receiver]))
 

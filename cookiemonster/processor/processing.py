@@ -63,4 +63,6 @@ class ProcessorManager(metaclass=ABCMeta):
     def process_any_cookies(self):
         """
         Check for Cookies that are to be processed and triggers a `Processor` to process them if required.
+
+        Non-blocking.
         """

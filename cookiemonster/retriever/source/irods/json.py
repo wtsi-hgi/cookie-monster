@@ -1,3 +1,4 @@
+from dateutil.parser import parser
 from baton.json import DataObjectReplicaCollectionJSONDecoder, IrodsMetadataJSONDecoder, IrodsMetadataJSONEncoder
 from baton.json import DataObjectReplicaCollectionJSONEncoder
 from hgijson.json.builders import MappingJSONEncoderClassBuilder, MappingJSONDecoderClassBuilder

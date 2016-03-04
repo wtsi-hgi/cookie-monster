@@ -56,9 +56,9 @@ class TestIntegration(unittest.TestCase):
         self.notification_receiver.receive = MagicMock()
 
         # Setup the data processor manager
-        self.processor_manager = BasicProcessorManager(
-                TestIntegration._NUMBER_OF_PROCESSORS, self.cookie_jar, self.rules_source,
-                self.enrichment_loader_source, ListDataSource([self.notification_receiver]))
+        self.processor_manager = BasicProcessorManager(self.cookie_jar, self.rules_source,
+                                                       self.enrichment_loader_source,
+                                                       ListDataSource([self.notification_receiver]))
 
         def cookie_jar_connector(*args):
             self.processor_manager.process_any_cookies()

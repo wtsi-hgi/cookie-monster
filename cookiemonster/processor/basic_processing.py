@@ -4,7 +4,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence, Iterable
 
-from hgicommon.data_source import DataSource, ListDataSource
+from hgicommon.data_source import DataSource
 
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
@@ -23,10 +23,10 @@ class BasicProcessor(Processor):
                  notification_receivers: Sequence[NotificationReceiver]):
         """
         Constructor.
-        :param cookie_jar:
-        :param rules:
-        :param enrichment_loaders:
-        :param notification_receivers:
+        :param cookie_jar: the cookie jar to use
+        :param rules: the rules to process the Cookie with
+        :param enrichment_loaders: the enrichment loaders that may be able to enrich the Cookie
+        :param notification_receivers: the recievers of notifications
         """
         self.cookie_jar = cookie_jar
         self.rules = rules
@@ -83,7 +83,6 @@ class BasicProcessor(Processor):
         logging.info("Notifying %d notification receiver(s) of notification about \"%s\""
                      % (len(self.notification_receivers), notification.about))
 
-        # TODO: This could be threaded
         for notification_receiver in self.notification_receivers:
             notification_receiver.receive(notification)
 
@@ -92,28 +91,26 @@ class BasicProcessorManager(ProcessorManager):
     """
     Simple manager for the continuous processing of enriched Cookies.
     """
-    def __init__(self, max_cookies_to_process_simultaneously: int, cookie_jar: CookieJar,
+    def __init__(self, cookie_jar: CookieJar,
                  rules_source: DataSource[Rule], enrichment_loaders_source: DataSource[EnrichmentLoader],
-                 notification_receivers_source: DataSource[NotificationReceiver]):
+                 notification_receivers_source: DataSource[NotificationReceiver], number_of_threads: int=16):
         """
         Constructor.
-        :param max_cookies_to_process_simultaneously: the maximum number of cookies to process simultaneously. Must be
-        at least one.
         :param cookie_jar: the cookie jar to get updates from
         :param rules_source: the source of the rules
-        :param enrichment_loader_source: the source of enrichment loaders
+        :param enrichment_loaders_source: the source of enrichment loaders
         :param notification_receivers_source: the source of notification receivers
+        :param number_of_threads: the maximum number of threads to use
         """
-        if max_cookies_to_process_simultaneously < 1:
-            raise ValueError("Must be able to process at least one Cookie at a time, not %d"
-                             % max_cookies_to_process_simultaneously)
+        if number_of_threads < 1:
+            raise ValueError("Must specific the use of at least one thread, not %d" % number_of_threads)
 
         self._cookie_jar = cookie_jar
         self._rules_source = rules_source
         self._notification_receivers_source = notification_receivers_source
         self._enrichment_loaders_source = enrichment_loaders_source
-
-        self._cookie_processing_thread_pool = ThreadPoolExecutor(max_workers=max_cookies_to_process_simultaneously)
+        self._cookie_processing_thread_pool = ThreadPoolExecutor(max_workers=number_of_threads)
+        self._currently_processing_count = 0
 
     def process_any_cookies(self):
         logging.info("Prompted to process any unprocessed cookies. (%s)" % self.get_status_string())
@@ -121,21 +118,26 @@ class BasicProcessorManager(ProcessorManager):
 
     def get_status_string(self) -> str:
         """
-        Gets string indicating the internal status of this manager.
+        Gets a string indicating the internal status of this manager.
         :return: human readable string
         """
         return "%d/%d cookies being processed simultaneously, %d cookies queued for processing, %d active threads" \
-               % (len(self._cookie_processing_thread_pool._threads),
-                  self._cookie_processing_thread_pool._max_workers,
+               % (self._currently_processing_count, self._cookie_processing_thread_pool._max_workers,
                   self._cookie_jar.queue_length(), threading.active_count())
 
     def _process_any_cookies(self):
+        """
+        Processes any cookies, blocking whilst the Cookie is processed.
+        """
         # Claim cookie
         cookie = self._cookie_jar.get_next_for_processing()
 
         if cookie is None:
             logging.info("Triggered to process cookies but none need processing. (%s)" % self.get_status_string())
         else:
+            # Check if there is more cookies that need to be processed
+            self.process_any_cookies()
+
             logging.info("Processing cookie with path: %s. (%s)" % (cookie.path, self.get_status_string()))
 
             processor = BasicProcessor(self._cookie_jar, self._rules_source.get_all(),
@@ -143,6 +145,7 @@ class BasicProcessorManager(ProcessorManager):
                                        self._notification_receivers_source.get_all())
             try:
                 # Process Cookie
+                self._currently_processing_count += 1
                 processor.process_cookie(cookie)
 
                 # Relinquish claim on Cookie
@@ -152,3 +155,5 @@ class BasicProcessorManager(ProcessorManager):
 
                 # Relinquish claim on Cookie but state processing as failed
                 self._cookie_jar.mark_as_failed(cookie.path)
+            finally:
+                self._currently_processing_count -= 1
