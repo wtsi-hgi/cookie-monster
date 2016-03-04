@@ -67,7 +67,7 @@ class BasicProcessor(Processor):
         enrichment = enrichment_manager.next_enrichment(cookie)
 
         if enrichment is None:
-            logging.info("Cannot enrich cookie with path \"%s\" any further - marking as complete" % cookie.path)
+            logging.info("Cannot enrich cookie with path \"%s\" any further - notifying listeners" % cookie.path)
             no_rules_match_notification = Notification(ABOUT_NO_RULES_MATCH, cookie.path, BasicProcessor.__qualname__)
             self._broadcast_notification(no_rules_match_notification)
         else:
