@@ -48,7 +48,7 @@ Copyright (c) 2015, 2016 Genome Research Limited
 import unittest
 from unittest.mock import MagicMock
 
-from cookiemonster.cookiejar.rate_limited_biscuit_tin import RateLimitedBiscuitTin
+from cookiemonster.cookiejar import BiscuitTin
 from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer
 
 from datetime import datetime, timedelta
@@ -58,12 +58,14 @@ from cookiemonster.common.models import Enrichment, Cookie
 
 import cookiemonster.cookiejar._dbi as dbi
 from cookiemonster.cookiejar import BiscuitTin
+import cookiemonster.cookiejar.biscuit_tin as biscuit_tin
 
 
 def _change_time(time):
     ''' Mock the timing so we can control it '''
     dbi._now = MagicMock(return_value=time)
 
+biscuit_tin.Timer = MagicMock()
 
 class TestCookieJar(unittest.TestCase):
     def setUp(self):
@@ -71,19 +73,26 @@ class TestCookieJar(unittest.TestCase):
         Build, if necessary, and start a Dockerised CouchDB instance and
         connect. Plus, provide sample inputs with which to test.
         '''
-        self.couchdb_container = CouchDBContainer()
+        #self.couchdb_container = CouchDBContainer()
 
-        self.HOST = self.couchdb_container.couchdb_fqdn
+        #self.HOST = self.couchdb_container.couchdb_fqdn
+        self.HOST = 'http://localhost:5984'
         self.DB   = 'cookiejar-test'
 
-        self.jar = RateLimitedBiscuitTin(10, self.HOST, self.DB)
+        self.jar = BiscuitTin(self.HOST, self.DB, 1, timedelta(0))
 
-        self.eg_paths       = ['/foo',
-                               '/bar/baz']
-        self.eg_metadata    = [Metadata({'xyzzy': 123}),
-                               Metadata({'quux': 'snuffleupagus'})]
-        self.eg_enrichments = [Enrichment('random', datetime(1981, 9, 25, 5, 55), self.eg_metadata[0]),
-                               Enrichment("irods", datetime(2015, 12, 9, 9), self.eg_metadata[1])]
+        self.eg_paths = [
+            '/foo',
+            '/bar/baz'
+        ]
+        self.eg_metadata = [
+            Metadata({'xyzzy': 123}),
+            Metadata({'quux': 'snuffleupagus'})
+        ]
+        self.eg_enrichments = [
+            Enrichment('random', datetime(1981, 9, 25, 5, 55), self.eg_metadata[0]),
+            Enrichment("irods", datetime(2015, 12, 9, 9), self.eg_metadata[1])
+        ]
         self.eg_listener = MagicMock()
 
         self.jar.add_listener(self.eg_listener)
@@ -93,7 +102,8 @@ class TestCookieJar(unittest.TestCase):
 
     def tearDown(self):
         ''' Tear down CouchDB container '''
-        self.couchdb_container.tear_down()
+        #self.couchdb_container.tear_down()
+        self.jar._sofa._db._server.delete(self.DB)
 
     def test01_empty_queue(self):
         '''
@@ -212,7 +222,7 @@ class TestCookieJar(unittest.TestCase):
         after = self.jar.get_next_for_processing()
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(before, after)
-        self.assertEqual(self.eg_listener.call_count, 1)
+        self.assertEqual(biscuit_tin.Timer.call_args[0][0], 0)
 
     def test08_fail_delayed(self):
         '''
@@ -236,11 +246,9 @@ class TestCookieJar(unittest.TestCase):
         _change_time(123459)
         self.assertEqual(self.jar.queue_length(), 1)
 
-        # FIXME? The listener won't be called immediately once the
-        # cookie reappears on the queue, but is instead dependant on the
-        # polling interval... That is: The correct value for this should
-        # be 2 (i.e., once on enrichment and then again on failure)
-        self.assertEqual(self.eg_listener.call_count, 1)
+        # We only test that the queue length broadcast has been
+        # scheduled; we assume that the method will get called
+        self.assertEqual(biscuit_tin.Timer.call_args[0][0], 3)
 
     def test09_out_of_order_enrichment(self):
         '''
@@ -285,7 +293,7 @@ class TestCookieJar(unittest.TestCase):
         CookieJar Sequence: Enrich -> Reconnect -> Get Next
         '''
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
-        new_jar = BiscuitTin(self.HOST, self.DB)
+        new_jar = BiscuitTin(self.HOST, self.DB, 1, timedelta(0))
 
         self.assertEqual(new_jar.queue_length(), 1)
         
@@ -304,7 +312,7 @@ class TestCookieJar(unittest.TestCase):
         self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
         before = self.jar.get_next_for_processing()
 
-        new_jar = BiscuitTin(self.HOST, self.DB)
+        new_jar = BiscuitTin(self.HOST, self.DB, 1, timedelta(0))
         self.assertEqual(new_jar.queue_length(), 1)
         
         after = new_jar.get_next_for_processing()
