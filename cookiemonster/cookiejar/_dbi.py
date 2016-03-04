@@ -129,7 +129,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from threading import Lock, Thread
 from time import sleep, time
-from typing import Any, Callable, Generator, Optional, Tuple
+from typing import Any, Callable, Generator, Iterable, Optional, Tuple
 from uuid import uuid4
 
 from requests import head, Timeout
@@ -771,113 +771,82 @@ class Bert(object):
         self._db.commit_designs()
 
 
-#class Ernie(object):
-#    ''' Interface to the metadata database documents '''
-#    def __init__(self, host: str, database: str):
-#        '''
-#        Constructor: Connect to the database and create, wherever
-#        necessary, the views and update handlers to provide the metadata
-#        repository interface
-#
-#        @param  host      CouchDB host URL
-#        @param  database  Database name
-#        '''
-#        self.db = _Couch(host, database)
-#        self._define_schema()
-#        self.db.connect()
-#
-#    def enrich(self, path: str, metadata: Enrichment):
-#        '''
-#        Add a metadata enrichment document to the repository for a file
-#
-#        @param  path      File path
-#        @param  metadata  Metadata model
-#        '''
-#        req_body = _EnrichmentEncoder().encode(metadata)
-#        self.db.upsert('metadata', 'append', location=path, body=req_body)
-#
-#    def get_metadata(self, path: str) -> Iterable:
-#        '''
-#        Get all the collected enrichments for a file
-#
-#        @param  path  File path
-#        @return Iterable[Enrichment]
-#        '''
-#        results = self.db.query('metadata', 'collate', key=path, reduce=False)
-#
-#        output = [
-#            Enrichment(source    = enrichment.value['source'],
-#                       timestamp = datetime.fromtimestamp(enrichment.value['timestamp']),
-#                       metadata  = Metadata(enrichment.value['metadata']))
-#            for enrichment in results
-#        ]
-#
-#        return sorted(output)
-#
-#    def _define_schema(self):
-#        ''' Define views and update handlers '''
-#        # View: metadata/collate
-#        # Metadata (Enrichment) documents keyed by `location`
-#        self.db.define_view('metadata', 'collate',
-#            map_fn = '''
-#                function(doc) {
-#                    if (doc.$metadata) {
-#                        emit(doc.location, {
-#                            source:    doc.source,
-#                            timestamp: doc.timestamp,
-#                            metadata:  doc.metadata
-#                        });
-#                    }
-#                }
-#            '''
-#        )
-#
-#        # Update handler: metadata/append
-#        # Create a new metadata document from POST body, which is
-#        # expected to be a JSON object containing `source`, `timestamp`
-#        # and `metadata` members, assigned to the `location` from the
-#        # query string
-#        self.db.define_update('metadata', 'append',
-#            handler_fn = '''
-#                function(doc, req) {
-#                    var q = req.query || {};
-#
-#                    // Create a new item in the repository
-#                    if (!doc && req.id && 'location' in q) {
-#                        var req_data,
-#                            failure = false;
-#
-#                        // Parse request body
-#                        try      { req_data = JSON.parse(req.body); }
-#                        catch(e) { failure = true; }
-#
-#                        // Check keys exist
-#                        if (req_data) {
-#                            try {
-#                                failure = !('source'    in req_data) ||
-#                                          !('timestamp' in req_data) ||
-#                                          !('metadata'  in req_data) ||
-#                                          !(req_data.metadata instanceof Object);
-#                            }
-#                            catch(e) {
-#                                failure = true;
-#                            }
-#                        }
-#
-#                        if (!failure) {
-#                            return [{
-#                                _id:       req.id,
-#                                $metadata: true,
-#                                location:  q.location,
-#                                source:    req_data.source,
-#                                timestamp: req_data.timestamp,
-#                                metadata:  req_data.metadata
-#                            }, 'created'];
-#                        }
-#                    }
-#
-#                    // Failure
-#                    return [null, 'failed'];
-#                }
-#            '''
-#        )
+class Ernie(object):
+    ''' Interface to the metadata database documents '''
+    @staticmethod
+    def _to_enrichment(row:dict) -> Enrichment:
+        '''
+        Wrapper function that decodes enrichment data from the database
+        into its respective Enrichment object
+        '''
+        # Annoyingly, we have to re-encode the data back into JSON
+        row_json = json.dumps(row['doc'])
+        return json.loads(row_json, cls=_EnrichmentJSONDecoder)
+
+    def __init__(self, sofa:Sofabed):
+        '''
+        Constructor: Create/update the views to provide the metadata
+        repository interface
+
+        @param   sofa  Sofabed object
+        '''
+        self._db = sofa
+        self._define_schema()
+
+        # Document schema, with defaults
+        self._schema = {
+            '$metadata': True,
+            'location':  None,
+            'source':    None,
+            'timestamp': None,
+            'metadata':  {}
+        }
+
+    def enrich(self, path:str, enrichment:Enrichment):
+        '''
+        Add a metadata enrichment document to the repository for a file
+
+        @param  path        File path
+        @param  enrichment  Enrichment model
+        '''
+        # Annoyingly, we have to convert back and forth
+        enrichment_dict = json.loads(json.dumps(enrichment, cls=_EnrichmentJSONEncoder))
+
+        enrichment_doc = {
+            **self._schema,
+            **enrichment_dict,
+            'location': path
+        }
+
+        self._db.upsert(enrichment_doc)
+
+    def get_metadata(self, path:str) -> Iterable:
+        '''
+        Get all the collected enrichments for a file
+
+        @param   path  File path
+        @return  Iterator of Enrichments
+        '''
+        results = self._db.query('metadata', 'collate', wrapper      = Ernie._to_enrichment,
+                                                        key          = path,
+                                                        include_docs = True,
+                                                        reduce       = False)
+        return sorted(results)
+
+    def _define_schema(self):
+        ''' Define views '''
+        metadata = self._db.create_design('metadata')
+
+        # View: metadata/collate
+        # Metadata (Enrichment) document IDs keyed by `location`
+        metadata.define_view('collate',
+            map_fn = '''
+                function(doc) {
+                    if (doc.$metadata) {
+                        emit(doc.location, doc._id);
+                    }
+                }
+            '''
+        )
+
+        self._db.commit_designs()
