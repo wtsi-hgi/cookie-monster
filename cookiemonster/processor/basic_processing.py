@@ -4,6 +4,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence, Iterable
 
+import time
 from hgicommon.data_source import DataSource
 
 from cookiemonster.common.models import Notification, Cookie
@@ -113,7 +114,7 @@ class BasicProcessorManager(ProcessorManager):
         self._currently_processing_count = 0
 
     def process_any_cookies(self):
-        logging.info("Prompted to process any unprocessed cookies. (%s)" % self.get_status_string())
+        logging.debug("Prompted to process any unprocessed cookies.")
         self._cookie_processing_thread_pool.submit(self._process_any_cookies)
 
     def get_status_string(self) -> str:
@@ -135,10 +136,11 @@ class BasicProcessorManager(ProcessorManager):
         if cookie is None:
             logging.info("Triggered to process cookies but none need processing. (%s)" % self.get_status_string())
         else:
-            # Check if there is more cookies that need to be processed
+            # Check if there is more Cookies that need to be processed
             self.process_any_cookies()
 
-            logging.info("Processing cookie with path: %s. (%s)" % (cookie.path, self.get_status_string()))
+            logging.info("Processing cookie with path: \"%s\". (%s)" % (cookie.path, self.get_status_string()))
+            started_at = time.monotonic()
 
             processor = BasicProcessor(self._cookie_jar, self._rules_source.get_all(),
                                        self._enrichment_loaders_source.get_all(),
@@ -150,6 +152,9 @@ class BasicProcessorManager(ProcessorManager):
 
                 # Relinquish claim on Cookie
                 self._cookie_jar.mark_as_complete(cookie.path)
+
+                total_time = time.monotonic() - started_at
+                logging.info("Processed cookie with path \"%s\" in %f seconds (wall time)." % (cookie.path, total_time))
             except Exception as e:
                 logging.error("Exception raised whilst processing cookie with path \"%s\": %s" % (cookie.path, e))
 
