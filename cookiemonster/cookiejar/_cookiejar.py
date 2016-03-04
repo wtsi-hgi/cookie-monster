@@ -83,7 +83,7 @@ class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
         '''
 
     @abstractmethod
-    def mark_as_failed(self, path: str, requeue_delay: Optional[timedelta]):
+    def mark_as_failed(self, path: str, requeue_delay: timedelta):
         '''
         Mark a file as having failed processing, thus returning it to
         the queue after a specified period
