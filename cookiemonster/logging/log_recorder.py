@@ -1,8 +1,8 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from cookiemonster.logging.models import Log
 
 
-class LogRecorder:
+class LogRecorder(metaclass=ABCMeta):
     """
     Records logs.
     """
@@ -12,3 +12,11 @@ class LogRecorder:
         Records the given log.
         :param log: the log to record
         """
+
+
+class StubLogRecoder(LogRecorder):
+    """
+    Stub log recorder.
+    """
+    def log(self, log: Log):
+        pass

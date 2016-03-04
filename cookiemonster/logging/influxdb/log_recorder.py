@@ -1,4 +1,5 @@
 from json import JSONEncoder
+from time import sleep
 from typing import Dict
 
 from influxdb import InfluxDBClient
@@ -21,7 +22,8 @@ class InfluxDBLogRecorder(LogRecorder):
         :param connection_config: connection configuration for the InfluxDB database
         :param static_tags: tags for all logs
         """
-        self._client = InfluxDBClient(connection_config)
+        self._influxdb_client = InfluxDBClient(connection_config.host, connection_config.port, connection_config.user,
+                                               connection_config.password, connection_config.database)
         self._static_tags = static_tags if static_tags is not None else dict()
 
     def log(self, log: Log):
@@ -30,4 +32,5 @@ class InfluxDBLogRecorder(LogRecorder):
 
         influxdb_Log_as_json = InfluxDBLogRecorder._INFLUXDB_LOG_JSON_ENCODER.default(influxdb_log)
 
-        self._client.write_points(influxdb_Log_as_json)
+        print(self._influxdb_client)
+        self._influxdb_client.write_points([influxdb_Log_as_json])
