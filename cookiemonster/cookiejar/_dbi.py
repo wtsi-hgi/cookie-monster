@@ -606,6 +606,15 @@ class Bert(object):
         self._db = sofa
         self._define_schema()
 
+        # Document schema, with defaults
+        self._schema = {
+            '$queue':     True,
+            'location':   None,
+            'dirty':      False,
+            'processing': False,
+            'queue_from': None
+        }
+
         # If there are any files marked as currently processing, this
         # must be due to a previous failure. Reset all of these for
         # immediate reprocessing
@@ -613,6 +622,22 @@ class Bert(object):
                                                              reduce  = False)
         for doc in in_progress:
             self._db.upsert(doc)
+
+    def _get_id(self, path:str) -> Optional[str]:
+        '''
+        Get queue document ID by file path
+
+        @param   path  File path
+        @return  Document ID (None, if not found)
+        '''
+        results = self._db.query('queue', 'get_id', key=path, reduce=False)
+
+        try:
+            doc_id = next(results)['value']
+        except StopIteration:
+            doc_id = None
+
+        return doc_id
 
     def queue_length(self) -> int:
         '''
@@ -627,6 +652,29 @@ class Bert(object):
             length = 0
 
         return length
+
+    def mark_dirty(self, path:str, latency:Optional[timedelta] = None):
+        '''
+        Mark a file as requiring, potentially delayed, (re)processing
+
+        @param  path     File path
+        @param  latency  Requeue latency
+        '''
+        # Get document ID
+        doc_id = self._get_id(path)
+        current_doc = self._db.fetch(doc_id) if doc_id else {'location': path}
+
+        dirty_doc = {
+            **self._schema,
+            **current_doc,
+            'dirty': True,
+            'queue_from': _now()
+        }
+
+        if doc_id and latency:
+            dirty_doc['queue_from'] += latency.total_seconds()
+
+        self._db.upsert(dirty_doc)
 
     def _define_schema(self):
         ''' Define views '''
@@ -675,47 +723,6 @@ class Bert(object):
 
 
 #class Bert(object):
-#    def _get_id(self, path: str) -> Optional[str]:
-#        '''
-#        Get queue document ID by file path
-#
-#        @param  path  File path
-#        '''
-#        results = self.db.query('queue', 'get_id', key=path, reduce=False)
-#        return results.rows[0].value if len(results) else None
-#
-#    def queue_length(self) -> int:
-#        '''
-#        @return The current (for-processing) queue length
-#        '''
-#        results = self.db.query('queue', 'to_process', endkey = _now(),
-#                                                       reduce = True,
-#                                                       group  = False)
-#
-#        return results.rows[0].value if len(results) else 0
-#
-#    def mark_dirty(self, path: str, lead_time: timedelta = None):
-#        '''
-#        Mark a file as requiring, potentially delayed, (re)processing
-#
-#        @param  path       File path
-#        @param  lead_time  Requeue lead time
-#        '''
-#        # Get document ID
-#        doc_id = self._get_id(path)
-#
-#        if doc_id:
-#            # Determine queue time
-#            queue_from = _now()
-#            if lead_time:
-#                queue_from += lead_time.total_seconds()
-#
-#            self.db.upsert('queue', 'set_state', doc_id, dirty      = True,
-#                                                         queue_from = queue_from)
-#        else:
-#            self.db.upsert('queue', 'set_state', location   = path,
-#                                                 queue_from = _now())
-#
 #    def dequeue(self) -> Optional[str]:
 #        '''
 #        Get the next document on the queue and mark it as processing
