@@ -2,7 +2,7 @@
 Database Interface
 ==================
 Abstraction layer over a revisionable document-based database (i.e.,
-CouchDB)
+CouchDB), with queue management and metadata repository interfaces
 
 Exportable classes: `Sofabed`, `Bert`, `Ernie`
 
@@ -14,10 +14,10 @@ Which is cool.
 Sofabed
 -------
 `Sofabed` is a CouchDB interface that provides automatic buffering of
-inserts and updates. It is instantiated per pycouchdb.client.Server,
-with the additional options of maximum buffer size and discharge
-latency, and ought to be passed into classes that represent document
-models.
+inserts and updates. It is instantiated per pycouchdb.client.Server
+(more-or-less), with the additional options of maximum buffer size and
+discharge latency, and ought to be passed into classes that represent
+document models.
 
 Each insert/update will be added to a buffer. If the time between that
 and the next is less than the discharge latency, then the next will be
@@ -51,7 +51,7 @@ sleep separately...it's all part of life's rich tapestry.
 
 _DesignDocument
 ---------------
-Design documents, managed per the Sofabed.*_designs? methods, are
+Design documents, managed per the Sofabed.*_design(s) methods, are
 represented in-memory via this class. This allows you to build up a
 design document in bits and commit it to the database all as one.
 
@@ -462,6 +462,8 @@ class Sofabed(object):
                 ]
 
                 # Requeue duplicates
+                # NOTE Due to the latency of the queue watcher, this
+                # could take some time: duplicates * latency time
                 if len(to_rebuffer):
                     self._upsert_queue.appendleft(to_rebuffer)
 
@@ -607,9 +609,24 @@ class Bert(object):
         # If there are any files marked as currently processing, this
         # must be due to a previous failure. Reset all of these for
         # immediate reprocessing
-        in_progress = self._db.query('queue', 'in_progress', Bert._reset_processing, reduce=False)
+        in_progress = self._db.query('queue', 'in_progress', wrapper = Bert._reset_processing,
+                                                             reduce  = False)
         for doc in in_progress:
             self._db.upsert(doc)
+
+    def queue_length(self) -> int:
+        '''
+        @return The current (for-processing) queue length
+        '''
+        results = self._db.query('queue', 'to_process', endkey = _now(),
+                                                        reduce = True,
+                                                        group  = False)
+        try:
+            length = next(results)['value']
+        except StopIteration:
+            length = 0
+
+        return length
 
     def _define_schema(self):
         ''' Define views '''
