@@ -129,7 +129,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from threading import Lock, Thread
 from time import sleep, time
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Callable, Generator, Optional, Tuple
 from uuid import uuid4
 
 from requests import head, Timeout
@@ -623,21 +623,22 @@ class Bert(object):
         for doc in in_progress:
             self._db.upsert(doc)
 
-    def _get_id(self, path:str) -> Optional[str]:
+    def _get_by_path(self, path:str) -> Optional[Tuple[str, dict]]:
         '''
-        Get queue document ID by file path
+        Get queue document by its file path
 
         @param   path  File path
-        @return  Document ID (None, if not found)
+        @return  Document ID and Document tuple (None, if not found)
         '''
-        results = self._db.query('queue', 'get_id', key=path, reduce=False)
-
+        results = self._db.query('queue', 'get_id', key          = path,
+                                                    include_docs = True,
+                                                    reduce       = False)
         try:
-            doc_id = next(results)['value']
-        except StopIteration:
-            doc_id = None
+            result = next(results)
+            return result['value'], result['doc']
 
-        return doc_id
+        except StopIteration:
+            return None
 
     def queue_length(self) -> int:
         '''
@@ -647,11 +648,10 @@ class Bert(object):
                                                         reduce = True,
                                                         group  = False)
         try:
-            length = next(results)['value']
-        except StopIteration:
-            length = 0
+            return next(results)['value']
 
-        return length
+        except StopIteration:
+            return 0
 
     def mark_dirty(self, path:str, latency:Optional[timedelta] = None):
         '''
@@ -660,9 +660,8 @@ class Bert(object):
         @param  path     File path
         @param  latency  Requeue latency
         '''
-        # Get document ID
-        doc_id = self._get_id(path)
-        current_doc = self._db.fetch(doc_id) if doc_id else {'location': path}
+        # Get document, or define minimal default
+        doc_id, current_doc = self._get_by_path(path) or (None, {'location': path})
 
         dirty_doc = {
             **self._schema,
@@ -671,10 +670,28 @@ class Bert(object):
             'queue_from': _now()
         }
 
+        # Latency is only for existing documents
         if doc_id and latency:
             dirty_doc['queue_from'] += latency.total_seconds()
 
         self._db.upsert(dirty_doc)
+
+    def mark_finished(self, path:str):
+        '''
+        Mark a file as finished processing
+
+        @param  path  File path
+        '''
+        # Get document
+        doc_id, current_doc = self._get_by_path(path) or (None, None)
+
+        if doc_id:
+            finished_doc = {
+                **current_doc,
+                'processing': False
+            }
+
+            self._db.upsert(finished_doc)
 
     def _define_schema(self):
         ''' Define views '''
@@ -738,19 +755,6 @@ class Bert(object):
 #
 #            self.db.upsert('queue', 'set_processing', key, processing=True)
 #            return path
-#    
-#    def mark_finished(self, path: str):
-#        '''
-#        Mark a file as finished processing
-#
-#        @param  path  File path
-#        '''
-#        # Get document ID
-#        doc_id = self._get_id(path)
-#
-#        if doc_id:
-#            self.db.upsert('queue', 'set_processing', doc_id, processing=False)
-#
 #
 #
 #class Ernie(object):
