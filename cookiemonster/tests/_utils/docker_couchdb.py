@@ -90,7 +90,7 @@ class CouchDBContainer(object):
         test_connection = HTTPConnection(self._host, self._port)
         start_time = finish_time = datetime.now()
         couchdb_started = False
-        while finish_time - start_time < timedelta(seconds=5):
+        while finish_time - start_time < timedelta(minutes=1):
             response = None
 
             try:

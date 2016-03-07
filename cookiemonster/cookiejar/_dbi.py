@@ -148,7 +148,7 @@ from hgijson.json.builders import MappingJSONEncoderClassBuilder, MappingJSONDec
 
 
 # TODO Make this configurable?
-_COUCHDB_TIMEOUT = timedelta(milliseconds=200)
+_COUCHDB_TIMEOUT = timedelta(milliseconds=1500)
 
 
 _ENRICHMENT_JSON_MAPPING = [
