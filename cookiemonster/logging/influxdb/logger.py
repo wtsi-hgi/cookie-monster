@@ -6,11 +6,11 @@ from influxdb import InfluxDBClient
 
 from cookiemonster.logging.influxdb._json import InfluxDBLogJSONEncoder
 from cookiemonster.logging.influxdb.models import InfluxDBConnectionConfig, InfluxDBLog
-from cookiemonster.logging.log_recorder import LogRecorder
+from cookiemonster.logging.logger import Logger
 from cookiemonster.logging.models import Log
 
 
-class InfluxDBLogRecorder(LogRecorder):
+class InfluxDBLogger(Logger):
     """
     Log recorder for InfluxDB.
     """
@@ -26,10 +26,10 @@ class InfluxDBLogRecorder(LogRecorder):
         self._influxdb_client = InfluxDBClient(connection_config.host, connection_config.port, connection_config.user,
                                                connection_config.password, connection_config.database)
 
-    def log(self, log: Log):
+    def _process_log(self, log: Log):
         influxdb_log = InfluxDBLog.value_of(log)    # type: InfluxDBLog
         influxdb_log.metadata.update(self.static_tags)
 
-        influxdb_log_as_json = InfluxDBLogRecorder._INFLUXDB_LOG_JSON_ENCODER.default(influxdb_log)
+        influxdb_log_as_json = InfluxDBLogger._INFLUXDB_LOG_JSON_ENCODER.default(influxdb_log)
 
         self._influxdb_client.write_points([influxdb_log_as_json])

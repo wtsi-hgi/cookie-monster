@@ -22,7 +22,7 @@ def setup_influxdb_in_docker(repository: str, tag: str) -> Tuple[str, int, Calla
     http_api_port = get_open_port()
 
     container = docker_client.create_container(
-        image=repository,
+        image="%s:%s" % (repository, tag),
         ports=[http_api_port],
         host_config=docker_client.create_host_config(
             port_bindings={

@@ -7,7 +7,7 @@ from hgicommon.models import Model
 
 class Log(Model):
     """
-    Model of a log that stores a measurement value with a name, taken at a particular moment in time.
+    Model of a dated log that stores a measurement value with a name and optional metadata.
     """
     def __init__(self, measuring: str, value: Union[str, Real], metadata: Dict=None,
                  timestamp: datetime=datetime.now()):
