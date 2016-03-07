@@ -17,31 +17,22 @@ GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
 '''
 
-import logging
-import socket
 import atexit
-from time import sleep
+import logging
 from datetime import datetime, timedelta
-from urllib.parse import urlparse
 from http.client import HTTPConnection, HTTPResponse
 from os.path import dirname, realpath, join, normpath
+from time import sleep
+from urllib.parse import urlparse
 
 from docker.client import Client
 from docker.utils import kwargs_from_env
 
+from cookiemonster.tests._utils.docker_helpers import get_open_port
+
 _DOCKERFILE_PATH = normpath(join(dirname(realpath(__file__)),
                                  '../../../docker/couchdb'))
 _COUCHDB_IMAGE   = 'hgi/couchdb'
-
-
-def _get_port():
-    ''' Return available port '''
-    free_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    free_socket.bind(("", 0))
-    free_socket.listen(1)
-    port = free_socket.getsockname()[1]
-    free_socket.close()
-    return port
 
 
 class CouchDBContainer(object):
@@ -56,7 +47,7 @@ class CouchDBContainer(object):
         self._url = url = urlparse(self._client.base_url)
 
         self._host = url.hostname if url.scheme in ['http', 'https'] else 'localhost'
-        self._port = _get_port()
+        self._port = get_open_port()
 
         # Exposed interface for CouchDB
         self.couchdb_fqdn = 'http://{host}:{port}'.format(host=self._host, port=self._port)

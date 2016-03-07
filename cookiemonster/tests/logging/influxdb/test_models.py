@@ -6,7 +6,7 @@ from cookiemonster.logging.models import Log
 
 _MEASUREMENT_NAME = "measurement_name"
 _MEASUREMENT_VALUE = 123
-_MEASUREMENT_METADATA = {"a", 1, "b", 2}
+_MEASUREMENT_METADATA = {"a": 1, "b": 2}
 _MEASUREMENT_TIMESTAMP = datetime(2000, 1, 1)
 
 

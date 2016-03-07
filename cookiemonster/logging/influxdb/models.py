@@ -28,4 +28,4 @@ class InfluxDBLog(Log):
         """
         if isinstance(log, InfluxDBLog):
             return log
-        return InfluxDBLog(log.measurement_name, log.measurement_value, log.metadata, log.timestamp)
+        return InfluxDBLog(log.measuring, log.value, log.metadata, log.timestamp)
