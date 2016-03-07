@@ -35,7 +35,7 @@ class InMemoryCookieJar(CookieJar):
         self._known_data[path].enrichments.append(enrichment)
         self.mark_for_processing(path)
 
-    def mark_as_failed(self, path: str, requeue_delay: timedelta=None):
+    def mark_as_failed(self, path: str, requeue_delay: timedelta=timedelta(0)):
         if path not in self._known_data:
             raise ValueError("Not known: %s" % path)
         with self._lists_lock:

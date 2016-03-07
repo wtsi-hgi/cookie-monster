@@ -18,16 +18,15 @@ class RateLimitedBiscuitTin(BiscuitTin):
     """
     Subclass of `BiscuitTin` that limits the rate at which requests can be made to the database.
     """
-    def __init__(self, max_requests_per_second: int, db_host: str, db_name: str,
-                 notify_interval: timedelta=timedelta(minutes=10)):
-        super().__init__(db_host, db_name, notify_interval)
+    def __init__(self, max_requests_per_second: int, db_host: str, db_name: str):
+        super().__init__(db_host, db_name, 1, timedelta(0))
         self._request_semaphore = _RateLimitedSemaphore(max_requests_per_second)
 
     def enrich_cookie(self, path: str, enrichment: Enrichment):
         with self._request_semaphore:
             super().enrich_cookie(path, enrichment)
 
-    def mark_as_failed(self, path: str, requeue_delay: Optional[timedelta]=None):
+    def mark_as_failed(self, path: str, requeue_delay: timedelta=timedelta(0)):
         with self._request_semaphore:
             super().mark_as_failed(path, requeue_delay=requeue_delay)
 

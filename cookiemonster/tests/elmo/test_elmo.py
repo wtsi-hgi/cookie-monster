@@ -55,7 +55,7 @@ class TestElmo(unittest.TestCase):
         self.HOST = self.couchdb_container.couchdb_fqdn
         self.DB = 'elmo-test'
 
-        self.jar = BiscuitTin(self.HOST, self.DB)
+        self.jar = BiscuitTin(self.HOST, self.DB, 1, timedelta(0))
 
         # Configuration for HTTP service
         self.API_PORT = _get_port()

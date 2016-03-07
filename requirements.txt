@@ -1,8 +1,9 @@
 SQLAlchemy==1.0.11
-CouchDB==1.0
+pycouchdb==1.14
+requests==2.8.1
 Flask==0.10.1
 pytz==2015.7
 APScheduler==3.0.4
 git+https://github.com/wtsi-hgi/python-common.git@7d789ebb16aff0eb0d80331c6bcb6263fc27382a#egg=hgicommon
 git+https://github.com/wtsi-hgi/python-baton-wrapper.git@4daafd926aa07d1b94223679c55c36c6eebf4284#egg=baton
-git+https://github.com/wtsi-hgi/python-json.git@46a1f30ed20f25570b0bcd362d1bb340e2d91e56#egg=hgijson
+git+https://github.com/wtsi-hgi/python-json.git@14fc0ee3dcc752a0d6b4ec83bb57fa5bec761521#egg=hgijson
