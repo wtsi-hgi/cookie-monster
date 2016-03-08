@@ -50,7 +50,7 @@ Copyright (c) 2015, 2016 Genome Research Limited
 import unittest
 from unittest.mock import MagicMock
 from abc import ABCMeta, abstractmethod
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import Timer
 from typing import Any, Callable
 from numbers import Real
@@ -85,8 +85,8 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
             Metadata({'quux': 'snuffleupagus'})
         ]
         self.eg_enrichments = [
-            Enrichment('random', datetime(1981, 9, 25, 5, 55), self.eg_metadata[0]),
-            Enrichment('irods', datetime.now().replace(microsecond=0), self.eg_metadata[1])
+            Enrichment('random', datetime(1981, 9, 25, 5, 55, tzinfo=timezone.utc), self.eg_metadata[0]),
+            Enrichment('irods', datetime.now(tz=timezone.utc).replace(microsecond=0), self.eg_metadata[1])
         ]
         self.eg_listener = MagicMock()
 
