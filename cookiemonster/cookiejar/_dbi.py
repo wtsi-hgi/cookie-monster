@@ -134,10 +134,10 @@ Copyright (c) 2015, 2016 Genome Research Limited
 import json
 from collections import deque, OrderedDict
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import timedelta
 from os import environ
 from threading import Lock, Thread
-from time import sleep, time
+from time import monotonic, sleep, time
 from typing import Any, Callable, Generator, Iterable, Optional, Tuple
 from uuid import uuid4
 
@@ -333,11 +333,11 @@ class _UpsertBuffer(Listenable):
         super().__init__()
 
         self._max_size = max_size if max_size > 0 else 1
-        self._latency = latency
+        self._latency = latency.total_seconds()
 
         self._lock = Lock()
         self.data = []
-        self.last_updated = datetime.now()
+        self.last_updated = monotonic()
 
         # Start the watcher
         self._watcher_thread = Thread(target=self._watcher, daemon=True)
@@ -355,15 +355,15 @@ class _UpsertBuffer(Listenable):
         '''
         with self._lock:
             if len(self._listeners) and len(self.data):
-                latency = datetime.now() - self.last_updated
+                latency = monotonic() - self.last_updated
                 if len(self.data) >= self._max_size or latency >= self._latency:
                     self.notify_listeners(deepcopy(self.data))
                     self.data[:] = []
-                    self.last_updated = datetime.now()
+                    self.last_updated = monotonic()
 
     def _watcher(self):
         ''' Watcher thread for time-based discharging '''
-        zzz = self._latency.total_seconds() / 2
+        zzz = self._latency / 2
 
         while self._thread_running:
             self._discharge()
@@ -373,7 +373,7 @@ class _UpsertBuffer(Listenable):
         ''' Add a document to the buffer '''
         with self._lock:
             self.data.append(document)
-            self.last_updated = datetime.now()
+            self.last_updated = monotonic()
 
         # Force size-based discharging
         self._discharge()
