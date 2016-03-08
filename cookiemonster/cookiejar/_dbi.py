@@ -11,6 +11,14 @@ database interfaces, respectively. They are two halves of the same
 whole, share data together and love each other...which is cool, man.
 Which is cool.
 
+Environmental Factors
+---------------------
+The CouchDB interface is designed to "test the water" before making any
+request. If it's too cold (i.e., a timeout is reached), then the client
+will fallback, to avoid hammering the CouchDB server when it is busy.
+This timeout defaults to 1500ms, but can be changed via the environment
+variable `COOKIEMONSTER_COUCHDB_TIMEOUT` if necessary.
+
 Sofabed
 -------
 `Sofabed` is a CouchDB interface that provides automatic buffering of
@@ -127,6 +135,7 @@ import json
 from collections import deque, OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
+from os import environ
 from threading import Lock, Thread
 from time import sleep, time
 from typing import Any, Callable, Generator, Iterable, Optional, Tuple
@@ -147,8 +156,9 @@ from hgijson.json.primitive import DatetimeEpochJSONEncoder, DatetimeEpochJSONDe
 from hgijson.json.builders import MappingJSONEncoderClassBuilder, MappingJSONDecoderClassBuilder
 
 
-# TODO Make this configurable?
-_COUCHDB_TIMEOUT = timedelta(milliseconds=1500)
+# Get the CouchDB timeout (ms) value from the environment (default to
+# 1500ms) as we don't want to have to configure every last little thing
+_COUCHDB_TIMEOUT = timedelta(milliseconds=environ.get('COOKIEMONSTER_COUCHDB_TIMEOUT', 1500))
 
 
 _ENRICHMENT_JSON_MAPPING = [
