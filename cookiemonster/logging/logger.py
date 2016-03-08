@@ -11,7 +11,7 @@ class Logger(metaclass=ABCMeta):
     """
     Records logs.
     """
-    def record(self, measured: str, value: Any, metadata: Dict=None, timestamp: datetime=datetime.now()):
+    def record(self, measured: str, value: Any, metadata: Dict=None, timestamp: datetime=None):
         """
         Records the given dated measurement value and any metadata.
         :param measured: the name of the variable that has been measured
