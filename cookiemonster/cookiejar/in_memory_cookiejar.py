@@ -27,62 +27,62 @@ class InMemoryCookieJar(CookieJar):
         self._lists_lock = Lock()
         self._timers = defaultdict(list)   # type: Dict[int, List[Timer]]
 
-    def enrich_cookie(self, path: str, enrichment: Enrichment):
+    def enrich_cookie(self, identifier: str, enrichment: Enrichment):
         with self._lists_lock:
-            if path not in self._known_data:
-                self._known_data[path] = Cookie(path)
+            if identifier not in self._known_data:
+                self._known_data[identifier] = Cookie(identifier)
 
-        self._known_data[path].enrichments.append(enrichment)
-        self.mark_for_processing(path)
+        self._known_data[identifier].enrichments.append(enrichment)
+        self.mark_for_processing(identifier)
 
-    def mark_as_failed(self, path: str, requeue_delay: timedelta=timedelta(0)):
-        if path not in self._known_data:
-            raise ValueError("Not known: %s" % path)
+    def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
+        if identifier not in self._known_data:
+            raise ValueError("Not known: %s" % identifier)
         with self._lists_lock:
-            self._assert_is_being_processed(path)
-            self._processing.remove(path)
-            self._failed.append(path)
+            self._assert_is_being_processed(identifier)
+            self._processing.remove(identifier)
+            self._failed.append(identifier)
 
         if requeue_delay is not None:
             if requeue_delay.total_seconds() == 0:
-                self._reprocess(path)
+                self._reprocess(identifier)
             else:
                 end_time = self._get_time() + requeue_delay.total_seconds()
 
                 def on_delay_end():
                     if timer in self._timers[end_time]:
                         self._timers[end_time].remove(timer)
-                        self._reprocess(path)
+                        self._reprocess(identifier)
 
                 timer = Timer(requeue_delay.total_seconds(), on_delay_end)
                 self._timers[end_time].append(timer)
                 timer.start()
         else:
-            self._on_complete(path)
+            self._on_complete(identifier)
 
-    def mark_as_complete(self, path: str):
-        if path not in self._known_data:
-            raise ValueError("Not known: %s" % path)
+    def mark_as_complete(self, identifier: str):
+        if identifier not in self._known_data:
+            raise ValueError("Not known: %s" % identifier)
         with self._lists_lock:
-            self._assert_is_being_processed(path)
-            self._processing.remove(path)
-            self._completed.append(path)
-        self._on_complete(path)
+            self._assert_is_being_processed(identifier)
+            self._processing.remove(identifier)
+            self._completed.append(identifier)
+        self._on_complete(identifier)
 
-    def mark_for_processing(self, path: str):
-        if path not in self._known_data:
-            self._known_data[path] = Cookie(path)
+    def mark_for_processing(self, identifier: str):
+        if identifier not in self._known_data:
+            self._known_data[identifier] = Cookie(identifier)
 
         notify = True
         with self._lists_lock:
-            if path in self._completed:
-                self._completed.remove(path)
-            if path in self._processing:
-                if path not in self._reprocess_on_complete:
-                    self._reprocess_on_complete.append(path)
+            if identifier in self._completed:
+                self._completed.remove(identifier)
+            if identifier in self._processing:
+                if identifier not in self._reprocess_on_complete:
+                    self._reprocess_on_complete.append(identifier)
                 notify = False
-            elif path not in self._waiting:
-                self._waiting.append(path)
+            elif identifier not in self._waiting:
+                self._waiting.append(identifier)
 
         if notify:
             self.notify_listeners(self.queue_length())
@@ -91,10 +91,10 @@ class InMemoryCookieJar(CookieJar):
         with self._lists_lock:
             if len(self._waiting) == 0:
                 return None
-            path = self._waiting.pop(0)
-            self._processing.append(path)
-            self._assert_is_being_processed(path)
-        return self._known_data[path]
+            identifier = self._waiting.pop(0)
+            self._processing.append(identifier)
+            self._assert_is_being_processed(identifier)
+        return self._known_data[identifier]
 
     def queue_length(self) -> int:
         return len(self._waiting)
@@ -106,31 +106,31 @@ class InMemoryCookieJar(CookieJar):
         """
         return time.monotonic()
 
-    def _reprocess(self, path: str):
+    def _reprocess(self, identifier: str):
         """
-        Reprocess Cookie with the given path where processing has previously failed.
-        :param path: path of cookie to reprocess
+        Reprocess Cookie with the given identifier where processing has previously failed.
+        :param identifier: identifier of cookie to reprocess
         """
         with self._lists_lock:
-            self._failed.remove(path)
-        self.mark_for_processing(path)
+            self._failed.remove(identifier)
+        self.mark_for_processing(identifier)
 
-    def _on_complete(self, path: str):
+    def _on_complete(self, identifier: str):
         reprocess = False
         with self._lists_lock:
-            if path in self._reprocess_on_complete:
-                self._reprocess_on_complete.remove(path)
+            if identifier in self._reprocess_on_complete:
+                self._reprocess_on_complete.remove(identifier)
                 reprocess = True
         if reprocess:
-            self.mark_for_processing(path)
+            self.mark_for_processing(identifier)
 
-    def _assert_is_being_processed(self, path: str):
+    def _assert_is_being_processed(self, identifier: str):
         """
-        Asserts that a file, identified by its path, was being processed.
-        :param path: the file's identifier
+        Asserts that a file, identified by its identifier, was being processed.
+        :param identifier: the file's identifier
         """
-        assert path in self._known_data
-        assert path in self._processing
-        assert path not in self._completed
-        assert path not in self._failed
-        assert path not in self._waiting
+        assert identifier in self._known_data
+        assert identifier in self._processing
+        assert identifier not in self._completed
+        assert identifier not in self._failed
+        assert identifier not in self._waiting

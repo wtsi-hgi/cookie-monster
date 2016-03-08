@@ -76,7 +76,7 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         '''
         Provide sample inputs with which to test
         '''
-        self.eg_paths = [
+        self.eg_identifiers = [
             '/foo',
             '/bar/baz'
         ]
@@ -137,14 +137,14 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         '''
         CookieJar Sequence: Enrich -> Get Next
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         self.assertEqual(self.jar.queue_length(), 1)
 
         to_process = self.jar.get_next_for_processing()
 
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertIsInstance(to_process, Cookie)
-        self.assertEqual(to_process.path, self.eg_paths[0])
+        self.assertEqual(to_process.identifier, self.eg_identifiers[0])
         self.assertEqual(len(to_process.enrichments), 1)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(self.eg_listener.call_count, 1)
@@ -153,17 +153,17 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         '''
         CookieJar Sequence: Enrich -> Enrich Again -> Get Next
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         self.assertEqual(self.jar.queue_length(), 1)
 
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[1])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[1])
         self.assertEqual(self.jar.queue_length(), 1)
 
         to_process = self.jar.get_next_for_processing()
 
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertIsInstance(to_process, Cookie)
-        self.assertEqual(to_process.path, self.eg_paths[0])
+        self.assertEqual(to_process.identifier, self.eg_identifiers[0])
         self.assertEqual(len(to_process.enrichments), 2)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
@@ -173,9 +173,9 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         '''
         CookieJar Sequence: Enrich -> Get Next -> Mark Complete
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
-        self.jar.mark_as_complete(to_process.path)
+        self.jar.mark_as_complete(to_process.identifier)
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(self.eg_listener.call_count, 1)
 
@@ -183,19 +183,19 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         '''
         CookieJar Sequence: Enrich 1 -> Enrich 2 -> Get Next (X) -> Get Next (Y) -> Mark X Complete -> Mark Y Complete
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
 
         # Fast forward one second
         self._change_time(self.jar, 123457)
 
-        self.jar.enrich_cookie(self.eg_paths[1], self.eg_enrichments[1])
+        self.jar.enrich_cookie(self.eg_identifiers[1], self.eg_enrichments[1])
         self.assertEqual(self.jar.queue_length(), 2)
 
         first = self.jar.get_next_for_processing()
 
         self.assertEqual(self.jar.queue_length(), 1)
         self.assertIsInstance(first, Cookie)
-        self.assertEqual(first.path, self.eg_paths[0])
+        self.assertEqual(first.identifier, self.eg_identifiers[0])
         self.assertEqual(len(first.enrichments), 1)
         self.assertEqual(first.enrichments[0], self.eg_enrichments[0])
 
@@ -203,14 +203,14 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
 
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertIsInstance(second, Cookie)
-        self.assertEqual(second.path, self.eg_paths[1])
+        self.assertEqual(second.identifier, self.eg_identifiers[1])
         self.assertEqual(len(second.enrichments), 1)
         self.assertEqual(second.enrichments[0], self.eg_enrichments[1])
 
-        self.jar.mark_as_complete(first.path)
+        self.jar.mark_as_complete(first.identifier)
         self.assertEqual(self.jar.queue_length(), 0)
 
-        self.jar.mark_as_complete(second.path)
+        self.jar.mark_as_complete(second.identifier)
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(self.eg_listener.call_count, 2)
 
@@ -218,16 +218,16 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         '''
         CookieJar Sequence: Enrich 1 -> Enrich 2 -> Get Next (X) -> Mark X Complete -> Get Next (Y) -> Mark Y Complete
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
-        self.jar.enrich_cookie(self.eg_paths[1], self.eg_enrichments[1])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[1], self.eg_enrichments[1])
         self.assertEqual(self.jar.queue_length(), 2)
 
         first = self.jar.get_next_for_processing()
-        self.jar.mark_as_complete(first.path)
+        self.jar.mark_as_complete(first.identifier)
         self.assertEqual(self.jar.queue_length(), 1)
 
         second = self.jar.get_next_for_processing()
-        self.jar.mark_as_complete(second.path)
+        self.jar.mark_as_complete(second.identifier)
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertEqual(self.eg_listener.call_count, 2)
 
@@ -235,9 +235,9 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         '''
         CookieJar Sequence: Enrich -> Get Next -> Mark Failed Immediate -> Get Next
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         before = self.jar.get_next_for_processing()
-        self.jar.mark_as_failed(before.path)
+        self.jar.mark_as_failed(before.identifier)
 
         # Test that the queue length broadcast has been scheduled and
         # the queue length has changed appropriately
@@ -252,10 +252,10 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         '''
         CookieJar Sequence: Enrich -> Get Next -> Mark Failed 3s Delay -> Queue Empty Until Delay
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
 
-        self.jar.mark_as_failed(to_process.path, timedelta(seconds=3))
+        self.jar.mark_as_failed(to_process.identifier, timedelta(seconds=3))
         self.assertEqual(self.jar.queue_length(), 0)
 
         # Test that the queue length broadcast has been scheduled
@@ -284,19 +284,19 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         '''
         CookieJar Sequence: Enrich -> Get Next -> Enrich same -> Mark Complete -> Get Next
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[1])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[1])
         self.assertEqual(self.jar.queue_length(), 0)
 
-        self.jar.mark_as_complete(to_process.path)
+        self.jar.mark_as_complete(to_process.identifier)
         self.assertEqual(self.jar.queue_length(), 1)
 
         to_process = self.jar.get_next_for_processing()
 
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertIsInstance(to_process, Cookie)
-        self.assertEqual(to_process.path, self.eg_paths[0])
+        self.assertEqual(to_process.identifier, self.eg_identifiers[0])
         self.assertEqual(len(to_process.enrichments), 2)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(to_process.enrichments[1], self.eg_enrichments[1])
@@ -306,11 +306,11 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         '''
         CookieJar Sequence: Enrich -> Get Next -> Mark Complete -> Mark Reprocess -> Get Next
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         before = self.jar.get_next_for_processing()
-        self.jar.mark_as_complete(before.path)
+        self.jar.mark_as_complete(before.identifier)
 
-        self.jar.mark_for_processing(before.path)
+        self.jar.mark_for_processing(before.identifier)
         self.assertEqual(self.jar.queue_length(), 1)
 
         after = self.jar.get_next_for_processing()
@@ -357,7 +357,7 @@ class TestBiscuitTin(TestCookieJar):
         '''
         CookieJar Sequence: Enrich -> Reconnect -> Get Next
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         new_jar = self._create_cookie_jar()
 
         self.assertEqual(new_jar.queue_length(), 1)
@@ -366,7 +366,7 @@ class TestBiscuitTin(TestCookieJar):
 
         self.assertEqual(new_jar.queue_length(), 0)
         self.assertIsInstance(to_process, Cookie)
-        self.assertEqual(to_process.path, self.eg_paths[0])
+        self.assertEqual(to_process.identifier, self.eg_identifiers[0])
         self.assertEqual(len(to_process.enrichments), 1)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
 
@@ -374,7 +374,7 @@ class TestBiscuitTin(TestCookieJar):
         '''
         CookieJar Sequence: Enrich -> Get Next -> Reconnect -> Get Next
         '''
-        self.jar.enrich_cookie(self.eg_paths[0], self.eg_enrichments[0])
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         before = self.jar.get_next_for_processing()
 
         new_jar = self._create_cookie_jar()
@@ -406,7 +406,6 @@ class TestInMemoryCookieJar(TestCookieJar):
         pass
 
     def _change_time(self, cookie_jar: InMemoryCookieJar, change_time_to: int):
-        # jar that may be used in tests
         cookie_jar._get_time = MagicMock(return_value=change_time_to)
 
         for end_time in cookie_jar._timers.keys():

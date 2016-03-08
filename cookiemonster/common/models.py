@@ -32,10 +32,10 @@ class Enrichment(Model):
 
 class Cookie(Model):
     """
-    A "Cookie" is a representation of a file's iteratively enriched metadata.
+    A "Cookie" is a representation of a data object's iteratively enriched metadata.
     """
-    def __init__(self, path: str):
-        self.path = path
+    def __init__(self, identifier: str):
+        self.identifier = identifier
         self.enrichments = []   # type: List[Enrichment]
 
     def enrich(self, enrichment: Enrichment):

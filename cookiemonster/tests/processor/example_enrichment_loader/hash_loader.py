@@ -16,7 +16,7 @@ def _can_enrich(cookie: Cookie) -> bool:
 
 
 def _load_enrichment(cookie: Cookie) -> Enrichment:
-    return Enrichment(SOURCE_NAME, datetime.min, Metadata({KEY: hash(cookie.path)}))
+    return Enrichment(SOURCE_NAME, datetime.min, Metadata({KEY: hash(cookie.identifier)}))
 
 
 _priority = Priority.MAX_PRIORITY

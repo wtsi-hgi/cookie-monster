@@ -62,14 +62,14 @@ class BiscuitTin(CookieJar):
         '''
         self.notify_listeners(self.queue_length())
 
-    def enrich_cookie(self, path:str, enrichment:Enrichment):
-        self._metadata.enrich(path, enrichment)
-        self._queue.mark_dirty(path)
+    def enrich_cookie(self, identifier: str, enrichment: Enrichment):
+        self._metadata.enrich(identifier, enrichment)
+        self._queue.mark_dirty(identifier)
         self._broadcast_length()
 
-    def mark_as_failed(self, path:str, requeue_delay:timedelta = timedelta(0)):
-        self._queue.mark_finished(path)
-        self._queue.mark_dirty(path, requeue_delay)
+    def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
+        self._queue.mark_finished(identifier)
+        self._queue.mark_dirty(identifier, requeue_delay)
 
         # Broadcast the new length after the requeue delay
         # FIXME? Timer's interval may not be 100% accurate and may also
@@ -77,11 +77,11 @@ class BiscuitTin(CookieJar):
         # synch... Add a tolerance??
         Timer(requeue_delay.total_seconds(), self._broadcast_length).start()
 
-    def mark_as_complete(self, path:str):
-        self._queue.mark_finished(path)
+    def mark_as_complete(self, identifier: str):
+        self._queue.mark_finished(identifier)
 
-    def mark_for_processing(self, path:str):
-        self._queue.mark_dirty(path)
+    def mark_for_processing(self, identifier: str):
+        self._queue.mark_dirty(identifier)
         self._broadcast_length()
 
     def get_next_for_processing(self) -> Optional[Cookie]:

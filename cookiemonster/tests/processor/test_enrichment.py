@@ -53,7 +53,7 @@ class TestEnrichmentManager(unittest.TestCase):
         :param enrichment_loaders: enrichment loaders
         """
         logging.root.setLevel(logging.CRITICAL)
-        cookie = Cookie("path")
+        cookie = Cookie("the_identifier")
 
         enrichment_loaders_priority_queue = PriorityQueue()
         for enrichment_loader in enrichment_loaders:

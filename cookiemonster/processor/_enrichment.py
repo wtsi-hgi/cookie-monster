@@ -40,14 +40,14 @@ class EnrichmentManager:
                 enrich = enrichment_loader.can_enrich(cookie)
             except Exception as e:
                 logging.error("Error checking if enrichment can be applied to cookie; Enrichment loader: %s;"
-                              "Target Cookie: %s; Error: %s" % (enrichment_loader, cookie.path, e))
+                              "Target Cookie: %s; Error: %s" % (enrichment_loader, cookie.identifier, e))
 
             if enrich:
                 try:
                     return enrichment_loader.load_enrichment(cookie)
                 except Exception as e:
                     logging.error("Error loading enrichment; Enrichment loader: %s; Target Cookie: %s; Error: %s"
-                                  % (enrichment_loader, cookie.path, e))
+                                  % (enrichment_loader, cookie.identifier, e))
 
         return None
 

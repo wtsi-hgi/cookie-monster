@@ -22,21 +22,21 @@ class RateLimitedBiscuitTin(BiscuitTin):
         super().__init__(db_host, db_name, 1, timedelta(0))
         self._request_semaphore = _RateLimitedSemaphore(max_requests_per_second)
 
-    def enrich_cookie(self, path: str, enrichment: Enrichment):
+    def enrich_cookie(self, identifier: str, enrichment: Enrichment):
         with self._request_semaphore:
-            super().enrich_cookie(path, enrichment)
+            super().enrich_cookie(identifier, enrichment)
 
-    def mark_as_failed(self, path: str, requeue_delay: timedelta=timedelta(0)):
+    def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
         with self._request_semaphore:
-            super().mark_as_failed(path, requeue_delay=requeue_delay)
+            super().mark_as_failed(identifier, requeue_delay=requeue_delay)
 
-    def mark_as_complete(self, path: str):
+    def mark_as_complete(self, identifier: str):
         with self._request_semaphore:
-            super().mark_as_complete(path)
+            super().mark_as_complete(identifier)
 
-    def mark_for_processing(self, path: str):
+    def mark_for_processing(self, identifier: str):
         with self._request_semaphore:
-            super().mark_for_processing(path)
+            super().mark_for_processing(identifier)
 
     def get_next_for_processing(self) -> Optional[Cookie]:
         with self._request_semaphore:

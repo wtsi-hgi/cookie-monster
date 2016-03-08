@@ -61,19 +61,20 @@ class BasicProcessor(Processor):
                 self._broadcast_notification(notification)
 
     def handle_cookie_enrichment(self, cookie: Cookie):
-        logging.info("Checking if any of the %d enrichment loader(s) can load enrichment for cookie with path \"%s\""
-                     % (len(self.enrichment_loaders), cookie.path))
+        logging.info("Checking if any of the %d enrichment loader(s) can load enrichment for cookie with identifier "
+                     "\"%s\"" % (len(self.enrichment_loaders), cookie.identifier))
         enrichment_manager = EnrichmentManager(self.enrichment_loaders)
         enrichment = enrichment_manager.next_enrichment(cookie)
 
         if enrichment is None:
-            logging.info("Cannot enrich cookie with path \"%s\" any further - notifying listeners" % cookie.path)
-            no_rules_match_notification = Notification(ABOUT_NO_RULES_MATCH, cookie.path, BasicProcessor.__qualname__)
+            logging.info("Cannot enrich cookie with identifier \"%s\" any further - notifying listeners"
+                         % cookie.identifier)
+            no_rules_match_notification = Notification(ABOUT_NO_RULES_MATCH, cookie.identifier, BasicProcessor.__qualname__)
             self._broadcast_notification(no_rules_match_notification)
         else:
-            logging.info("Applying enrichment from source \"%s\" to cookie with path \"%s\""
-                         % (enrichment.source, cookie.path))
-            self.cookie_jar.enrich_cookie(cookie.path, enrichment)
+            logging.info("Applying enrichment from source \"%s\" to cookie with identifier \"%s\""
+                         % (enrichment.source, cookie.identifier))
+            self.cookie_jar.enrich_cookie(cookie.identifier, enrichment)
             # Enrichment method sets cookie for processing when enriched so no need to repeat that
 
     def _broadcast_notification(self, notification: Notification):
@@ -139,7 +140,8 @@ class BasicProcessorManager(ProcessorManager):
             # Check if there is more Cookies that need to be processed
             self.process_any_cookies()
 
-            logging.info("Processing cookie with path: \"%s\". (%s)" % (cookie.path, self.get_status_string()))
+            logging.info("Processing cookie with identifier: \"%s\". (%s)"
+                         % (cookie.identifier, self.get_status_string()))
             started_at = time.monotonic()
 
             processor = BasicProcessor(self._cookie_jar, self._rules_source.get_all(),
@@ -151,14 +153,16 @@ class BasicProcessorManager(ProcessorManager):
                 processor.process_cookie(cookie)
 
                 # Relinquish claim on Cookie
-                self._cookie_jar.mark_as_complete(cookie.path)
+                self._cookie_jar.mark_as_complete(cookie.identifier)
 
                 total_time = time.monotonic() - started_at
-                logging.info("Processed cookie with path \"%s\" in %f seconds (wall time)." % (cookie.path, total_time))
+                logging.info("Processed cookie with identifier \"%s\" in %f seconds (wall time)."
+                             % (cookie.identifier, total_time))
             except Exception as e:
-                logging.error("Exception raised whilst processing cookie with path \"%s\": %s" % (cookie.path, e))
+                logging.error("Exception raised whilst processing cookie with identifier \"%s\": %s"
+                              % (cookie.identifier, e))
 
                 # Relinquish claim on Cookie but state processing as failed
-                self._cookie_jar.mark_as_failed(cookie.path)
+                self._cookie_jar.mark_as_failed(cookie.identifier)
             finally:
                 self._currently_processing_count -= 1

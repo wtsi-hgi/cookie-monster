@@ -4,7 +4,7 @@ from hgicommon.mixable import Priority
 from cookiemonster import Cookie, Notification, Rule, RuleAction
 from cookiemonster.tests.processor.example_enrichment_loader.hash_loader import SOURCE_NAME, KEY
 
-MATCHES_ENIRCHED_COOKIE_WITH_PATH = "/my/special/cookie"
+MATCHES_ENIRCHED_COOKIE_WITH_IDENTIFIER = "/my/special/cookie"
 NOTIFIES = "everyone"
 
 
@@ -13,7 +13,7 @@ def _matches(cookie: Cookie) -> bool:
 
 
 def _generate_action(cookie: Cookie) -> RuleAction:
-    return RuleAction([Notification(NOTIFIES, cookie.path)], True)
+    return RuleAction([Notification(NOTIFIES, cookie.identifier)], True)
 
 
 _priority = Priority.MAX_PRIORITY

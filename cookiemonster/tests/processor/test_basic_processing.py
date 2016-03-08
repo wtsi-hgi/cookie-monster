@@ -16,7 +16,8 @@ from cookiemonster.processor.processing import ABOUT_NO_RULES_MATCH
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
 from cookiemonster.tests.processor._stubs import StubNotificationReceiver
 
-COOKIE_PATH = "/my/cookie"
+
+COOKIE_IDENTIFIER = "/my/cookie"
 SAMPLE_ENRICHMENT = Enrichment("sample", datetime(year=2000, month=1, day=1), Metadata())
 
 
@@ -27,7 +28,7 @@ class TestBasicProcessor(unittest.TestCase):
     def setUp(self):
         self.cookie_jar = InMemoryCookieJar()
         self.rules = [Rule(lambda *args: False, lambda *args: RuleAction([], False)) for _ in range(10)]
-        self.cookie = Cookie(COOKIE_PATH)
+        self.cookie = Cookie(COOKIE_IDENTIFIER)
         self.processor = BasicProcessor(self.cookie_jar, [], [], [])
 
     def test_evaluate_rules_with_cookie_when_no_rules(self):
@@ -112,7 +113,7 @@ class TestBasicProcessor(unittest.TestCase):
         self.processor.handle_cookie_enrichment(self.cookie)
 
         self.processor.notification_receivers[0].receive.assert_has_calls(
-                [call(Notification(ABOUT_NO_RULES_MATCH, self.cookie.path, BasicProcessor.__qualname__))])
+                [call(Notification(ABOUT_NO_RULES_MATCH, self.cookie.identifier, BasicProcessor.__qualname__))])
 
     def test_handle_cookie_enrichment_when_no_matching_enrichments(self):
         self.processor.notification_receivers = [MagicMock()]
@@ -121,7 +122,7 @@ class TestBasicProcessor(unittest.TestCase):
         self.processor.handle_cookie_enrichment(self.cookie)
 
         self.processor.notification_receivers[0].receive.assert_has_calls(
-                [call(Notification(ABOUT_NO_RULES_MATCH, self.cookie.path, BasicProcessor.__qualname__))])
+                [call(Notification(ABOUT_NO_RULES_MATCH, self.cookie.identifier, BasicProcessor.__qualname__))])
 
     def test_handle_cookie_enrichment_when_matching_enrichments(self):
         self.processor.notification_receivers = [MagicMock()]
@@ -159,7 +160,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         self.enrichment_loaders = []
 
         self.notifications = [Notification("a", "b"), Notification("c", "d")]
-        self.cookie = Cookie(COOKIE_PATH)
+        self.cookie = Cookie(COOKIE_IDENTIFIER)
 
         self.enrichment_loaders = self.enrichment_loaders
         self.processor_manager = BasicProcessorManager(
@@ -189,7 +190,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         number_to_process = 100
         for i in range(number_to_process):
-            self.cookie_jar.mark_for_processing("%s/%s" % (COOKIE_PATH, i))
+            self.cookie_jar.mark_for_processing("%s/%s" % (COOKIE_IDENTIFIER, i))
             Thread(target=self.processor_manager.process_any_cookies).start()
 
         completed = 0
@@ -220,7 +221,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         self.rules.append(Rule(matching_criteria, lambda cookie: RuleAction([], True)))
 
-        self.cookie_jar.mark_for_processing(self.cookie.path)
+        self.cookie_jar.mark_for_processing(self.cookie.identifier)
         processor_manager.process_any_cookies()
         match_lock.acquire()
         # Processor should have locked at this point - i.e. 0 free processors
@@ -243,7 +244,7 @@ class TestBasicProcessorManager(unittest.TestCase):
             complete.acquire()
             completed += 1
 
-        self.cookie_jar.mark_as_complete.assert_has_calls([call(self.cookie.path), call("/other/cookie")])
+        self.cookie_jar.mark_as_complete.assert_has_calls([call(self.cookie.identifier), call("/other/cookie")])
         self.notification_receiver.receive.assert_not_called()
 
 
