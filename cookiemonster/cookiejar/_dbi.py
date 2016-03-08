@@ -192,6 +192,11 @@ class _ErroneousCouchDB(Exception):
     pass
 
 
+class _InvalidCouchDBKey(Exception):
+    ''' Invalid (i.e., prefixed with an underscore) key exception '''
+    pass
+
+
 class _SofterCouchDB(object):
     ''' A CouchDB client interface with a gentle touch '''
     def __init__(self, url:str, database:str, timeout:timedelta, **kwargs):
@@ -534,11 +539,17 @@ class Sofabed(object):
         @param   key   Document ID
 
         NOTE If the document ID is not provided and the document data
-        does not contain an '_id' member, then a key will be generated
+        does not contain an '_id' member, then a key will be generated;
+        revisions IDs (_rev) are stripped out; and any other CouchDB
+        reserved keys (i.e., prefixed with an underscore) will raise an
+        exception
         '''
         with self._buffer_lock:
             if '_rev' in data:
                 del data['_rev']
+
+            if any(key.startswith('_') for key in data.keys() if key != '_id'):
+                raise _InvalidCouchDBKey
 
             self._buffer.append({'_id':key or uuid4().hex, **data})
 
