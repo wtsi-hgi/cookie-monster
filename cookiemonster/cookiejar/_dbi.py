@@ -83,7 +83,7 @@ Methods:
 Document schema:
 
     $queue      boolean  true (i.e., used as a schema classifier)
-    location    string   File path
+    identifier  string   File identifier
     dirty       boolean  Whether the file needs reprocessing
     processing  boolean  Whether the file is currently being processed
     queue_from  int      Timestamp from when to queue (Unix epoch)
@@ -103,11 +103,11 @@ Methods:
 
 Document schema:
 
-    $metadata  boolean  true (i.e., used as a schema classifier)
-    location   string   File path
-    source     string   Metadata source
-    timestamp  int      Timestamp (Unix epoch)
-    metadata   object   Key-value store
+    $metadata   boolean  true (i.e., used as a schema classifier)
+    identifier  string   File identifier
+    source      string   Metadata source
+    timestamp   int      Timestamp (Unix epoch)
+    metadata    object   Key-value store
 
 Dependencies
 ------------
@@ -614,7 +614,7 @@ class Bert(object):
         # Document schema, with defaults
         self._schema = {
             '$queue':     True,
-            'location':   None,
+            'identifier': None,
             'dirty':      False,
             'processing': False,
             'queue_from': None
@@ -628,14 +628,14 @@ class Bert(object):
         for doc in in_progress:
             self._db.upsert(doc)
 
-    def _get_by_path(self, path:str) -> Optional[Tuple[str, dict]]:
+    def _get_by_identifier(self, identifier:str) -> Optional[Tuple[str, dict]]:
         '''
-        Get queue document by its file path
+        Get queue document by its file identifier
 
-        @param   path  File path
+        @param   identifier  File identifier
         @return  Document ID and Document tuple (None, if not found)
         '''
-        results = self._db.query('queue', 'get_id', key          = path,
+        results = self._db.query('queue', 'get_id', key          = identifier,
                                                     include_docs = True,
                                                     reduce       = False)
         try:
@@ -658,15 +658,15 @@ class Bert(object):
         except StopIteration:
             return 0
 
-    def mark_dirty(self, path:str, latency:Optional[timedelta] = None):
+    def mark_dirty(self, identifier:str, latency:Optional[timedelta] = None):
         '''
         Mark a file as requiring, potentially delayed, (re)processing
 
-        @param  path     File path
-        @param  latency  Requeue latency
+        @param  identifier  File identifier
+        @param  latency     Requeue latency
         '''
         # Get document, or define minimal default
-        doc_id, current_doc = self._get_by_path(path) or (None, {'location': path})
+        doc_id, current_doc = self._get_by_identifier(identifier) or (None, {'identifier': identifier})
 
         dirty_doc = {
             **self._schema,
@@ -685,7 +685,7 @@ class Bert(object):
         '''
         Get the next document on the queue and mark it as processing
 
-        @return File path (None, if empty queue)
+        @return File identifier (None, if empty queue)
         '''
         results = self._db.query('queue', 'to_process', endkey       = _now(),
                                                         include_docs = True,
@@ -693,7 +693,7 @@ class Bert(object):
                                                         limit        = 1)
         try:
             latest = next(results)
-            path, current_doc = latest['value'], latest['doc']
+            identifier, current_doc = latest['value'], latest['doc']
 
             processing_doc = {
                 **current_doc,
@@ -703,19 +703,19 @@ class Bert(object):
             }
 
             self._db.upsert(processing_doc)
-            return path
+            return identifier
 
         except StopIteration:
             return None
 
-    def mark_finished(self, path:str):
+    def mark_finished(self, identifier:str):
         '''
         Mark a file as finished processing
 
-        @param  path  File path
+        @param  identifier  File identifier
         '''
         # Get document
-        doc_id, current_doc = self._get_by_path(path) or (None, None)
+        doc_id, current_doc = self._get_by_identifier(identifier) or (None, None)
 
         if doc_id:
             finished_doc = {
@@ -737,7 +737,7 @@ class Bert(object):
             map_fn = '''
                 function(doc) {
                     if (doc.$queue && doc.dirty && !doc.processing) {
-                        emit(doc.queue_from, doc.location);
+                        emit(doc.queue_from, doc.identifier);
                     }
                 }
             ''',
@@ -757,12 +757,12 @@ class Bert(object):
         )
 
         # View: queue/get_id
-        # Queue documents, keyed by their file path
+        # Queue documents, keyed by their file identifier
         queue.define_view('get_id',
             map_fn = '''
                 function (doc) {
                     if (doc.$queue) {
-                        emit(doc.location, doc._id);
+                        emit(doc.identifier, doc._id);
                     }
                 }
             '''
@@ -795,18 +795,18 @@ class Ernie(object):
 
         # Document schema, with defaults
         self._schema = {
-            '$metadata': True,
-            'location':  None,
-            'source':    None,
-            'timestamp': None,
-            'metadata':  {}
+            '$metadata':  True,
+            'identifier': None,
+            'source':     None,
+            'timestamp':  None,
+            'metadata':   {}
         }
 
-    def enrich(self, path:str, enrichment:Enrichment):
+    def enrich(self, identifier:str, enrichment:Enrichment):
         '''
         Add a metadata enrichment document to the repository for a file
 
-        @param  path        File path
+        @param  identifier  File identifier
         @param  enrichment  Enrichment model
         '''
         # FIXME? Annoyingly, we have to convert back and forth
@@ -815,20 +815,20 @@ class Ernie(object):
         enrichment_doc = {
             **self._schema,
             **enrichment_dict,
-            'location': path
+            'identifier': identifier
         }
 
         self._db.upsert(enrichment_doc)
 
-    def get_metadata(self, path:str) -> Iterable:
+    def get_metadata(self, identifier:str) -> Iterable:
         '''
         Get all the collected enrichments for a file
 
-        @param   path  File path
+        @param   identifier  File identifier
         @return  Iterator of Enrichments
         '''
         results = self._db.query('metadata', 'collate', wrapper      = Ernie._to_enrichment,
-                                                        key          = path,
+                                                        key          = identifier,
                                                         include_docs = True,
                                                         reduce       = False)
         return sorted(results)
@@ -838,12 +838,12 @@ class Ernie(object):
         metadata = self._db.create_design('metadata')
 
         # View: metadata/collate
-        # Metadata (Enrichment) document IDs keyed by `location`
+        # Metadata (Enrichment) document IDs keyed by `identifier`
         metadata.define_view('collate',
             map_fn = '''
                 function(doc) {
                     if (doc.$metadata) {
-                        emit(doc.location, doc._id);
+                        emit(doc.identifier, doc._id);
                     }
                 }
             '''
