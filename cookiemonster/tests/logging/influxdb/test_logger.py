@@ -47,7 +47,7 @@ class TestInfluxDBLoggger(unittest.TestCase):
 
     def test_record(self):
         log = Log("measured", 123, {"host": "1"}, datetime(2015, 3, 2, tzinfo=timezone.utc))
-        self._logger.record(log.measuring, log.value, log.metadata, log.timestamp)
+        self._logger.record(log.measured, log.value, log.metadata, log.timestamp)
         self._logger.record("measured", 456)
 
         retrieved = self._influxdb_client.query("select * from measured where host = '1'", database=_INFLUXDB_DATABASE)
@@ -61,7 +61,7 @@ class TestInfluxDBLoggger(unittest.TestCase):
         self._logger.static_tags = {"host": "1"}
 
         log = Log("measured", 123)
-        self._logger.record(log.measuring, log.value)
+        self._logger.record(log.measured, log.value)
 
         retrieved = self._influxdb_client.query("select * from measured where host = '1'", database=_INFLUXDB_DATABASE)
         retrieved_point = list(retrieved.get_points())[0]

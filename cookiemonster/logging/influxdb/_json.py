@@ -13,7 +13,7 @@ _INFLUX_DB_TIMESTAMP_PROPERTY = "time"
 
 
 influxdb_log_json_mappings = [
-    JsonPropertyMapping(_INFLUX_DB_MEASUREMENT_PROPERTY, "measuring", "measuring"),
+    JsonPropertyMapping(_INFLUX_DB_MEASUREMENT_PROPERTY, "measured", "measured"),
     JsonPropertyMapping(_INFLUX_DB_TAGS_PROPERTY, "metadata", "metadata"),
     JsonPropertyMapping(json_property_getter=lambda field_as_json: field_as_json[_INFLUX_DB_FIELDS_PROPERTY][_INFLUX_DB_VALUE_PROPERTY],
                         json_property_setter=lambda log_as_json, value: log_as_json.update(

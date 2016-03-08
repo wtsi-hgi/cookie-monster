@@ -35,4 +35,4 @@ class PythonLoggingLogger(Logger):
     Logger that passes logs to Python's `logging.info`.
     """
     def _process_log(self, log: Log):
-        logging.info(log.timestamp)
+        logging.info("%s: %s = %s (%s)" % (log.timestamp, log.measured, log.value, log.metadata))

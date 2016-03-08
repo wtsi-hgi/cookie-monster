@@ -54,11 +54,12 @@ class InfluxDBLogger(Logger):
                 self._buffer_timer.cancel()
             self._buffer_timer = None
 
+        logging.debug("Logging: %s" % influxdb_logs_as_json_list)
         if len(influxdb_logs_as_json_list) > 0:
             successful = self._influxdb_client.write_points(influxdb_logs_as_json_list)
             if not successful:
-                logging.warning("Logs not written correctly to InfluxDB (%d logs were lost)"
-                                % len(influxdb_logs_as_json_list))
+                logging.error("Error when sending logs to InfluxDB (%d logs were lost)"
+                              % len(influxdb_logs_as_json_list))
             else:
                 logging.info("%d logs successfully sent to InfluxDB" % len(influxdb_logs_as_json_list))
 
