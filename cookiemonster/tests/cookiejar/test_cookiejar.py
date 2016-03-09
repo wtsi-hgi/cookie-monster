@@ -3,7 +3,7 @@ Cookie Jar Implementation Tests
 ===============================
 High-level integration and unit tests of `CookieJar` implementations.
 Specifically: `BiscuitTin`, the buffered, CouchDB-backed implementation
-meant for production; `RateLimitedBiscuitTin`, a rate-limiting version
+meant for production; `RateLimitedBiscuitTin`, a rate-limited version
 of `BiscuitTin`; and `InMemoryCookieJar`, an in-memory implementation
 used in development and testing.
 
@@ -55,9 +55,8 @@ from threading import Timer
 from typing import Any, Callable
 from numbers import Real
 
-from cookiemonster.cookiejar import CookieJar, BiscuitTin
+from cookiemonster.cookiejar import CookieJar, BiscuitTin, RateLimitedBiscuitTin
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
-from cookiemonster.cookiejar.rate_limited_biscuit_tin import RateLimitedBiscuitTin
 from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer
 
@@ -389,7 +388,7 @@ class TestRateLimitedBiscuitTin(TestBiscuitTin):
     Tests for `RateLimitedBiscuitTin`
     '''
     def _create_cookie_jar(self) -> RateLimitedBiscuitTin:
-        return RateLimitedBiscuitTin(10, self.HOST, self.DB)
+        return RateLimitedBiscuitTin(10, self.HOST, self.DB, 1, timedelta(0))
 
 
 class TestInMemoryCookieJar(TestCookieJar):

@@ -3,7 +3,7 @@ Cookie Jar
 ==========
 An implementation of `CookieJar` using CouchDB as its database.
 
-Exportable Classes: `BiscuitTin`, `CookieJar` (by proxy)
+Exportable Classes: `BiscuitTin`, `RateLimitedBiscuitTin`
 
 BiscuitTin
 ----------
@@ -17,6 +17,10 @@ manage the processing queue and metadata repository.
 metadata enrichment or exceptional marking), it will broadcast the
 updated queue length to all downstream listeners.
 
+`RateLimitedBiscuitTin` is a rate-limited version of `BiscuitTin` which
+takes an additional argument, at initial position, in its constructor:
+`max_requests_per_second`.
+
 Authors
 -------
 * Christopher Harrison <ch12@sanger.ac.uk>
@@ -28,12 +32,12 @@ Copyright (c) 2015, 2016 Genome Research Limited
 '''
 from datetime import timedelta
 from typing import Optional
-from time import sleep
 from threading import Lock, Timer
 
 from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.cookiejar._cookiejar import CookieJar
 from cookiemonster.cookiejar._dbi import Sofabed, Bert, Ernie
+from cookiemonster.cookiejar._rate_limiter import rate_limited
 
 
 class BiscuitTin(CookieJar):
@@ -98,3 +102,8 @@ class BiscuitTin(CookieJar):
 
     def queue_length(self) -> int:
         return self._queue.queue_length()
+
+
+@rate_limited
+class RateLimitedBiscuitTin(BiscuitTin):
+    pass
