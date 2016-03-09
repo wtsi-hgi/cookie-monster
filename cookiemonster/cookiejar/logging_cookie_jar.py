@@ -45,8 +45,8 @@ def _time_method_call(function: Callable, *function_args, **function_kwargs) -> 
 
 class LoggingCookieJar(CookieJar):
     """
-    CookieJar implementation that wraps a given `CookieJar` implementation and logs the time taken to complete calls to
-    its functions.
+    CookieJar decorator that wraps a given `CookieJar` implementation and logs the time taken to complete calls to its
+    functions.
     """
     def __init__(self, cookie_jar: CookieJar, logger: Logger):
         """
@@ -58,10 +58,9 @@ class LoggingCookieJar(CookieJar):
         self._cookie_jar = cookie_jar
         self._logger = logger
 
-    def get_next_for_processing(self) -> Optional[Cookie]:
-        result = _time_method_call(self._cookie_jar.get_next_for_processing)
-        self._logger.record(MEASUREMENT_GET_NEXT_FOR_PROCESSING_TIME, result.duration)
-        return result.return_value
+    def enrich_cookie(self, identifier: str, enrichment: Enrichment):
+        result = _time_method_call(self._cookie_jar.enrich_cookie, identifier, enrichment)
+        self._logger.record(MEASUREMENT_ENRICH_COOKIE_TIME, result.duration)
 
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta):
         result = _time_method_call(self._cookie_jar.mark_as_failed, identifier, requeue_delay)
@@ -71,13 +70,14 @@ class LoggingCookieJar(CookieJar):
         result = _time_method_call(self._cookie_jar.mark_as_complete, identifier)
         self._logger.record(MEASUREMENT_MARK_AS_COMPLETE_TIME, result.duration)
 
-    def enrich_cookie(self, identifier: str, enrichment: Enrichment):
-        result = _time_method_call(self._cookie_jar.enrich_cookie, identifier, enrichment)
-        self._logger.record(MEASUREMENT_ENRICH_COOKIE_TIME, result.duration)
-
     def mark_for_processing(self, identifier: str):
         result = _time_method_call(self._cookie_jar.mark_for_processing, identifier)
         self._logger.record(MEASUREMENT_MARK_FOR_PROCESSING_TIME, result.duration)
+
+    def get_next_for_processing(self) -> Optional[Cookie]:
+        result = _time_method_call(self._cookie_jar.get_next_for_processing)
+        self._logger.record(MEASUREMENT_GET_NEXT_FOR_PROCESSING_TIME, result.duration)
+        return result.return_value
 
     def queue_length(self) -> int:
         result = _time_method_call(self._cookie_jar.queue_length)

@@ -12,14 +12,13 @@ _INFLUX_DB_TIMESTAMP_PROPERTY = "time"
 _INFLUX_DB_TAGS_PROPERTY = "tags"
 
 
-influxdb_log_json_mappings = [
+_influxdb_log_json_encoder_mappings = [
     JsonPropertyMapping(_INFLUX_DB_MEASUREMENT_PROPERTY, "measured", "measured"),
-    JsonPropertyMapping(json_property_getter=lambda field_as_json: field_as_json[_INFLUX_DB_FIELDS_PROPERTY][_INFLUX_DB_VALUE_PROPERTY],
-                        json_property_setter=lambda log_as_json, value: log_as_json.update(
-                            {_INFLUX_DB_FIELDS_PROPERTY: {_INFLUX_DB_VALUE_PROPERTY: value}}),
-                        object_property_name="value"),
+    JsonPropertyMapping(json_property_getter=lambda field_as_json: field_as_json[_INFLUX_DB_FIELDS_PROPERTY],
+                        json_property_setter=lambda log_as_json, values: log_as_json.update({_INFLUX_DB_FIELDS_PROPERTY: values}),
+                        object_property_name="values"),
     JsonPropertyMapping(_INFLUX_DB_TIMESTAMP_PROPERTY, "timestamp",
                         encoder_cls=DatetimeISOFormatJSONEncoder, decoder_cls=DatetimeISOFormatJSONDecoder),
     JsonPropertyMapping(_INFLUX_DB_TAGS_PROPERTY, "metadata", "metadata", optional=True)
 ]
-InfluxDBLogJSONEncoder = MappingJSONEncoderClassBuilder(InfluxDBLog, influxdb_log_json_mappings).build()
+InfluxDBLogJSONEncoder = MappingJSONEncoderClassBuilder(InfluxDBLog, _influxdb_log_json_encoder_mappings).build()

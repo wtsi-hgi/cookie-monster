@@ -12,7 +12,7 @@ from cookiemonster.logging.models import Log
 from cookiemonster.tests.logging.influxdb._helpers import setup_influxdb_in_docker
 
 _INFLUXDB_DOCKERHUB_REPOSITORY = "tutum/influxdb"
-_INFLUXDB_VERSION = "0.10"
+_INFLUXDB_VERSION = "0.9"
 _INFLUXDB_USER = "root"
 _INFLUXDB_PASSWORD = "root"
 _INFLUXDB_DATABASE = "testDB"
@@ -45,23 +45,38 @@ class TestInfluxDBLoggger(unittest.TestCase):
         retrieved = self._influxdb_client.query("select * from /.*/", database=_INFLUXDB_DATABASE)
         return list(retrieved.get_points())
 
-    def test_record(self):
+    def test_record_value(self):
         log = Log("measured", 123, {"host": "1"}, datetime(2015, 3, 2, tzinfo=timezone.utc))
-        self._logger.record(log.measured, log.value, log.metadata, log.timestamp)
+        self._logger.record(log.measured, log.values, log.metadata, log.timestamp)
         self._logger.record("measured", 456)
 
         retrieved = self._influxdb_client.query("select * from measured where host = '1'", database=_INFLUXDB_DATABASE)
+        self.assertEqual(len(list(retrieved.get_points())), 1)
         retrieved_point = list(retrieved.get_points())[0]
 
         self.assertEqual(retrieved_point["host"], log.metadata["host"])
         self.assertEqual(json.loads(retrieved_point["time"], cls=DatetimeISOFormatJSONDecoder), log.timestamp)
         self.assertEqual(retrieved_point["value"], log.value)
 
+    def test_record_named_values(self):
+        values = {
+            "a": 1,
+            "b": 2
+        }
+        log = Log("measured", values, timestamp=datetime(2015, 3, 2, tzinfo=timezone.utc))
+        self._logger.record(log.measured, log.values, log.metadata, log.timestamp)
+
+        points = self._get_all_points()
+        self.assertEqual(len(points), 1)
+
+        self.assertEqual(points[0]["a"], log.values["a"])
+        self.assertEqual(points[0]["b"], log.values["b"])
+
     def test_record_when_static_tags(self):
         self._logger.static_tags = {"host": "1"}
 
         log = Log("measured", 123)
-        self._logger.record(log.measured, log.value)
+        self._logger.record(log.measured, log.values)
 
         retrieved = self._influxdb_client.query("select * from measured where host = '1'", database=_INFLUXDB_DATABASE)
         retrieved_point = list(retrieved.get_points())[0]
