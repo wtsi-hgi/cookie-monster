@@ -1,19 +1,23 @@
 import copy
 import logging
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence, Iterable
 
-import time
 from hgicommon.data_source import DataSource
 
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
+from cookiemonster.logging.logger import PythonLoggingLogger, Logger
 from cookiemonster.notifications.notification_receiver import NotificationReceiver
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._rules import RuleQueue
 from cookiemonster.processor.models import Rule, EnrichmentLoader, RuleAction
 from cookiemonster.processor.processing import ProcessorManager, Processor, ABOUT_NO_RULES_MATCH
+
+_MEASUREMENT_CURRENTLY_PROCESSING = "processing"
+_MEASUREMENT_TIME_TO_PROCESS = "time_to_process"
 
 
 class BasicProcessor(Processor):
@@ -21,13 +25,14 @@ class BasicProcessor(Processor):
     Simple processor for a single Cookie.
     """
     def __init__(self, cookie_jar: CookieJar, rules: Sequence[Rule], enrichment_loaders: Sequence[EnrichmentLoader],
-                 notification_receivers: Sequence[NotificationReceiver]):
+                 notification_receivers: Sequence[NotificationReceiver], logger: Logger=PythonLoggingLogger()):
         """
         Constructor.
         :param cookie_jar: the cookie jar to use
         :param rules: the rules to process the Cookie with
         :param enrichment_loaders: the enrichment loaders that may be able to enrich the Cookie
-        :param notification_receivers: the recievers of notifications
+        :param notification_receivers: the receivers of notifications
+        :param logger: TODO
         """
         self.cookie_jar = cookie_jar
         self.rules = rules
@@ -95,7 +100,8 @@ class BasicProcessorManager(ProcessorManager):
     """
     def __init__(self, cookie_jar: CookieJar,
                  rules_source: DataSource[Rule], enrichment_loaders_source: DataSource[EnrichmentLoader],
-                 notification_receivers_source: DataSource[NotificationReceiver], number_of_threads: int=16):
+                 notification_receivers_source: DataSource[NotificationReceiver], number_of_threads: int=16,
+                 logger: Logger=PythonLoggingLogger()):
         """
         Constructor.
         :param cookie_jar: the cookie jar to get updates from
@@ -103,6 +109,7 @@ class BasicProcessorManager(ProcessorManager):
         :param enrichment_loaders_source: the source of enrichment loaders
         :param notification_receivers_source: the source of notification receivers
         :param number_of_threads: the maximum number of threads to use
+        :param logger:
         """
         if number_of_threads < 1:
             raise ValueError("Must specific the use of at least one thread, not %d" % number_of_threads)
@@ -113,6 +120,7 @@ class BasicProcessorManager(ProcessorManager):
         self._enrichment_loaders_source = enrichment_loaders_source
         self._cookie_processing_thread_pool = ThreadPoolExecutor(max_workers=number_of_threads)
         self._currently_processing_count = 0
+        self._logger = logger
 
     def process_any_cookies(self):
         logging.debug("Prompted to process any unprocessed cookies.")
@@ -150,13 +158,15 @@ class BasicProcessorManager(ProcessorManager):
             try:
                 # Process Cookie
                 self._currently_processing_count += 1
+                self._logger.record(_MEASUREMENT_CURRENTLY_PROCESSING, self._currently_processing_count)
                 processor.process_cookie(cookie)
 
                 # Relinquish claim on Cookie
                 self._cookie_jar.mark_as_complete(cookie.identifier)
 
                 total_time = time.monotonic() - started_at
-                logging.info("Processed cookie with identifier \"%s\" in %f seconds (wall time)."
+                self._logger.record(_MEASUREMENT_TIME_TO_PROCESS, total_time)
+                logging.info("Processed cookie with path \"%s\" in %f seconds (wall time)."
                              % (cookie.identifier, total_time))
             except Exception as e:
                 logging.error("Exception raised whilst processing cookie with identifier \"%s\": %s"
@@ -166,3 +176,4 @@ class BasicProcessorManager(ProcessorManager):
                 self._cookie_jar.mark_as_failed(cookie.identifier)
             finally:
                 self._currently_processing_count -= 1
+                self._logger.record(_MEASUREMENT_CURRENTLY_PROCESSING, self._currently_processing_count)

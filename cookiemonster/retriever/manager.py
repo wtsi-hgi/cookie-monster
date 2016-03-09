@@ -10,25 +10,31 @@ from hgicommon.mixable import Listenable
 
 from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.helpers import localise_to_utc
-from cookiemonster.retriever._models import RetrievalLog
-from cookiemonster.retriever.mappers import RetrievalLogMapper, UpdateMapper
+from cookiemonster.logging.logger import Logger, PythonLoggingLogger
+from cookiemonster.retriever.mappers import UpdateMapper
 
 TimeDeltaInSecondsT = TypeVar("TimeDelta")
+
+MEASURED_RETRIEVAL = "retrieval"
+MEASURED_RETRIEVAL_STARTED_AT = "started_at"
+MEASURED_RETRIEVAL_DURATION = "retrieval_duration"
+MEASURED_RETRIEVAL_UPDATE_COUNT = "number_of_updates"
+MEASURED_RETRIEVAL_MOST_RECENT_RETRIEVED = "most_recent_update"
 
 
 class RetrievalManager(Listenable[UpdateCollection]):
     """
     Manages the retrieval of updates.
     """
-    def __init__(self, update_mapper: UpdateMapper, retrieval_log_mapper: RetrievalLogMapper):
+    def __init__(self, update_mapper: UpdateMapper, logger: Logger=PythonLoggingLogger()):
         """
         Default constructor.
         :param update_mapper: the object through which updates can be retrieved from the source
-        :param retrieval_log_mapper: mapper through which retrieval logs can be stored
+        :param logger: log recorder
         """
         super().__init__()
         self.update_mapper = update_mapper
-        self._retrieval_log_mapper = retrieval_log_mapper
+        self._logger = logger
 
     def run(self, updates_since: datetime=datetime.min):
         """
@@ -61,12 +67,17 @@ class RetrievalManager(Listenable[UpdateCollection]):
             logging.debug("Notifying %d listeners of %d update(s)" % (len(self.get_listeners()), len(updates)))
             self.notify_listeners(updates)
 
-        # Log retrieval
+        # Store log of retrieval
         most_recent_retrieved = updates.get_most_recent()[0].timestamp if len(updates) > 0 else None
-        retrieval_log = RetrievalLog(
-            started_at_clock_time, seconds_taken_to_complete_query, len(updates), most_recent_retrieved)
-        logging.debug("Logging update query: %s" % retrieval_log)
-        self._retrieval_log_mapper.add(retrieval_log)
+        self._logger.record(
+            MEASURED_RETRIEVAL,
+            {
+                MEASURED_RETRIEVAL_STARTED_AT: started_at_clock_time.isoformat(),
+                MEASURED_RETRIEVAL_DURATION: seconds_taken_to_complete_query,
+                MEASURED_RETRIEVAL_UPDATE_COUNT: len(updates),
+                MEASURED_RETRIEVAL_MOST_RECENT_RETRIEVED: None if most_recent_retrieved is None else most_recent_retrieved.isoformat(),
+            }
+        )
 
         return updates
 
@@ -92,14 +103,14 @@ class PeriodicRetrievalManager(RetrievalManager):
     Manages the periodic retrieval of updates.
     """
     def __init__(self, retrieval_period: TimeDeltaInSecondsT, update_mapper: UpdateMapper,
-                 retrieval_log_mapper: RetrievalLogMapper):
+                 logger: Logger=PythonLoggingLogger()):
         """
         Constructor.
         :param retrieval_period: the period that dictates the frequency at which data is retrieved
         :param update_mapper: the object through which updates can be retrieved from the source
-        :param retrieval_log_mapper: mapper through which retrieval logs can be stored
+        :param logger: log recorder
         """
-        super().__init__(update_mapper, retrieval_log_mapper)
+        super().__init__(update_mapper, logger)
         self._retrieval_period = retrieval_period
         self._running = False
         self._state_lock = Lock()

@@ -1,9 +1,9 @@
-SQLAlchemy==1.0.11
 pycouchdb==1.14
 requests==2.8.1
 Flask==0.10.1
 pytz==2015.7
 APScheduler==3.0.4
+influxdb==2.12.0
 git+https://github.com/wtsi-hgi/python-common.git@7d789ebb16aff0eb0d80331c6bcb6263fc27382a#egg=hgicommon
 git+https://github.com/wtsi-hgi/python-baton-wrapper.git@4daafd926aa07d1b94223679c55c36c6eebf4284#egg=baton
 git+https://github.com/wtsi-hgi/python-json.git@befc4f25227e242312080858bb90858afe38f7eb#egg=hgijson

@@ -2,16 +2,19 @@ import logging
 import unittest
 from datetime import datetime
 from threading import Thread, Semaphore, Lock
+from typing import List
 from unittest.mock import MagicMock, call
 
 from hgicommon.collections import Metadata
+from hgijson.json.primitive import DatetimeISOFormatJSONDecoder
 
 from cookiemonster.common.collections import UpdateCollection
 from cookiemonster.common.helpers import localise_to_utc
 from cookiemonster.common.models import Update
-from cookiemonster.retriever._models import RetrievalLog
-from cookiemonster.retriever.manager import PeriodicRetrievalManager, RetrievalManager
-from cookiemonster.tests.retriever._stubs import StubUpdateMapper, StubRetrievalLogMapper
+from cookiemonster.retriever.manager import PeriodicRetrievalManager, RetrievalManager, MEASURED_RETRIEVAL, \
+    MEASURED_RETRIEVAL_STARTED_AT, MEASURED_RETRIEVAL_MOST_RECENT_RETRIEVED, MEASURED_RETRIEVAL_UPDATE_COUNT, \
+    MEASURED_RETRIEVAL_DURATION
+from cookiemonster.tests.retriever._stubs import StubUpdateMapper
 
 SINCE = localise_to_utc(datetime.min)
 TIME_TAKEN_TO_DO_RETRIEVE = 1.0
@@ -26,7 +29,7 @@ class _BaseRetrievalManagerTest(unittest.TestCase):
     """
     def setUp(self):
         self.update_mapper = StubUpdateMapper()
-        self.retrieval_log_mapper = StubRetrievalLogMapper()
+        self.logger = MagicMock()
 
         self.updates = UpdateCollection([
             Update("a", datetime(year=1999, month=1, day=2), Metadata()),
@@ -52,34 +55,30 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         super().setUp()
 
         # Create retrieval manager
-        self.retrieval_manager = RetrievalManager(self.update_mapper, self.retrieval_log_mapper)
+        self.retrieval_manager = RetrievalManager(self.update_mapper, self.logger)
 
     def test_run_with_updates(self):
         # Setup
         listener = MagicMock()
         self.retrieval_manager.add_listener(listener)
-        self.retrieval_log_mapper.add = MagicMock()
+        self.logger.add = MagicMock()
 
         # Call SUT method
         self.retrieval_manager.run(SINCE)
 
         # Assert that retrieves updates from source
         self.update_mapper.get_all_since.assert_called_once_with(SINCE)
-        # Assert that updates listener
+        # Assert that updates listeners are called
         listener.assert_called_once_with(self.updates)
         # Assert that retrieval is logged
-        self.assertEqual(self.retrieval_log_mapper.add.call_count, 1)
-        retrieval_log = self.retrieval_log_mapper.add.call_args[0][0]  # type: RetrievalLog
-        self.assertEqual(retrieval_log.started_at, CURRENT_CLOCK_TIME)
-        self.assertGreaterEqual(retrieval_log.seconds_taken_to_complete_query, TIME_TAKEN_TO_DO_RETRIEVE)
-        self.assertEqual(retrieval_log.number_of_updates, len(self.updates))
-        self.assertEqual(retrieval_log.latest_retrieved_timestamp, self.updates.get_most_recent()[0].timestamp)
+        self._assert_logged_updated(self.updates)
+
 
     def test_run_without_updates(self):
         # Setup
         listener = MagicMock()
         self.retrieval_manager.add_listener(listener)
-        self.retrieval_log_mapper.add = MagicMock()
+        self.logger.add = MagicMock()
         self.updates.clear()
         self.retrieval_manager._retrieved_updates_since = CURRENT_MONOTONIC_TIME - (24 * 60 * 60)
 
@@ -90,13 +89,30 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         self.update_mapper.get_all_since.assert_called_once_with(SINCE)
         # Assert that updates listener has not been called given that there are no updates
         listener.assert_not_called()
-        # Assert that retrieval is logged but that latest retrieved timestamp has not changed
-        self.assertEqual(self.retrieval_log_mapper.add.call_count, 1)
-        retrieval_log = self.retrieval_log_mapper.add.call_args[0][0]  # type: RetrievalLog
-        self.assertEqual(retrieval_log.started_at, CURRENT_CLOCK_TIME)
-        self.assertGreaterEqual(retrieval_log.seconds_taken_to_complete_query, TIME_TAKEN_TO_DO_RETRIEVE)
-        self.assertEqual(retrieval_log.number_of_updates, len(self.updates))
-        self.assertEqual(retrieval_log.latest_retrieved_timestamp, None)
+        # Assert that retrieval is logged
+        self._assert_logged_updated(self.updates)
+
+    def _assert_logged_updated(self, updates: UpdateCollection):
+        """
+        TODO
+        :param updates:
+        :return:
+        """
+        self.assertEqual(self.logger.record.call_count, 1)
+        args = self.logger.record.call_args[0]
+
+        self.assertEqual(args[0], MEASURED_RETRIEVAL)
+        self.assertEqual(DatetimeISOFormatJSONDecoder().decode(args[1][MEASURED_RETRIEVAL_STARTED_AT]),
+                         CURRENT_CLOCK_TIME)
+        self.assertGreaterEqual(args[1][MEASURED_RETRIEVAL_DURATION], TIME_TAKEN_TO_DO_RETRIEVE)
+        self.assertEqual(args[1][MEASURED_RETRIEVAL_UPDATE_COUNT], len(updates))
+
+        logged_most_recent_retrived = args[1][MEASURED_RETRIEVAL_MOST_RECENT_RETRIEVED]
+        if len(updates) > 0:
+            self.assertEqual(DatetimeISOFormatJSONDecoder().decode(logged_most_recent_retrived),
+                             updates.get_most_recent()[0].timestamp)
+        else:
+            self.assertIsNone(logged_most_recent_retrived)
 
 
 class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
@@ -107,19 +123,18 @@ class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
         super().setUp()
 
         # Create retrieval manager
-        self.retrieval_manager = PeriodicRetrievalManager(
-            RETRIEVAL_PERIOD, self.update_mapper, self.retrieval_log_mapper)
+        self.retrieval_manager = PeriodicRetrievalManager(RETRIEVAL_PERIOD, self.update_mapper, self.logger)
 
     def test_run(self):
         cycles = 10
         listener = MagicMock()
 
-        self.retrieval_log_mapper.add = MagicMock()
+        self.logger.add = MagicMock()
         self.retrieval_manager.add_listener(listener)
 
         self._setup_to_do_n_cycles(cycles, self.updates)
 
-        self.assertEqual(self.retrieval_log_mapper.add.call_count, cycles)
+        self.assertEqual(self.logger.record.call_count, cycles)
         listener.assert_has_calls([call(self.updates) for _ in range(cycles)])
 
     def test_run_if_running(self):

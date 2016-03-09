@@ -16,7 +16,8 @@ Copyright (c) 2016 Genome Research Limited
 import unittest
 from unittest.mock import MagicMock
 
-from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer, _get_port
+from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer
+from cookiemonster.tests._utils.docker_helpers import get_open_port
 
 import json
 from typing import Any
@@ -58,7 +59,7 @@ class TestElmo(unittest.TestCase):
         self.jar = BiscuitTin(self.HOST, self.DB, 1, timedelta(0))
 
         # Configuration for HTTP service
-        self.API_PORT = _get_port()
+        self.API_PORT = get_open_port()
 
         self.api = HTTP_API()
         self.api.inject(APIDependency.CookieJar, self.jar)
