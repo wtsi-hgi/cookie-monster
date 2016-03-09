@@ -88,7 +88,7 @@ class TestInfluxDBLoggger(unittest.TestCase):
         self.assertEqual(len(self._get_all_points()), 0)
 
     def test_flush_with_buffer(self):
-        self._logger.buffer_latency = timedelta(days=999)
+        self._logger.buffer_latency_in_seconds = timedelta(days=999).total_seconds()
 
         self._logger.record("measured", 123, timestamp=datetime(2016, 1, 1))
         self.assertEqual(len(self._get_all_points()), 0)

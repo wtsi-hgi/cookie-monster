@@ -1,4 +1,3 @@
-SQLAlchemy==1.0.11
 pycouchdb==1.14
 requests==2.8.1
 Flask==0.10.1

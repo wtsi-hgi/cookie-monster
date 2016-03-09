@@ -17,11 +17,10 @@ class Logger(metaclass=ABCMeta):
     Records logs.
     """
     def __init__(self, buffer_latency: Optional[timedelta]=None):
-        self.buffer_latency = buffer_latency
-
+        self.buffer_latency_in_seconds = buffer_latency.total_seconds() if buffer_latency is not None else 0
         self._buffer = []    # type: List[Log]
-        self._buffer_timer = None   # type: Optional[Timer]
         self._buffer_lock = Lock()
+        self._buffer_timer = None   # type: Optional[Timer]
 
         # Flush the buffer on exit
         atexit.register(self.flush)
@@ -29,7 +28,7 @@ class Logger(metaclass=ABCMeta):
     def record(self, measured: str, values: Union[RecordableValue, Dict[str, RecordableValue]], metadata: Dict=None,
                timestamp: datetime=None):
         """
-        Records the given dated measurement value and any metadata.
+        Records the given dated measurement value(s) and any metadata.
         :param measured: the name of the variable that has been measured
         :param values: a value or dictionary of named values that describe the measured variable
         :param metadata: any metadata associated to the measurement
@@ -39,11 +38,11 @@ class Logger(metaclass=ABCMeta):
 
         with self._buffer_lock:
             self._buffer.append(log)
-            if self._buffer_timer is None and self.buffer_latency is not None:
-                self._buffer_timer = Timer(self.buffer_latency.total_seconds(), self.flush)
+            if self._buffer_timer is None and self.buffer_latency_in_seconds > 0:
+                self._buffer_timer = Timer(self.buffer_latency_in_seconds, self.flush)
                 self._buffer_timer.start()
 
-        if self.buffer_latency is None or self.buffer_latency.total_seconds() == 0:
+        if self.buffer_latency_in_seconds == 0:
             self.flush()
 
     def flush(self):
