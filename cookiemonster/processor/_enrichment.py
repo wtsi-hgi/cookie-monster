@@ -3,7 +3,7 @@ import re
 from queue import PriorityQueue
 from typing import Optional, Iterable
 
-from hgicommon.data_source import DataSource, ListDataSource, RegisteringDataSource
+from hgicommon.data_source import RegisteringDataSource
 
 from cookiemonster.common.models import Cookie, Enrichment
 from cookiemonster.processor.models import EnrichmentLoader

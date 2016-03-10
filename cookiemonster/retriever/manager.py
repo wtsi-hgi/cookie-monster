@@ -16,6 +16,7 @@ from cookiemonster.retriever.mappers import UpdateMapper
 TimeDeltaInSecondsT = TypeVar("TimeDelta")
 
 MEASURED_RETRIEVAL = "retrieval"
+MEASURED_RETRIEVAL_UPDATES_SINCE = "updates_since"
 MEASURED_RETRIEVAL_STARTED_AT = "started_at"
 MEASURED_RETRIEVAL_DURATION = "retrieval_duration"
 MEASURED_RETRIEVAL_UPDATE_COUNT = "number_of_updates"
@@ -72,10 +73,12 @@ class RetrievalManager(Listenable[UpdateCollection]):
         self._logger.record(
             MEASURED_RETRIEVAL,
             {
+                MEASURED_RETRIEVAL_UPDATES_SINCE: updates_since.isoformat(),
                 MEASURED_RETRIEVAL_STARTED_AT: started_at_clock_time.isoformat(),
                 MEASURED_RETRIEVAL_DURATION: seconds_taken_to_complete_query,
                 MEASURED_RETRIEVAL_UPDATE_COUNT: len(updates),
-                MEASURED_RETRIEVAL_MOST_RECENT_RETRIEVED: None if most_recent_retrieved is None else most_recent_retrieved.isoformat(),
+                MEASURED_RETRIEVAL_MOST_RECENT_RETRIEVED:
+                    None if most_recent_retrieved is None else most_recent_retrieved.isoformat()
             }
         )
 
