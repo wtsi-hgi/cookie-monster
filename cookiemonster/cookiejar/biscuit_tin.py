@@ -35,7 +35,7 @@ from typing import Optional
 from threading import Lock, Timer
 
 from cookiemonster.common.models import Enrichment, Cookie
-from cookiemonster.cookiejar._cookiejar import CookieJar
+from cookiemonster.cookiejar.cookiejar import CookieJar
 from cookiemonster.cookiejar._dbi import Sofabed, Bert, Ernie
 from cookiemonster.cookiejar._rate_limiter import rate_limited
 
