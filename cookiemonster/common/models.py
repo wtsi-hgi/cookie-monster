@@ -1,6 +1,6 @@
 from datetime import datetime
 from functools import total_ordering
-from typing import Any, Union, Set, List
+from typing import Any, Set, List
 
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
