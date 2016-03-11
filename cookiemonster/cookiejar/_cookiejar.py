@@ -18,13 +18,11 @@ Jars. Such implementations must define the following methods:
 * `enrich_cookie` should update/append provided metadata (and its
   source) to the repository for the specified file. If a change is
   detected, then said file should be queued for processing (if it isn't
-  already). This method should notify its listeners of the updated queue
-  length.
+  already). This method should notify its listeners of queue changes.
 
 * `mark_as_failed` should mark a file as having failed processing. This
   should have the effect of requeueing the file after a specified grace
-  period, whereupon listeners should be notified of the updated queue
-  length
+  period, whereupon listeners should be notified of the queue change.
 
 * `mark_as_complete` should mark a file as having completed its
   processing successfully
@@ -35,7 +33,7 @@ Jars. Such implementations must define the following methods:
   manually, via some external service, or when downstream processes
   change, etc.) rather than part of the usual workflow (i.e.,
   `enrich_cookie` will trigger queueing automatically). This method
-  should notify its listeners of the updated queue length.
+  should notify its listeners of the queue change.
 
 * `get_next_for_processing` should return the next Cookie from the queue
   for processing. When returning said next file, the state of the
@@ -63,10 +61,7 @@ from hgicommon.mixable import Listenable
 from cookiemonster.common.models import Enrichment, Cookie
 
 
-_QueueLengthT = int
-
-
-class CookieJar(Listenable[_QueueLengthT], metaclass=ABCMeta):
+class CookieJar(Listenable[None], metaclass=ABCMeta):
     """
     Interface for an enrichable repository of metadata for files with an
     intrinsic processing queue, where new metadata implies reprocessing

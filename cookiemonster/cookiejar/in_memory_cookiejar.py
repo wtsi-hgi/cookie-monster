@@ -85,7 +85,7 @@ class InMemoryCookieJar(CookieJar):
                 self._waiting.append(identifier)
 
         if notify:
-            self.notify_listeners(self.queue_length())
+            self.notify_listeners()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
         with self._lists_lock:

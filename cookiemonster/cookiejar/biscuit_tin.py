@@ -15,7 +15,7 @@ manage the processing queue and metadata repository.
 
 `BiscuitTin` implements `Listenable`; when a cookie is queued (i.e., on
 metadata enrichment or exceptional marking), it will broadcast the
-updated queue length to all downstream listeners.
+queue change to all downstream listeners.
 
 `RateLimitedBiscuitTin` is a rate-limited version of `BiscuitTin` which
 takes an additional argument, at initial position, in its constructor:
@@ -59,34 +59,34 @@ class BiscuitTin(CookieJar):
 
         self._queue_lock = Lock()
 
-    def _broadcast_length(self):
+    def _broadcast(self):
         '''
-        Broadcast the current queue length to all listeners and keep the
-        latest broadcast state
+        Broadcast to all listeners
+        This should be called on queue changes
         '''
-        self.notify_listeners(self.queue_length())
+        self.notify_listeners()
 
     def enrich_cookie(self, identifier: str, enrichment: Enrichment):
         self._metadata.enrich(identifier, enrichment)
         self._queue.mark_dirty(identifier)
-        self._broadcast_length()
+        self._broadcast()
 
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
         self._queue.mark_finished(identifier)
         self._queue.mark_dirty(identifier, requeue_delay)
 
-        # Broadcast the new length after the requeue delay
+        # Broadcast the change after the requeue delay
         # FIXME? Timer's interval may not be 100% accurate and may also
         # not correspond with the database server; this could go out of
         # synch... Add a tolerance??
-        Timer(requeue_delay.total_seconds(), self._broadcast_length).start()
+        Timer(requeue_delay.total_seconds(), self._broadcast).start()
 
     def mark_as_complete(self, identifier: str):
         self._queue.mark_finished(identifier)
 
     def mark_for_processing(self, identifier: str):
         self._queue.mark_dirty(identifier)
-        self._broadcast_length()
+        self._broadcast()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
         with self._queue_lock:

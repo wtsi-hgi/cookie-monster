@@ -272,12 +272,12 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self._change_time(self.jar, 123459)
         self.assertEqual(self.jar.queue_length(), 1)
 
-        # FIXME? This *doesn't* test that the listener is called at the
-        # appropriate time with the appropriate arguments; it just shows
-        # that the listener will be called after the appropriate time
-        # and that, at that time, the queue length (i.e., its argument)
-        # is correct. There could be possible synchronisation issues due
-        # to the inexactness of the Timer.
+        # NOTE This *doesn't* test that the listener is called exactly
+        # when the new data "come online", as this is a passive process
+        # of the database view. It just shows that the listener will be
+        # called after the specified time and that, at that time, the
+        # queue length is correct... Due to the inexactness of the Timer
+        # there could be possible synchronisation issues.
 
     def test09_out_of_order_enrichment(self):
         """
@@ -344,7 +344,7 @@ class TestBiscuitTin(TestCookieJar):
         return BiscuitTin(self.HOST, self.DB, 1, timedelta(0))
 
     def _get_scheduled_fn(self) -> Callable[..., Any]:
-        return self.jar._broadcast_length
+        return self.jar._broadcast
 
     def _test_scheduling(self, expected_timeout:Real, expected_call:Callable[..., Any]):
         _biscuit_tin.Timer.assert_called_with(expected_timeout, expected_call)
