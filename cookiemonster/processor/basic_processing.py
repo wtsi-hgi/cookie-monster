@@ -25,14 +25,13 @@ class BasicProcessor(Processor):
     Simple processor for a single Cookie.
     """
     def __init__(self, cookie_jar: CookieJar, rules: Sequence[Rule], enrichment_loaders: Sequence[EnrichmentLoader],
-                 notification_receivers: Sequence[NotificationReceiver], logger: Logger=PythonLoggingLogger()):
+                 notification_receivers: Sequence[NotificationReceiver]):
         """
         Constructor.
         :param cookie_jar: the cookie jar to use
         :param rules: the rules to process the Cookie with
         :param enrichment_loaders: the enrichment loaders that may be able to enrich the Cookie
         :param notification_receivers: the receivers of notifications
-        :param logger: TODO
         """
         self.cookie_jar = cookie_jar
         self.rules = rules
@@ -109,7 +108,7 @@ class BasicProcessorManager(ProcessorManager):
         :param enrichment_loaders_source: the source of enrichment loaders
         :param notification_receivers_source: the source of notification receivers
         :param number_of_threads: the maximum number of threads to use
-        :param logger:
+        :param logger: log recorder
         """
         if number_of_threads < 1:
             raise ValueError("Must specific the use of at least one thread, not %d" % number_of_threads)
@@ -126,15 +125,6 @@ class BasicProcessorManager(ProcessorManager):
         logging.debug("Prompted to process any unprocessed cookies.")
         self._cookie_processing_thread_pool.submit(self._process_any_cookies)
 
-    def get_status_string(self) -> str:
-        """
-        Gets a string indicating the internal status of this manager.
-        :return: human readable string
-        """
-        return "%d/%d cookies being processed simultaneously, %d cookies queued for processing, %d active threads" \
-               % (self._currently_processing_count, self._cookie_processing_thread_pool._max_workers,
-                  self._cookie_jar.queue_length(), threading.active_count())
-
     def _process_any_cookies(self):
         """
         Processes any cookies, blocking whilst the Cookie is processed.
@@ -143,13 +133,12 @@ class BasicProcessorManager(ProcessorManager):
         cookie = self._cookie_jar.get_next_for_processing()
 
         if cookie is None:
-            logging.info("Triggered to process cookies but none need processing. (%s)" % self.get_status_string())
+            logging.info("Triggered to process cookies but none need processing.")
         else:
             # Check if there is more Cookies that need to be processed
             self.process_any_cookies()
 
-            logging.info("Processing cookie with identifier: \"%s\". (%s)"
-                         % (cookie.identifier, self.get_status_string()))
+            logging.info("Processing cookie with identifier: \"%s\"." % cookie.identifier)
             started_at = time.monotonic()
 
             processor = BasicProcessor(self._cookie_jar, self._rules_source.get_all(),
