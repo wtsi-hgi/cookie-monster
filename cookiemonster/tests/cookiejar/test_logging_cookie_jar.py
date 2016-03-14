@@ -8,23 +8,24 @@ from hgicommon.collections import Metadata
 from cookiemonster import Enrichment
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
-from cookiemonster.cookiejar.logging_cookie_jar import logging_cookie_jar, MEASUREMENT_QUERY_TIME
+from cookiemonster.cookiejar.logging_cookie_jar import add_cookie_jar_logging, MEASUREMENT_QUERY_TIME, \
+    logging_cookie_jar
 
 
-class TestLoggingCookieJar(unittest.TestCase):
+class TestAddCookieJarLogging(unittest.TestCase):
     """
-    Tests for `LoggingCookieJar`.
+    Tests for `add_cookie_jar_logging` method.
     """
     def setUp(self):
         self._logger = MagicMock()
 
-        self._composite_cookie_jar = MagicMock()
+        self._cookie_jar = MagicMock()
         self._composite_methods = dict()    # type: Dict[str, MagicMock]
         for method_name in CookieJar.__abstractmethods__:
-            method = getattr(self._composite_cookie_jar, method_name)
+            method = getattr(self._cookie_jar, method_name)
             self._composite_methods[method_name] = method
 
-        self._cookie_jar = logging_cookie_jar(self._composite_cookie_jar, self._logger)
+        add_cookie_jar_logging(self._cookie_jar, self._logger)
 
     def test_enrich_cookie(self):
         source = "my_source"
@@ -86,3 +87,28 @@ class TestLoggingCookieJar(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         args, kwargs = self._logger.record.call_args
         self.assertEqual(args[0], measured)
+
+
+class TestLoggingCookieJar(unittest.TestCase):
+    """
+    Tests for `logging_cookie_jar` method.
+    """
+    def setUp(self):
+        self._logger = MagicMock()
+
+    def test_create_logging_cookie_jar(self):
+        InMemoryLoggingCookieJar = logging_cookie_jar(InMemoryCookieJar)
+        cookie_jar = InMemoryLoggingCookieJar(self._logger)
+        queue_length = cookie_jar.queue_length()
+        self.assertEqual(queue_length, 0)
+        self.assertEqual(self._logger.record.call_count, 1)
+
+    def test_use_as_decorator(self):
+        @logging_cookie_jar
+        class InMemoryLoggingCookieJar(InMemoryCookieJar):
+            pass
+
+        cookie_jar = InMemoryLoggingCookieJar(self._logger)
+        queue_length = cookie_jar.queue_length()
+        self.assertEqual(queue_length, 0)
+        self.assertEqual(self._logger.record.call_count, 1)

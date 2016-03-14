@@ -32,17 +32,36 @@ def _timer_wrap(method_name: str, method: Callable, logger: Logger) -> Callable:
     return wrapper
 
 
-def logging_cookie_jar(cookie_jar: CookieJar, logger: Logger) -> CookieJar:
+def add_cookie_jar_logging(cookie_jar: CookieJar, logger: Logger):
     """
-    CookieJar decorator that wraps a given `CookieJar` implementation and logs the time taken to complete calls to its
-    functions.
-
-    Modifies the given `CookieJar` instance.
-    :param cookie_jar: the `CookieJar` to decorate
+    Modifies the given `CookieJar` instance so that the time taken to complete calls to its functions is logged.
+    :param cookie_jar: the `CookieJar` to add logging to
     :param logger: where to log query times to
-    :return: decorated `CookieJar`
     """
     for method_name in CookieJar.__abstractmethods__:
         setattr(cookie_jar, method_name, _timer_wrap(method_name, getattr(cookie_jar, method_name), logger))
 
-    return cookie_jar
+
+class LoggingCookieJar(CookieJar):
+    """
+    `CookieJar` implementation that logs the amound of time taken to complete `CookieJar` function calls.
+    """
+
+
+def logging_cookie_jar(cookie_jar_cls: type) -> type:
+    """
+    Creates a decorate that uses an instances of the given `CookieJar` class as the decorated component.
+    :param cookie_jar_cls: the class to decorate
+    :return: the decorated class
+    """
+    def decorator_init(cookie_jar: CookieJar, logger: Logger, *args, **kwargs):
+        super(type(cookie_jar), cookie_jar).__init__(*args, **kwargs)
+        add_cookie_jar_logging(cookie_jar, logger)
+
+    return type(
+        "%sLoggingCookieJar" % cookie_jar_cls,
+        (cookie_jar_cls, LoggingCookieJar),
+        {
+            "__init__": decorator_init
+        }
+    )
