@@ -7,7 +7,7 @@ Exportable functions: `rate_limited`
 
 `rate_limited`
 --------------
-When applied to a class, all CookieJar methods will be rate-limited.
+When applied to a class, all `CookieJar` methods will be rate-limited.
 This is controlled via an additional argument to the constructor
 (`max_requests_per_second:int`).
 
