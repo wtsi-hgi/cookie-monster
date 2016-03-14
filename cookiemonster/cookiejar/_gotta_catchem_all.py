@@ -1,21 +1,22 @@
 '''
 Exception Catching Decorator
 ============================
-A class decorator for `CookieJar`s that will automatically retry any
-method that raises an exception, in some hope that it'll work the next
-time
+A class decorator for abstract base classes that will automatically
+retry any method that raises an exception, in some vain hope that it'll
+work the next time
 
 Exportable functions: `too_big_to_fail`
 Exportable classes: `MaxAttemptsExhausted`
 
 `too_big_to_fail`
 ----------------
-When applied to a class, all `CookieJar` methods will be wrapped into a
-`try...catch` block that, if the method raises an exception, will retry
-that method again and again. To avoid any potential futility, the
-maximum number of retries can be set via an additional keyword argument
-to a decorated class' constructor (`max_attempts:int`); if omitted, it
-will default to retrying ad infinitum.
+When applied to an abstract base class, all abstract methods will be
+wrapped into a `try...catch` block that, if the method raises an
+exception, will retry that method again and again. To avoid any
+potential futility, the maximum number of retries can be set via an
+additional keyword argument to a decorated class' constructor
+(`max_attempts:Optional[int]`); if omitted, it will default to retrying
+ad infinitum.
 
 For example, to create a seemingly invincible version of a `CookieJar`
 implementation called, say, `ElmosOreos`, you would do something like
@@ -32,7 +33,7 @@ corruption of state!
 `MaxAttemptsExhausted`
 ----------------------
 This exception will be raised if the maximum number of attempts (if set)
-is exhausted without the `CookieJar` method executing without error.
+is exhausted without the method executing successfully.
 
 Authors
 -------
@@ -43,21 +44,16 @@ License
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
 '''
-from typing import Any, Callable, Optional
-
-from cookiemonster.cookiejar import CookieJar
-
-
-_cookie_jar_methods = CookieJar.__abstractmethods__
+from typing import Any, Callable
 
 
 class MaxAttemptsExhausted(Exception):
     pass
 
 
-def too_big_to_fail(cookiejar:CookieJar) -> CookieJar:
-    ''' Decorator to catch and retry all CookieJar methods that raise '''
-    class _invincible(cookiejar):
+def too_big_to_fail(abc:'Class') -> 'Class':
+    ''' Decorator to catch and retry all abstract methods that raise '''
+    class _invincible(abc):
         def __init__(self, *args, **kwargs):
             if 'max_attempts' in kwargs:
                 max_attempts = kwargs['max_attempts']
@@ -66,18 +62,24 @@ def too_big_to_fail(cookiejar:CookieJar) -> CookieJar:
             else:
                 self._can_attempt = lambda _: True
 
-            super().__init__(*args, **kwargs)
+            # Determine abstract methods
+            abstract_methods = set()
+            for cls in abc.mro():
+                if hasattr(cls, '__abstractmethods__'):
+                    abstract_methods = abstract_methods.union(cls.__abstractmethods__)
 
-            # Monkey-patch CookieJar methods with exception catching decorator
-            for method in _cookie_jar_methods:
-                setattr(self.__class__, method, self._catcher(getattr(cookiejar, method)))
+            # Monkey-patch abstract methods with exception catching decorator
+            for method in abstract_methods:
+                setattr(self.__class__, method, self._catcher(getattr(abc, method)))
+
+            super().__init__(*args, **kwargs)
 
         def _catcher(self, fn:Callable[..., Any]) -> Callable[..., Any]:
             '''
             Decorator that catches all exceptions
 
             @param   fn  Function to decorate
-            @return  function
+            @return  Catching function
             '''
             def wrapper(cls, *args, **kwargs):
                 completed = False
