@@ -6,6 +6,8 @@ from cookiemonster.cookiejar import CookieJar
 from cookiemonster.logging.logger import Logger
 
 MEASUREMENT_QUERY_TIME = {
+    CookieJar.fetch_cookie.__name__: "fetch_cookie_time",
+    CookieJar.delete_cookie.__name__: "delete_cookie_time",
     CookieJar.enrich_cookie.__name__: "enrich_cookie_time",
     CookieJar.mark_as_failed.__name__: "mark_as_failed_time",
     CookieJar.mark_as_complete.__name__: "mark_as_complete_time",
