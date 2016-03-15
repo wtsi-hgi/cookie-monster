@@ -15,9 +15,15 @@ Environmental Factors
 ---------------------
 The CouchDB interface is designed to "test the water" before making any
 request. If it's too cold (i.e., a timeout is reached), then the client
-will fallback, to avoid hammering the CouchDB server when it is busy.
-This timeout defaults to 1500ms, but can be changed via the environment
-variable `COOKIEMONSTER_COUCHDB_TIMEOUT` if necessary.
+will fallback, to avoid hammering the CouchDB server when it is busy,
+and retry a given number of times before failing completely. This is
+parametrised through the following environment variables:
+
+Environment Variable          | Description                    | Default
+------------------------------+--------------------------------+--------
+COOKIEMONSTER_COUCHDB_TIMEOUT | Initial request timeout (ms)   |    1500
+COOKIEMONSTER_COUCHDB_GRACE   | Grace time before retry (ms)   |    3000
+COOKIEMONSTER_COUCHDB_RETRIES | Maximum retries before failure |      10
 
 Sofabed
 -------
@@ -156,9 +162,11 @@ from hgijson.json.primitive import DatetimeEpochJSONEncoder, DatetimeEpochJSONDe
 from hgijson.json.builders import MappingJSONEncoderClassBuilder, MappingJSONDecoderClassBuilder
 
 
-# Get the CouchDB timeout (ms) value from the environment (default to
-# 1500ms) as we don't want to have to configure every last little thing
-_COUCHDB_TIMEOUT = timedelta(milliseconds=environ.get('COOKIEMONSTER_COUCHDB_TIMEOUT', 1500))
+# We get the CouchDB hammering configuration from the environment, as we
+# don't want to have to explicitly set every last little thing.
+_COUCHDB_TIMEOUT = timedelta(milliseconds=environ.get('COOKIEMONSTER_COUCHDB_TIMEOUT', 1500)).total_seconds()
+_COUCHDB_GRACE   = timedelta(milliseconds=environ.get('COOKIEMONSTER_COUCHDB_GRACE', 3000)).total_seconds()
+_COUCHDB_RETRIES = environ.get('COOKIEMONSTER_COUCHDB_RETRIES', 10)
 
 
 _ENRICHMENT_JSON_MAPPING = [
@@ -187,11 +195,6 @@ class _UnresponsiveCouchDB(Exception):
     pass
 
 
-class _ErroneousCouchDB(Exception):
-    ''' Erroneous (i.e., bad state) database exception '''
-    pass
-
-
 class _InvalidCouchDBKey(Exception):
     ''' Invalid (i.e., prefixed with an underscore) key exception '''
     pass
@@ -199,18 +202,16 @@ class _InvalidCouchDBKey(Exception):
 
 class _SofterCouchDB(object):
     ''' A CouchDB client interface with a gentle touch '''
-    def __init__(self, url:str, database:str, timeout:timedelta, **kwargs):
+    def __init__(self, url:str, database:str, **kwargs):
         '''
         Acquire a connection with the CouchDB database
 
         @param   url       CouchDB server URL
         @param   database  Database name
-        @param   timeout   Connection timeout
         @kwargs  Additional constructor parameters to
                  pycouchdb.client.Server should be passed through here
         '''
         self._url = url
-        self._timeout = timeout.total_seconds()
 
         # Set up pycouchdb constructor arguments and instantiate
         self._server = Server(**{
@@ -222,13 +223,19 @@ class _SofterCouchDB(object):
         })
 
         # Connect
-        self._db = self._make_it_check(self._connect)(self, database)
+        self._db = self._lightly_hammer(self._connect)(self, database)
 
-        # Monkey-patch the available database methods,
-        # decorated with connection checking
-        for member in dir(self._db):
-            if callable(getattr(self._db, member)) and not member.startswith('_'):
-                setattr(self.__class__, member, self._make_it_check(getattr(self._db, member)))
+        # Monkey-patch the available database methods, decorated with
+        # initial connection checking and graceful retrying
+        db_methods = [
+            method
+            for method in dir(self._db)
+            if  callable(getattr(self._db, method))
+            and not method.startswith('_')
+        ]
+
+        for method in db_methods:
+            setattr(self.__class__, method, self._lightly_hammer(getattr(self._db, method)))
 
     def _connect(self, database:str) -> Database:
         '''
@@ -244,26 +251,37 @@ class _SofterCouchDB(object):
 
         return db
 
-    def _make_it_check(self, fn:Callable[..., Any]) -> Callable[..., Any]:
+    def _lightly_hammer(self, fn:Callable[..., Any]) -> Callable[..., Any]:
         '''
-        Decorator that checks the database connection before executing
-        the function; if the connection is unresponsive or otherwise
-        invalid, an exception is thrown instead
+        Decorator that first checks the responsiveness of the database
+        connection before executing the function; if the database is
+        unresponsive, then we wait a bit and try again until such time
+        as it responds or the failure conditions are met (configured
+        using environment variables). If it ultimately fails, then the
+        respective exception will be raised.
 
         @param   fn  Function to decorate
         @return  Decorated function
         '''
-        def wrapper(cls, *args, **kwargs):
-            try:
-                # FIXME? What about authenticated services?
-                response = head(self._url, timeout=self._timeout)
-            except Timeout:
-                raise _UnresponsiveCouchDB
-            except:
-                raise _ErroneousCouchDB
+        def wrapper(obj, *args, **kwargs):
+            good_connection = False
+            attempts = 0
 
-            if response.status_code != 200:
-                raise _ErroneousCouchDB
+            while not good_connection and attempts < _COUCHDB_RETRIES:
+                try:
+                    # FIXME? What about authenticated services?
+                    response = head(self._url, timeout=_COUCHDB_TIMEOUT)
+                    if response.status_code != 200:
+                        raise Exception
+
+                    good_connection = True
+
+                except:
+                    attempts += 1
+                    sleep(_COUCHDB_GRACE)
+
+            if not good_connection:
+                raise _UnresponsiveCouchDB
 
             return fn(*args, **kwargs)
 
@@ -400,7 +418,7 @@ class Sofabed(object):
         @kwargs  Additional constructor parameters to
                  pycouchdb.client.Server should be passed through here
         '''
-        self._db = _SofterCouchDB(url, database, _COUCHDB_TIMEOUT, **kwargs)
+        self._db = _SofterCouchDB(url, database, **kwargs)
 
         self._designs = []
         self._designs_dirty = False
@@ -501,7 +519,7 @@ class Sofabed(object):
 
     def _watcher(self):
         ''' Periodically check the queue for pending upserts '''
-        zzz = _COUCHDB_TIMEOUT.total_seconds() * 2
+        zzz = _COUCHDB_TIMEOUT * 2
 
         while self._thread_running:
             self._upsert_from_queue()
