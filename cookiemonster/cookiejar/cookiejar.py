@@ -1,4 +1,4 @@
-'''
+"""
 Cookie Jar Abstract Class
 =========================
 A Cookie Jar acts both as a repository for file metadata while also
@@ -56,7 +56,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2015, 2016 Genome Research Limited
-'''
+"""
 
 from abc import ABCMeta, abstractmethod
 from datetime import timedelta
@@ -68,82 +68,82 @@ from cookiemonster.common.models import Enrichment, Cookie
 
 
 class CookieJar(Listenable[None], metaclass=ABCMeta):
-    '''
+    """
     Interface for an enrichable repository of metadata for files with an
     intrinsic processing queue, where new metadata implies reprocessing
-    '''
+    """
     @abstractmethod
     def fetch_cookie(self, identifier: str) -> Optional[Cookie]:
-        '''
+        """
         Fetch a file and its associated metadata by its identifier
 
         @param  identifier  Cookie identifier
         @return The Cookie model (or None, if not found)
-        '''
+        """
 
     @abstractmethod
     def delete_cookie(self, identifier: str):
-        '''
+        """
         Delete a file and its associated metadata from the CookieJar by
         its identifier (n.b., this will not delete upstream, only the
         CookieJar will be affected)
 
         @param  identifier  Cookie identifier
-        '''
+        """
 
     @abstractmethod
     def enrich_cookie(self, identifier: str, enrichment: Enrichment):
-        '''
+        """
         Append/update metadata for a given file, thus changing its state
         and putting it back on the queue (or adding it, if its new),
         with the supplied enrichment
 
         @param  identifier  Cookie identifier
         @param  enrichment  Enrichment
-        '''
+        """
 
     @abstractmethod
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta):
-        '''
+        """
         Mark a file as having failed processing, thus returning it to
         the queue after a specified period
 
         @param  identifier     Cookie identifier
         @param  requeue_delay  Time to wait before requeuing
-        '''
+        """
 
     @abstractmethod
     def mark_as_complete(self, identifier: str):
-        '''
+        """
         Mark a file as having completed processing and thus removing it
         from the queue
 
         @param  identifier  Cookie identifier
-        '''
+        """
 
     @abstractmethod
     def mark_for_processing(self, identifier: str):
-        '''
+        """
         Mark a file for reprocessing, regardless of changes to its
         metadata, returning it to the queue immediately
 
         @param  identifier  Cookie identifier
-        '''
+        """
 
     @abstractmethod
     def get_next_for_processing(self) -> Optional[Cookie]:
-        '''
+        """
         Get the next Cookie for processing and update its queue state
 
         @return The next Cookie for processing (None, if the queue is
                 empty)
         @note   This method is thread-safe
-        '''
+        """
 
     @abstractmethod
     def queue_length(self) -> int:
-        '''
+        """
         Get the number of items ready for processing
 
         @return Number of items in the queue
-        '''
+        """
