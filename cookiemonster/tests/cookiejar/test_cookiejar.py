@@ -1,4 +1,4 @@
-"""
+'''
 Cookie Jar Implementation Tests
 ===============================
 High-level integration and unit tests of `CookieJar` implementations.
@@ -37,6 +37,10 @@ The following sequences are specific to `BiscuitTin` and derivatives:
 
 * Enrich -> Get Next -> Reconnect -> Get Next
 
+* Enrich -> Fetch by Identifier
+
+* Enrich -> Delete by Identifier
+
 Authors
 -------
 * Christopher Harrison <ch12@sanger.ac.uk>
@@ -46,7 +50,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2015, 2016 Genome Research Limited
-"""
+'''
 import unittest
 from unittest.mock import MagicMock
 from abc import ABCMeta, abstractmethod
@@ -68,13 +72,13 @@ import cookiemonster.cookiejar.biscuit_tin as _biscuit_tin
 
 
 class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
-    """
+    '''
     Tests for implementations of `CookieJar`
-    """
+    '''
     def setUp(self):
-        """
+        '''
         Provide sample inputs with which to test
-        """
+        '''
         self.eg_identifiers = [
             '/foo',
             '/bar/baz'
@@ -97,45 +101,45 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
 
     @abstractmethod
     def _create_cookie_jar(self) -> CookieJar:
-        """
+        '''
         Creates a cookie jar as the SUT.
         :return: cookie jar that is to be tested
-        """
+        '''
 
     @abstractmethod
     def _change_time(self, cookie_jar: CookieJar, change_time_to: int):
-        """
+        '''
         Changes the time in the given cookie jar.
         :param cookie_jar: cookie jar to change the time in
         :param change_time_to: the time to change to
-        """
+        '''
 
     @abstractmethod
     def _get_scheduled_fn(self) -> Callable[..., Any]:
-        """
+        '''
         @return  The scheduling function
-        """
+        '''
 
     @abstractmethod
     def _test_scheduling(self, expected_timeout:Real, expected_call:Callable[..., Any]):
-        """
+        '''
         Test the scheduling
         @param  expected_timeout  Time until invocation
         @param  expected_call     Callable to invoke
-        """
+        '''
 
     def test01_empty_queue(self):
-        """
+        '''
         CookieJar Sequence: Get Next
-        """
+        '''
         self.assertEqual(self.jar.queue_length(), 0)
         self.assertIsNone(self.jar.get_next_for_processing())
         self.eg_listener.assert_not_called()
 
     def test02_single_enrichment(self):
-        """
+        '''
         CookieJar Sequence: Enrich -> Get Next
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         self.assertEqual(self.jar.queue_length(), 1)
 
@@ -149,9 +153,9 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(self.eg_listener.call_count, 1)
 
     def test03_multiple_enrichment(self):
-        """
+        '''
         CookieJar Sequence: Enrich -> Enrich Again -> Get Next
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         self.assertEqual(self.jar.queue_length(), 1)
 
@@ -169,9 +173,9 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(self.eg_listener.call_count, 2)
 
     def test04_enrich_and_complete(self):
-        """
+        '''
         CookieJar Sequence: Enrich -> Get Next -> Mark Complete
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
         self.jar.mark_as_complete(to_process.identifier)
@@ -179,9 +183,9 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(self.eg_listener.call_count, 1)
 
     def test05_process_multiple(self):
-        """
+        '''
         CookieJar Sequence: Enrich 1 -> Enrich 2 -> Get Next (X) -> Get Next (Y) -> Mark X Complete -> Mark Y Complete
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
 
         # Fast forward one second
@@ -214,9 +218,9 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(self.eg_listener.call_count, 2)
 
     def test06_process_multiple_intertwined(self):
-        """
+        '''
         CookieJar Sequence: Enrich 1 -> Enrich 2 -> Get Next (X) -> Mark X Complete -> Get Next (Y) -> Mark Y Complete
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         self.jar.enrich_cookie(self.eg_identifiers[1], self.eg_enrichments[1])
         self.assertEqual(self.jar.queue_length(), 2)
@@ -231,9 +235,9 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(self.eg_listener.call_count, 2)
 
     def test07_fail_immediate(self):
-        """
+        '''
         CookieJar Sequence: Enrich -> Get Next -> Mark Failed Immediate -> Get Next
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         before = self.jar.get_next_for_processing()
         self.jar.mark_as_failed(before.identifier)
@@ -248,9 +252,9 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(before, after)
 
     def test08_fail_delayed(self):
-        """
+        '''
         CookieJar Sequence: Enrich -> Get Next -> Mark Failed 3s Delay -> Queue Empty Until Delay
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
 
@@ -280,9 +284,9 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         # there could be possible synchronisation issues.
 
     def test09_out_of_order_enrichment(self):
-        """
+        '''
         CookieJar Sequence: Enrich -> Get Next -> Enrich same -> Mark Complete -> Get Next
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[1])
@@ -302,9 +306,9 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(self.eg_listener.call_count, 2)
 
     def test10_reprocess(self):
-        """
+        '''
         CookieJar Sequence: Enrich -> Get Next -> Mark Complete -> Mark Reprocess -> Get Next
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         before = self.jar.get_next_for_processing()
         self.jar.mark_as_complete(before.identifier)
@@ -317,14 +321,43 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(before, after)
         self.assertEqual(self.eg_listener.call_count, 2)
 
+    def test11_fetch_by_id(self):
+        '''
+        CookieJar Sequence: Enrich -> Fetch by Identifier
+        '''
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
+
+        cookie = self.jar.fetch_cookie(self.eg_identifiers[0])
+        self.assertIsInstance(cookie, Cookie)
+        self.assertEqual(cookie.identifier, self.eg_identifiers[0])
+        self.assertEqual(len(cookie.enrichments), 1)
+        self.assertEqual(cookie.enrichments[0], self.eg_enrichments[0])
+
+        no_cookie = self.jar.fetch_cookie('this does not exist')
+        self.assertIsNone(no_cookie)
+
+    def test12_delete_by_id(self):
+        '''
+        CookieJar Sequence: Enrich -> Delete by Identifer
+        '''
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
+
+        cookie = self.jar.fetch_cookie(self.eg_identifiers[0])
+        self.assertIsInstance(cookie, Cookie)
+
+        self.jar.delete_cookie(self.eg_identifiers[0])
+
+        deleted_cookie = self.jar.fetch_cookie(self.eg_identifiers[0])
+        self.assertIsNone(deleted_cookie)
+
 
 class TestBiscuitTin(TestCookieJar):
-    """
+    '''
     High-level integration and logic tests of the CookieJar-CouchDB
     implementation (`BiscuitTin`). We assume that if the higher-level tests
     pass and are suitably comprehensive, then the underlying levels of
     abstraction are probably fine™
-    """
+    '''
     def setUp(self):
         self.couchdb_container = CouchDBContainer()
         self.HOST = self.couchdb_container.couchdb_fqdn
@@ -352,10 +385,10 @@ class TestBiscuitTin(TestCookieJar):
     def _change_time(self, cookie_jar: CookieJar, change_time_to: int):
         _dbi._now = MagicMock(return_value=change_time_to)
 
-    def test11_connection_failure(self):
-        """
+    def test13_connection_failure(self):
+        '''
         CookieJar Sequence: Enrich -> Reconnect -> Get Next
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         new_jar = self._create_cookie_jar()
 
@@ -369,10 +402,10 @@ class TestBiscuitTin(TestCookieJar):
         self.assertEqual(len(to_process.enrichments), 1)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
 
-    def test12_connection_failure_while_processing(self):
-        """
+    def test14_connection_failure_while_processing(self):
+        '''
         CookieJar Sequence: Enrich -> Get Next -> Reconnect -> Get Next
-        """
+        '''
         self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
         before = self.jar.get_next_for_processing()
 
@@ -384,17 +417,17 @@ class TestBiscuitTin(TestCookieJar):
 
 
 class TestRateLimitedBiscuitTin(TestBiscuitTin):
-    """
+    '''
     Tests for `RateLimitedBiscuitTin`.
-    """
+    '''
     def _create_cookie_jar(self) -> RateLimitedBiscuitTin:
         return RateLimitedBiscuitTin(10, self.HOST, self.DB, 1, timedelta(0))
 
 
 class TestInMemoryCookieJar(TestCookieJar):
-    """
+    '''
     Tests for `InMemoryCookieJar`.
-    """
+    '''
     def _create_cookie_jar(self) -> CookieJar:
         return InMemoryCookieJar()
 
@@ -419,5 +452,5 @@ class TestInMemoryCookieJar(TestCookieJar):
 del TestCookieJar
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
