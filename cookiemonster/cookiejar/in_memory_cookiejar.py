@@ -3,10 +3,16 @@ from collections import defaultdict
 from datetime import timedelta
 from multiprocessing import Lock
 from threading import Timer
-from typing import Optional, List, Dict
+from typing import Any, Optional, List, Dict
 
 from cookiemonster.common.models import Cookie, Enrichment
 from cookiemonster.cookiejar import CookieJar
+
+
+def _remove_if_exists(lst:List, el:Any):
+    """ Remove first appearance of el from lst, if exists """
+    if el in lst:
+        lst.remove(el)
 
 
 class InMemoryCookieJar(CookieJar):
@@ -24,8 +30,23 @@ class InMemoryCookieJar(CookieJar):
         self._failed = []   # type: List[str]
         self._completed = []    # type: List[str]
         self._reprocess_on_complete = []    # type: List[str]
+        self._delete_on_complete = []    # type: List[str]
         self._lists_lock = Lock()
         self._timers = defaultdict(list)   # type: Dict[int, List[Timer]]
+
+    def fetch_cookie(self, identifier: str) -> Optional[Cookie]:
+        with self._lists_lock:
+            return self._known_data.get(identifier, None)
+
+    def delete_cookie(self, identifier: str):
+        with self._lists_lock:
+            if identifier in self._known_data:
+                del self._known_data[identifier]
+
+                if identifier in self._processing:
+                    self._delete_on_complete.append(identifier)
+                else:
+                    self._cleanup(identifier)
 
     def enrich_cookie(self, identifier: str, enrichment: Enrichment):
         with self._lists_lock:
@@ -115,9 +136,23 @@ class InMemoryCookieJar(CookieJar):
             self._failed.remove(identifier)
         self.mark_for_processing(identifier)
 
+    def _cleanup(self, identifier: str):
+        """
+        Clean up the queue state of a deleted in-progress Cookie
+        :param identifier: identifier of cookie to cleanup
+        """
+        _remove_if_exists(self._processing, identifier)
+        _remove_if_exists(self._waiting, identifier)
+        _remove_if_exists(self._failed, identifier)
+        _remove_if_exists(self._completed, identifier)
+        _remove_if_exists(self._reprocess_on_complete, identifier)
+        _remove_if_exists(self._delete_on_complete, identifier)
+
     def _on_complete(self, identifier: str):
         reprocess = False
         with self._lists_lock:
+            if identifier in self._delete_on_complete:
+                self._cleanup(identifier)
             if identifier in self._reprocess_on_complete:
                 self._reprocess_on_complete.remove(identifier)
                 reprocess = True
