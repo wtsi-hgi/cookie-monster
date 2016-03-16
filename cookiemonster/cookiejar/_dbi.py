@@ -117,6 +117,8 @@ Methods:
 * `get_metadata` Fetch all the metadata enrichments for a file, in
   chronological order
 
+* `delete_metadata` Delete all the metadata enrichments for a file
+
 Document schema:
 
     $metadata   boolean  true (i.e., used as a schema classifier)
@@ -817,8 +819,8 @@ class Ernie(object):
     @staticmethod
     def _to_enrichment(row:dict) -> Enrichment:
         '''
-        Wrapper function that decodes enrichment data from the database
-        into its respective Enrichment object
+        Wrapper function that decodes enrichment data from query result
+        rows into its respective Enrichment object
         '''
         # FIXME? Annoyingly, we have to re-encode the data back to JSON
         row_json = json.dumps(row['doc'])
@@ -873,6 +875,20 @@ class Ernie(object):
                                                         include_docs = True,
                                                         reduce       = False)
         return sorted(results)
+
+    def delete_metadata(self, identifier:str):
+        '''
+        Delete all the enrichments for a file
+
+        @param   identifier  File identifier
+        '''
+        to_delete = self._db.query('metadata', 'collate', flat         = 'doc',
+                                                          as_list      = True,
+                                                          key          = identifier,
+                                                          include_docs = True,
+                                                          reduce       = False)
+        if len(to_delete):
+            self._db.delete_bulk(to_delete)
 
     def _define_schema(self):
         ''' Define views '''
