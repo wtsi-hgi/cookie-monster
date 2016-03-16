@@ -688,7 +688,7 @@ class Bert(object):
 
         # If there are any files marked as deleted, they can be cleaned
         # up without consequence
-        to_delete = self._db.query('queue', 'to_delete', flat='value', reduce=False)
+        to_delete = self._db.query('queue', 'to_clean', flat='value', reduce=False)
 
         for doc_id in to_delete:
             self._db.delete(doc_id)
