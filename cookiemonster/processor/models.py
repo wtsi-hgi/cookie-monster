@@ -54,7 +54,7 @@ class Rule(ResourceAccessorContainer, Priority):
         :param cookie: the cookie to generate an action for
         :return: the generated action
         """
-        if not self._matches(cookie):
+        if not self._matches(cookie, self.resource_accessor):
             return ValueError("Rules does not match cookie: %s" % cookie)
         return self._generate_action(cookie, self.resource_accessor)
 
