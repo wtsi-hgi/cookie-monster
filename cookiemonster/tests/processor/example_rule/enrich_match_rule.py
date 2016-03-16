@@ -9,7 +9,10 @@ NOTIFIES = "everyone"
 
 
 def _matches(cookie: Cookie) -> bool:
-    return cookie.get_metadata_by_source(SOURCE_NAME, KEY) is not None
+    enrichment_from_source = cookie.get_most_recent_enrichment_from_source(SOURCE_NAME)
+    if enrichment_from_source is None:
+        return False
+    return KEY in enrichment_from_source.metadata
 
 
 def _generate_action(cookie: Cookie) -> RuleAction:
