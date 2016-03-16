@@ -84,6 +84,8 @@ CouchDB database and should be instantiated with a Sofabed.
 
 Methods:
 
+* `get_by_identifier` Get a Cookie by its identifier
+
 * `queue_length` Get the current length of the queue of files to be
   processed
 
@@ -667,7 +669,7 @@ class Bert(object):
         for doc in in_progress:
             self._db.upsert(doc)
 
-    def _get_by_identifier(self, identifier:str) -> Optional[Tuple[str, dict]]:
+    def get_by_identifier(self, identifier:str) -> Optional[Tuple[str, dict]]:
         '''
         Get queue document by its file identifier
 
@@ -705,7 +707,7 @@ class Bert(object):
         @param  latency     Requeue latency
         '''
         # Get document, or define minimal default
-        doc_id, current_doc = self._get_by_identifier(identifier) or (None, {'identifier': identifier})
+        doc_id, current_doc = self.get_by_identifier(identifier) or (None, {'identifier': identifier})
 
         dirty_doc = {
             **self._schema,
@@ -754,7 +756,7 @@ class Bert(object):
         @param  identifier  File identifier
         '''
         # Get document
-        doc_id, current_doc = self._get_by_identifier(identifier) or (None, None)
+        doc_id, current_doc = self.get_by_identifier(identifier) or (None, None)
 
         if doc_id:
             finished_doc = {

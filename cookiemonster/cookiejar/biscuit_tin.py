@@ -66,6 +66,20 @@ class BiscuitTin(CookieJar):
         '''
         self.notify_listeners()
 
+    def fetch_cookie(self, identifier: str) -> Optional[Cookie]:
+        _, doc = self._queue.get_by_identifier(identifier) or (None, None)
+
+        if doc is None:
+            return None
+
+        cookie = Cookie(identifier)
+        cookie.enrichments = self._metadata.get_metadata(identifier)
+
+        return cookie
+
+    def delete_cookie(self, identifier: str):
+        pass
+
     def enrich_cookie(self, identifier: str, enrichment: Enrichment):
         self._metadata.enrich(identifier, enrichment)
         self._queue.mark_dirty(identifier)
@@ -95,10 +109,7 @@ class BiscuitTin(CookieJar):
         if to_process is None:
             return None
 
-        cookie = Cookie(to_process)
-        cookie.enrichments = self._metadata.get_metadata(to_process)
-
-        return cookie
+        return self.fetch_cookie(to_process)
 
     def queue_length(self) -> int:
         return self._queue.queue_length()
