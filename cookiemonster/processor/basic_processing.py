@@ -2,6 +2,7 @@ import copy
 import logging
 import threading
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence, Iterable
 
@@ -52,8 +53,8 @@ class BasicProcessor(Processor):
                     rule_action = rule.generate_action(isolated_cookie)
                     rule_actions.append(rule_action)
                     terminate = rule_action.terminate_processing
-            except Exception as e:
-                logging.error("Error applying rule; Rule: %s; Error: %s" % (e, rule))
+            except Exception:
+                logging.error("Error applying rule; Rule: %s; Error: %s" % (rule, traceback.format_exc()))
             rule_queue.mark_as_applied(rule)
 
         return rule_actions
@@ -157,9 +158,9 @@ class BasicProcessorManager(ProcessorManager):
                 self._logger.record(_MEASUREMENT_TIME_TO_PROCESS, total_time)
                 logging.info("Processed cookie with path \"%s\" in %f seconds (wall time)."
                              % (cookie.identifier, total_time))
-            except Exception as e:
+            except Exception:
                 logging.error("Exception raised whilst processing cookie with identifier \"%s\": %s"
-                              % (cookie.identifier, e))
+                              % (cookie.identifier, traceback.format_exc()))
 
                 # Relinquish claim on Cookie but state processing as failed
                 self._cookie_jar.mark_as_failed(cookie.identifier)

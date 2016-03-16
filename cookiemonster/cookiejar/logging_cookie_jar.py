@@ -44,7 +44,7 @@ def add_cookie_jar_logging(cookie_jar: CookieJar, logger: Logger):
 
 class LoggingCookieJar(CookieJar):
     """
-    `CookieJar` implementation that logs the amound of time taken to complete `CookieJar` function calls.
+    `CookieJar` implementation that logs the amount of time taken to complete `CookieJar` function calls.
     """
 
 

@@ -1,5 +1,6 @@
 import logging
 import re
+import traceback
 from queue import PriorityQueue
 from typing import Optional, Iterable
 
@@ -45,9 +46,9 @@ class EnrichmentManager:
             if enrich:
                 try:
                     return enrichment_loader.load_enrichment(cookie)
-                except Exception as e:
+                except Exception:
                     logging.error("Error loading enrichment; Enrichment loader: %s; Target Cookie: %s; Error: %s"
-                                  % (enrichment_loader, cookie.identifier, e))
+                                  % (enrichment_loader, cookie.identifier, traceback.format_exc()))
 
         return None
 
