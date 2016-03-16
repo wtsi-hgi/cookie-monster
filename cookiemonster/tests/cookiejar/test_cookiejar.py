@@ -41,6 +41,8 @@ The following sequences are specific to `BiscuitTin` and derivatives:
 
 * Enrich -> Delete by Identifier
 
+* Enrich -> Get Next -> Delete -> Mark Complete
+
 Authors
 -------
 * Christopher Harrison <ch12@sanger.ac.uk>
@@ -350,6 +352,27 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         deleted_cookie = self.jar.fetch_cookie(self.eg_identifiers[0])
         self.assertIsNone(deleted_cookie)
 
+    def test13_delete_while_processing(self):
+        """
+        CookieJar Sequence: Enrich -> Get Next -> Delete -> Mark Complete
+        """
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
+        to_process = self.jar.get_next_for_processing()
+        self.jar.delete_cookie(to_process)
+
+        # A cookie that is deleted while processing will still exist,
+        # except for its enrichments (which are removed)
+        to_be_deleted = self.jar.fetch_cookie(self.eg_identifiers[0])
+        self.assertIsInstance(to_be_deleted, Cookie)
+        self.assertEqual(to_be_deleted.identifier, self.eg_identifiers[0])
+        self.assertEqual(len(to_be_deleted.enrichments), 0)
+
+        self.jar.mark_as_complete(to_process)
+
+        # Once completed, the cookie should be completely removed
+        deleted = self.jar.fetch_cookie(self.eg_identifiers[0])
+        self.assertIsNone(deleted)
+
 
 class TestBiscuitTin(TestCookieJar):
     """
@@ -385,7 +408,7 @@ class TestBiscuitTin(TestCookieJar):
     def _change_time(self, cookie_jar: CookieJar, change_time_to: int):
         _dbi._now = MagicMock(return_value=change_time_to)
 
-    def test13_connection_failure(self):
+    def test14_connection_failure(self):
         """
         CookieJar Sequence: Enrich -> Reconnect -> Get Next
         """
@@ -402,7 +425,7 @@ class TestBiscuitTin(TestCookieJar):
         self.assertEqual(len(to_process.enrichments), 1)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
 
-    def test14_connection_failure_while_processing(self):
+    def test15_connection_failure_while_processing(self):
         """
         CookieJar Sequence: Enrich -> Get Next -> Reconnect -> Get Next
         """
