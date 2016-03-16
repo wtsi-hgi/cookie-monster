@@ -5,20 +5,20 @@ from os.path import dirname, realpath
 
 from os.path import normpath, join
 
-from cookiemonster.tests.common.stubs import StubResourceRequiringRegisteringDataSource, StubResourceAccessor, \
+from cookiemonster.tests.common.stubs import StubResourceAccessorContainerRegisteringDataSource, StubResourceAccessor, \
     StubResourceAccessorContainer
 
 EXAMPLE_RESOURCE_ACCESSOR_CONTAINER_FILE_LOCATION = normpath(join(dirname(realpath(__file__)),
                                                                   "_example_resource_accessor_container.py"))
 
-class TestResourceRequiringRegisteringDataSource(unittest.TestCase):
+class TestResourceAccessorContainerRegisteringDataSource(unittest.TestCase):
     """
-    Tests for `ResourceRequiringRegisteringDataSource`.
+    Tests for `ResourceAccessorContainerRegisteringDataSource`.
     """
     def setUp(self):
         self._temp_directory = tempfile.mkdtemp()
         self._resource_accessor = StubResourceAccessor()
-        self._data_source = StubResourceRequiringRegisteringDataSource(
+        self._data_source = StubResourceAccessorContainerRegisteringDataSource(
             self._temp_directory, StubResourceAccessorContainer, self._resource_accessor)
 
     def test_extract_data_from_file(self):

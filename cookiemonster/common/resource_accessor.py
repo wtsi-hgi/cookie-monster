@@ -8,7 +8,8 @@ from hgicommon.data_source.common import DataSourceType
 
 class ResourceAccessor(metaclass=ABCMeta):
     """
-    TODO
+    Accessor through which resources can be accessed. Implementations dictate the resources that are made available and
+    the methods through which they are accessed.
     """
 
 ResourceAccessType = TypeVar("ResourceAccessType", bound=ResourceAccessor)
@@ -16,7 +17,7 @@ ResourceAccessType = TypeVar("ResourceAccessType", bound=ResourceAccessor)
 
 class ResourceAccessorContainer(Generic[ResourceAccessType], metaclass=ABCMeta):
     """
-    TODO
+    Container of a resource accessor.
     """
     def __init__(self):
         """
@@ -25,16 +26,16 @@ class ResourceAccessorContainer(Generic[ResourceAccessType], metaclass=ABCMeta):
         self.resource_accessor = None  # type: Optional[ResourceAccessType]
 
 
-class ResourceRequiringRegisteringDataSource(RegisteringDataSource, metaclass=ABCMeta):
+class ResourceAccessorContainerRegisteringDataSource(RegisteringDataSource, metaclass=ABCMeta):
     """
-    TODO
+    Registering data source of `ResourceAccessorContainer` instances.
     """
     def __init__(self, directory_location: str, data_type: type, resource_accessor: ResourceAccessor=None):
         """
         Constructor.
-        :param directory_location:
-        :param data_type:
-        :param resource_accessor:
+        :param directory_location: the location to monitor for registering data
+        :param data_type: the type of data that will be registered (should be a subclass of `ResourceAccessorContainer`)
+        :param resource_accessor: the resource accessor that should injected into the containers
         """
         super().__init__(directory_location, data_type)
         self.resource_accessor = resource_accessor

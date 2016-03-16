@@ -6,7 +6,7 @@ from typing import Iterable, Optional
 
 from hgicommon.data_source import RegisteringDataSource
 
-from cookiemonster.common.resource_accessor import ResourceRequiringRegisteringDataSource, ResourceAccessor
+from cookiemonster.common.resource_accessor import ResourceAccessorContainerRegisteringDataSource, ResourceAccessor
 from cookiemonster.processor.models import Rule
 
 
@@ -87,7 +87,7 @@ class RuleQueue:
                 self._not_applied.put(rule)
 
 
-class RuleSource(ResourceRequiringRegisteringDataSource):
+class RuleSource(ResourceAccessorContainerRegisteringDataSource):
     """
     Rule source where rules are registered from within Python modules within a given directory. These modules can be
     changed on-the-fly.

@@ -5,7 +5,7 @@ from queue import PriorityQueue
 from typing import Optional, Iterable
 
 from cookiemonster.common.models import Cookie, Enrichment
-from cookiemonster.common.resource_accessor import ResourceRequiringRegisteringDataSource, ResourceAccessor
+from cookiemonster.common.resource_accessor import ResourceAccessorContainerRegisteringDataSource, ResourceAccessor
 from cookiemonster.processor.models import EnrichmentLoader
 
 
@@ -52,7 +52,7 @@ class EnrichmentManager:
         return None
 
 
-class EnrichmentLoaderSource(ResourceRequiringRegisteringDataSource):
+class EnrichmentLoaderSource(ResourceAccessorContainerRegisteringDataSource):
     """
     Enrichment loader source where enrichment loaders are registered from within Python modules within a given
     directory. These modules can be changed on-the-fly.

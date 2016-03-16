@@ -1,10 +1,10 @@
 import re
 
 from cookiemonster import NotificationReceiver
-from cookiemonster.common.resource_accessor import ResourceRequiringRegisteringDataSource, ResourceAccessor
+from cookiemonster.common.resource_accessor import ResourceAccessorContainerRegisteringDataSource, ResourceAccessor
 
 
-class NotificationReceiverSource(ResourceRequiringRegisteringDataSource):
+class NotificationReceiverSource(ResourceAccessorContainerRegisteringDataSource):
     """
     Notification receiver source where `NotificationReceiver` are registered from within Python modules within a given
     directory. These modules can be changed on-the-fly.

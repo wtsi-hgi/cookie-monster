@@ -1,4 +1,4 @@
-from cookiemonster.common.resource_accessor import ResourceRequiringRegisteringDataSource, ResourceAccessor, \
+from cookiemonster.common.resource_accessor import ResourceAccessorContainerRegisteringDataSource, ResourceAccessor, \
     ResourceAccessorContainer
 
 
@@ -14,9 +14,9 @@ class StubResourceAccessorContainer(ResourceAccessorContainer):
     """
 
 
-class StubResourceRequiringRegisteringDataSource(ResourceRequiringRegisteringDataSource):
+class StubResourceAccessorContainerRegisteringDataSource(ResourceAccessorContainerRegisteringDataSource):
     """
-    Stub `ResourceRequiringRegisteringDataSource`.
+    Stub `ResourceAccessorContainerRegisteringDataSource`.
     """
     def is_data_file(self, file_path: str) -> bool:
         return True
