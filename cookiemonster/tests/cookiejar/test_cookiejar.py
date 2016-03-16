@@ -356,21 +356,24 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         """
         CookieJar Sequence: Enrich -> Get Next -> Delete -> Mark Complete
         """
-        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
+        ident = self.eg_identifiers[0]
+
+        self.jar.enrich_cookie(ident, self.eg_enrichments[0])
         to_process = self.jar.get_next_for_processing()
-        self.jar.delete_cookie(to_process)
+        self.assertEqual(to_process.identifier, ident)
+        self.jar.delete_cookie(ident)
 
         # A cookie that is deleted while processing will still exist,
         # except for its enrichments (which are removed)
-        to_be_deleted = self.jar.fetch_cookie(self.eg_identifiers[0])
+        to_be_deleted = self.jar.fetch_cookie(ident)
         self.assertIsInstance(to_be_deleted, Cookie)
-        self.assertEqual(to_be_deleted.identifier, self.eg_identifiers[0])
+        self.assertEqual(to_be_deleted.identifier, ident)
         self.assertEqual(len(to_be_deleted.enrichments), 0)
 
-        self.jar.mark_as_complete(to_process)
+        self.jar.mark_as_complete(ident)
 
         # Once completed, the cookie should be completely removed
-        deleted = self.jar.fetch_cookie(self.eg_identifiers[0])
+        deleted = self.jar.fetch_cookie(ident)
         self.assertIsNone(deleted)
 
 

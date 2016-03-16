@@ -41,9 +41,8 @@ class InMemoryCookieJar(CookieJar):
     def delete_cookie(self, identifier: str):
         with self._lists_lock:
             if identifier in self._known_data:
-                del self._known_data[identifier]
-
                 if identifier in self._processing:
+                    self._known_data[identifier].enrichments[:] = []
                     self._delete_on_complete.append(identifier)
                 else:
                     self._cleanup(identifier)
@@ -147,6 +146,7 @@ class InMemoryCookieJar(CookieJar):
         _remove_if_exists(self._completed, identifier)
         _remove_if_exists(self._reprocess_on_complete, identifier)
         _remove_if_exists(self._delete_on_complete, identifier)
+        del self._known_data[identifier]
 
     def _on_complete(self, identifier: str):
         reprocess = False
