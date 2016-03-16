@@ -11,6 +11,7 @@ from cookiemonster.common.models import Notification
 from cookiemonster.processor._enrichment import EnrichmentLoaderSource
 from cookiemonster.processor._rules import RuleSource
 from cookiemonster.processor.basic_processing import BasicProcessorManager
+from cookiemonster.tests.common.stubs import StubResourceAccessor
 from cookiemonster.tests.processor._helpers import add_data_files, block_until_processed
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
 from cookiemonster.tests.processor._stubs import StubNotificationReceiver
