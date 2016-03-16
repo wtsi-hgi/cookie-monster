@@ -358,7 +358,7 @@ class _DesignDocument(object):
         self._design_dirty = True
 
 
-class _UpsertBuffer(Listenable):
+class _DocumentBuffer(Listenable):
     ''' Document buffer '''
     def __init__(self, max_size:int = 100, latency:timedelta = timedelta(milliseconds=50)):
         super().__init__()
@@ -431,13 +431,15 @@ class Sofabed(object):
         self._designs = []
         self._designs_dirty = False
 
-        self._queue_lock = Lock()
+        # Setup the upsert buffer and queue
+        self._upsert_queue_lock = Lock()
         self._upsert_queue = deque()
 
-        self._buffer_lock = Lock()
-        self._buffer = _UpsertBuffer(max_buffer_size, buffer_latency)
-        self._buffer.add_listener(self._enqueue_buffer)
+        self._upsert_buffer_lock = Lock()
+        self._upsert_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
+        self._upsert_buffer.add_listener(self._enqueue_buffer)
 
+        # Queue watcher
         self._watcher_thread = Thread(target=self._watcher, daemon=True)
         self._thread_running = True
         self._watcher_thread.start()
@@ -456,7 +458,7 @@ class Sofabed(object):
         application were to fail, the discharged buffers that are
         waiting would be lost
         '''
-        with self._queue_lock:
+        with self._upsert_queue_lock:
             self._upsert_queue.append(data)
 
         # Force upsert attempt
@@ -467,7 +469,7 @@ class Sofabed(object):
         Attempt to dequeue and upsert the data from the upsert queue
         into CouchDB; if the upsert fails, then the data is requeued
         '''
-        with self._queue_lock:
+        with self._upsert_queue_lock:
             duplicates_to_requeue = False
             if len(self._upsert_queue):
                 documents = self._upsert_queue.popleft()
@@ -570,14 +572,14 @@ class Sofabed(object):
         reserved keys (i.e., prefixed with an underscore) will raise an
         exception
         '''
-        with self._buffer_lock:
+        with self._upsert_buffer_lock:
             if '_rev' in data:
                 del data['_rev']
 
             if any(key.startswith('_') for key in data.keys() if key != '_id'):
                 raise _InvalidCouchDBKey
 
-            self._buffer.append({'_id':key or uuid4().hex, **data})
+            self._upsert_buffer.append({'_id':key or uuid4().hex, **data})
 
     def delete(self, key:str):
         '''
@@ -585,8 +587,7 @@ class Sofabed(object):
 
         @param   key  Document ID
         '''
-        # TODO
-        pass
+        raise NotImplementedError
 
     def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Generator:
         '''
