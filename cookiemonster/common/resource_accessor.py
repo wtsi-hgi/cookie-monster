@@ -4,6 +4,7 @@ from typing import TypeVar, Generic, Iterable
 
 from hgicommon.data_source import RegisteringDataSource
 from hgicommon.data_source.common import DataSourceType
+from hgicommon.models import Model
 
 
 class ResourceAccessor(metaclass=ABCMeta):
@@ -15,14 +16,15 @@ class ResourceAccessor(metaclass=ABCMeta):
 ResourceAccessType = TypeVar("ResourceAccessType", bound=ResourceAccessor)
 
 
-class ResourceAccessorContainer(Generic[ResourceAccessType], metaclass=ABCMeta):
+class ResourceAccessorContainer(Generic[ResourceAccessType], Model, metaclass=ABCMeta):
     """
     Container of a resource accessor.
     """
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         """
         Constructor.
         """
+        super().__init__(*args, **kwargs)
         self.resource_accessor = None  # type: Optional[ResourceAccessType]
 
 

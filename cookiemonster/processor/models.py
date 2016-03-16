@@ -4,7 +4,7 @@ from hgicommon.mixable import Priority
 from hgicommon.models import Model
 
 from cookiemonster.common.models import Notification, Cookie, Enrichment
-from cookiemonster.common.resource_accessor import ResourceAccessor
+from cookiemonster.common.resource_accessor import ResourceAccessorContainer, ResourceAccessor
 
 
 class RuleAction(Model):
@@ -21,11 +21,12 @@ class RuleAction(Model):
         self.terminate_processing = terminate_processing
 
 
-class Rule(Model, Priority, ResourceAccessor):
+class Rule(ResourceAccessorContainer, Priority):
     """
     A model of a rule that defines an action that should be executed if a criteria is matched.
     """
-    def __init__(self, matches: Callable[[Cookie], bool], generate_action: Callable[[Cookie], RuleAction],
+    def __init__(self, matches: Callable[[Cookie, ResourceAccessor], bool],
+                 generate_action: Callable[[Cookie, ResourceAccessor], RuleAction],
                  priority: int = Priority.MIN_PRIORITY):
         """
         Default constructor.
@@ -43,7 +44,7 @@ class Rule(Model, Priority, ResourceAccessor):
         :param cookie: the cookie to check if the rule applies to
         :return: whether the rule applies
         """
-        return self._matches(cookie)
+        return self._matches(cookie, self.resource_accessor)
 
     def generate_action(self, cookie: Cookie) -> RuleAction:
         """
@@ -55,7 +56,7 @@ class Rule(Model, Priority, ResourceAccessor):
         """
         if not self._matches(cookie):
             return ValueError("Rules does not match cookie: %s" % cookie)
-        return self._generate_action(cookie)
+        return self._generate_action(cookie, self.resource_accessor)
 
     def __hash__(self):
         return id(self)
@@ -64,11 +65,12 @@ class Rule(Model, Priority, ResourceAccessor):
         return str(id(self))
 
 
-class EnrichmentLoader(Model, Priority, ResourceAccessor):
+class EnrichmentLoader(ResourceAccessorContainer, Priority):
     """
     Data loader that can load specific data that can be used to "enrich" a cookie with more information.
     """
-    def __init__(self, can_enrich: Callable[[Cookie], bool], load_enrichment: Callable[[Cookie], Enrichment],
+    def __init__(self, can_enrich: Callable[[Cookie, ResourceAccessor], bool],
+                 load_enrichment: Callable[[Cookie, ResourceAccessor], Enrichment],
                  priority: int=Priority.MIN_PRIORITY):
         """
         Constructor.
@@ -86,7 +88,7 @@ class EnrichmentLoader(Model, Priority, ResourceAccessor):
         :param cookie: cookie containing the data that is already known
         :return: whether it is possible to enrich the given cookie
         """
-        return self._can_enrich(cookie)
+        return self._can_enrich(cookie, self.resource_accessor)
 
     def load_enrichment(self, cookie: Cookie) -> Enrichment:
         """
@@ -94,4 +96,4 @@ class EnrichmentLoader(Model, Priority, ResourceAccessor):
         :param cookie: the pre-existing set of known data
         :return: the loaded data
         """
-        return self._load_enrichment(cookie)
+        return self._load_enrichment(cookie, self.resource_accessor)

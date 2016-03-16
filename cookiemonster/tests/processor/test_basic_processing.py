@@ -117,7 +117,7 @@ class TestBasicProcessor(unittest.TestCase):
 
     def test_handle_cookie_enrichment_when_no_matching_enrichments(self):
         self.processor.notification_receivers = [MagicMock()]
-        self.processor.enrichment_loaders = [EnrichmentLoader(lambda cookie: False, lambda cookie: SAMPLE_ENRICHMENT)]
+        self.processor.enrichment_loaders = [EnrichmentLoader(lambda *args: False, lambda *args: SAMPLE_ENRICHMENT)]
 
         self.processor.handle_cookie_enrichment(self.cookie)
 
@@ -126,7 +126,7 @@ class TestBasicProcessor(unittest.TestCase):
 
     def test_handle_cookie_enrichment_when_matching_enrichments(self):
         self.processor.notification_receivers = [MagicMock()]
-        self.processor.enrichment_loaders = [EnrichmentLoader(lambda cookie: True, lambda cookie: SAMPLE_ENRICHMENT)]
+        self.processor.enrichment_loaders = [EnrichmentLoader(lambda *args: True, lambda *args: SAMPLE_ENRICHMENT)]
 
         self.processor.handle_cookie_enrichment(self.cookie)
 
@@ -186,7 +186,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         self.cookie_jar.mark_as_complete = MagicMock(side_effect=on_complete)
 
-        self.rules.append(Rule(lambda cookie: True, lambda cookie: RuleAction([], True)))
+        self.rules.append(Rule(lambda *args: True, lambda *args: RuleAction([], True)))
 
         number_to_process = 100
         for i in range(number_to_process):
@@ -219,7 +219,7 @@ class TestBasicProcessorManager(unittest.TestCase):
             rule_lock.acquire()
             return True
 
-        self.rules.append(Rule(matching_criteria, lambda cookie: RuleAction([], True)))
+        self.rules.append(Rule(matching_criteria, lambda *args: RuleAction([], True)))
 
         self.cookie_jar.mark_for_processing(self.cookie.identifier)
         processor_manager.process_any_cookies()
@@ -232,7 +232,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         # Change the rules for the next cookie to be processed
         self.rules.pop()
-        self.rules.append(Rule(lambda cookie: True, lambda cookie: RuleAction([], True)))
+        self.rules.append(Rule(lambda *args: True, lambda *args: RuleAction([], True)))
 
         # Free the processor to complete the first cookie
         rule_lock.release()

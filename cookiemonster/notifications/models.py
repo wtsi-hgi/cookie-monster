@@ -1,18 +1,19 @@
 from typing import Callable
 
 from cookiemonster import Notification
-from cookiemonster.common.resource_accessor import ResourceAccessor
+from cookiemonster.common.resource_accessor import ResourceAccessor, ResourceAccessorContainer
 
 
-class NotificationReceiver(ResourceAccessor):
+class NotificationReceiver(ResourceAccessorContainer):
     """
     Receiver of notifications.
     """
-    def __init__(self, receive: Callable[[Notification], None]):
+    def __init__(self, receive: Callable[[Notification, ResourceAccessor], None]):
         """
         Constructor.
         :param receive: method proxied by `receive`
         """
+        super().__init__()
         self._receive = receive
 
     def receive(self, notification: Notification):
@@ -21,4 +22,4 @@ class NotificationReceiver(ResourceAccessor):
         notification (the cookie monster informs all notification receivers about all notifications).
         :param notification: the notification to give to the receiver
         """
-        self._receive(notification)
+        self._receive(notification, self.resource_accessor)
