@@ -1,6 +1,6 @@
 from datetime import datetime
 from functools import total_ordering
-from typing import Any, Set, List
+from typing import Any, Set, List, Optional
 
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
@@ -43,29 +43,35 @@ class Cookie(Model):
         Enrich this cookie.
         :param enrichment: the enrichment
         """
-        self.enrichments.append(enrichment)
+        if len(self.enrichments) == 0:
+            self.enrichments.append(enrichment)
+        else:
+            number_of_prexisting_enrichments = len(self.enrichments)
+            i = 0
+            while i < number_of_prexisting_enrichments:
+                prexisting_enrichment = self.enrichments[i]
+                if prexisting_enrichment.timestamp > enrichment.timestamp:
+                    self.enrichments.insert(i, enrichment)
+                    i = number_of_prexisting_enrichments
+                elif i == number_of_prexisting_enrichments - 1:
+                    self.enrichments.append(enrichment)
+                i += 1
+            assert len(self.enrichments) == number_of_prexisting_enrichments + 1
 
-    def get_metadata_by_source(self, source: str, key: str, default: Any=None):
+    def get_most_recent_enrichment_from_source(self, source: str) -> Optional[Enrichment]:
         """
-        Fetch the latest existing metadata by source and key.
-        :param source enrichment source
-        :param key attribute name
-        :param default default value, if key doesn't exist
+        Gets the most recent enrichment from the given source.
+        :param source: the source of the enrichment
+        :return: the most recent enrichment from the given source, `None` if no enrichments from source
         """
-        # The enrichment collection will be built up chronologically, so
-        # the following list comprehension is guaranteed to be in the
-        # same relative order, thus we can check from the last to the
-        # first for a match, to get the most recent
-        return next((
-            enrichment.metadata[key]
-            for enrichment in reversed(self.enrichments)
-            if enrichment.source == source
-               and key in enrichment.metadata
-        ), default)
+        for enrichment in reversed(self.enrichments):
+            if enrichment.source == source:
+                return enrichment
+        return None
 
-    def get_metadata_sources(self) -> Set[str]:
+    def get_enrichment_sources(self) -> Set[str]:
         """
-        Fetch the distinct enrichment sources for which metadata exists.
+        Fetches the distinct enrichment sources for which metadata exists.
         :return: the enrichment sources
         """
         return {enrichment.source for enrichment in self.enrichments}

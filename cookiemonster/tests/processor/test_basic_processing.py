@@ -79,7 +79,7 @@ class TestBasicProcessor(unittest.TestCase):
 
         def record_fail_if_changed(cookie: Cookie) -> bool:
             nonlocal change_detected_in_next_rule
-            if source in cookie.get_metadata_sources():
+            if source in cookie.get_enrichment_sources():
                 change_detected_in_next_rule = True
 
         self.processor.rules = [
