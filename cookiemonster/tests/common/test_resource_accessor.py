@@ -28,7 +28,7 @@ class TestResourceRequiringRegisteringDataSource(unittest.TestCase):
         self.assertEqual(len(list(extracted)), 3)
 
         for resource_accessor_container in extracted:
-            self.assertEqual(resource_accessor_container.resources_accessor, self._resource_accessor)
+            self.assertEqual(resource_accessor_container.resource_accessor, self._resource_accessor)
 
     def tearDown(self):
         os.rmdir(self._temp_directory)
