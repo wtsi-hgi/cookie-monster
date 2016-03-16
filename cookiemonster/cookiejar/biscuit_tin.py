@@ -78,7 +78,8 @@ class BiscuitTin(CookieJar):
         return cookie
 
     def delete_cookie(self, identifier: str):
-        pass
+        self._metadata.delete_metadata(identifier)
+        self._queue.delete(identifier)
 
     def enrich_cookie(self, identifier: str, enrichment: Enrichment):
         self._metadata.enrich(identifier, enrichment)

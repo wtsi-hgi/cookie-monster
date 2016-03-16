@@ -96,12 +96,16 @@ Methods:
 
 * `mark_finished` Mark a file as having finished processing
 
+* `delete` Remove a file's queue state, or mark it for deletion if
+  currently processing
+
 Document schema:
 
     $queue      boolean  true (i.e., used as a schema classifier)
     identifier  string   File identifier
     dirty       boolean  Whether the file needs reprocessing
     processing  boolean  Whether the file is currently being processed
+    deleted     boolean  Whether the file has been deleted
     queue_from  int      Timestamp from when to queue (Unix epoch)
 
 Ernie (Metadata Repository DBI)
@@ -555,7 +559,7 @@ class Sofabed(object):
 
     def upsert(self, data:dict, key:Optional[str] = None):
         '''
-        Upsert document into CouchDB, via the buffer and upsert queue
+        Upsert document into CouchDB, via the upsert buffer and queue
 
         @param   data  Document data
         @param   key   Document ID
@@ -574,6 +578,15 @@ class Sofabed(object):
                 raise _InvalidCouchDBKey
 
             self._buffer.append({'_id':key or uuid4().hex, **data})
+
+    def delete(self, key:str):
+        '''
+        Delete document from CouchDB, via the delete buffer and queue
+
+        @param   key  Document ID
+        '''
+        # TODO
+        pass
 
     def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Generator:
         '''
@@ -638,7 +651,7 @@ class Bert(object):
         returned from the queue/in_progress view
         '''
         return {
-            **row['value'],
+            **row['doc'],
             'dirty':      True,
             'processing': False,
             'queue_from': _now()
@@ -660,16 +673,25 @@ class Bert(object):
             'identifier': None,
             'dirty':      False,
             'processing': False,
+            'deleted':    False,
             'queue_from': None
         }
 
         # If there are any files marked as currently processing, this
         # must be due to a previous failure. Reset all of these for
         # immediate reprocessing
-        in_progress = self._db.query('queue', 'in_progress', wrapper = Bert._reset_processing,
-                                                             reduce  = False)
+        in_progress = self._db.query('queue', 'in_progress', wrapper      = Bert._reset_processing,
+                                                             include_docs = True,
+                                                             reduce       = False)
         for doc in in_progress:
             self._db.upsert(doc)
+
+        # If there are any files marked as deleted, they can be cleaned
+        # up without consequence
+        to_delete = self._db.query('queue', 'to_delete', flat='value', reduce=False)
+
+        for doc_id in to_delete:
+            self._db.delete(doc_id)
 
     def get_by_identifier(self, identifier:str) -> Optional[Tuple[str, dict]]:
         '''
@@ -688,6 +710,25 @@ class Bert(object):
         except StopIteration:
             return None
 
+    def delete(self, identifier:str):
+        '''
+        Delete a queue document, or mark it for deletion if it is
+        currently being processed
+
+        @param   identifier  File identifier
+        '''
+        doc_id, current_doc = self.get_by_identifier(identifier) or (None, None)
+
+        if doc_id:
+            if current_doc['processing']:
+                deleted_doc = {
+                    **current_doc,
+                    'deleted': True
+                }
+                self._db.upsert(deleted_doc)
+            else:
+                self._db.delete(doc_id)
+
     def queue_length(self) -> int:
         '''
         @return The current (for-processing) queue length
@@ -703,7 +744,8 @@ class Bert(object):
 
     def mark_dirty(self, identifier:str, latency:Optional[timedelta] = None):
         '''
-        Mark a file as requiring, potentially delayed, (re)processing
+        Mark a file as requiring, potentially delayed, (re)processing,
+        resetting any deleted status
 
         @param  identifier  File identifier
         @param  latency     Requeue latency
@@ -714,7 +756,8 @@ class Bert(object):
         dirty_doc = {
             **self._schema,
             **current_doc,
-            'dirty': True,
+            'dirty':      True,
+            'deleted':    False,
             'queue_from': _now()
         }
 
@@ -753,7 +796,8 @@ class Bert(object):
 
     def mark_finished(self, identifier:str):
         '''
-        Mark a file as finished processing
+        Mark a file as finished processing, or delete it if it is marked
+        as such
 
         @param  identifier  File identifier
         '''
@@ -761,12 +805,16 @@ class Bert(object):
         doc_id, current_doc = self.get_by_identifier(identifier) or (None, None)
 
         if doc_id:
-            finished_doc = {
-                **current_doc,
-                'processing': False
-            }
+            if current_doc['deleted']:
+                self._db.delete(doc_id)
 
-            self._db.upsert(finished_doc)
+            else:
+                finished_doc = {
+                    **current_doc,
+                    'processing': False
+                }
+
+                self._db.upsert(finished_doc)
 
     def _define_schema(self):
         ''' Define views '''
@@ -779,7 +827,7 @@ class Bert(object):
         queue.define_view('to_process',
             map_fn = '''
                 function(doc) {
-                    if (doc.$queue && doc.dirty && !doc.processing) {
+                    if (doc.$queue && doc.dirty && !doc.processing && !doc.deleted) {
                         emit(doc.queue_from, doc.identifier);
                     }
                 }
@@ -792,8 +840,20 @@ class Bert(object):
         queue.define_view('in_progress',
             map_fn = '''
                 function(doc) {
-                    if (doc.$queue && doc.processing) {
-                        emit(doc._id, doc)
+                    if (doc.$queue && doc.processing && !doc.deleted) {
+                        emit(doc.identifier, doc._id)
+                    }
+                }
+            '''
+        )
+
+        # View: queue/to_clean
+        # Queue documents marked for deletion
+        queue.define_view('to_clean',
+            map_fn = '''
+                function(doc) {
+                    if (doc.$queue && doc.deleted) {
+                        emit(doc.identifier, doc._id)
                     }
                 }
             '''
@@ -882,13 +942,11 @@ class Ernie(object):
 
         @param   identifier  File identifier
         '''
-        to_delete = self._db.query('metadata', 'collate', flat         = 'doc',
-                                                          as_list      = True,
-                                                          key          = identifier,
-                                                          include_docs = True,
-                                                          reduce       = False)
-        if len(to_delete):
-            self._db.delete_bulk(to_delete)
+        to_delete = self._db.query('metadata', 'collate', flat   = 'value',
+                                                          key    = identifier,
+                                                          reduce = False)
+        for doc_id in to_delete:
+            self._db.delete(doc_id)
 
     def _define_schema(self):
         ''' Define views '''
