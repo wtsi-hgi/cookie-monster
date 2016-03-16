@@ -4,6 +4,6 @@ Flask==0.10.1
 pytz==2015.7
 APScheduler==3.0.4
 influxdb==2.12.0
-git+https://github.com/wtsi-hgi/python-common.git@0b03f0c4b807640df8842e73d71878ca114c11d4#egg=hgicommon
+git+https://github.com/wtsi-hgi/python-common.git@6cb65bb9663eb122c9ac8c9279dd3648fe78c508#egg=hgicommon
 git+https://github.com/wtsi-hgi/python-baton-wrapper.git@4aceea9d4fdacdeead474933a68a6d6edf66fe5e#egg=baton
 git+https://github.com/wtsi-hgi/python-json.git@d743cd4a0d141e2ab24dd5cdce34b7e7329482a6#egg=hgijson

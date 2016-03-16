@@ -40,15 +40,18 @@ class TestIntegration(unittest.TestCase):
         self.rules_directory = mkdtemp(prefix="rules", suffix=TestIntegration.__name__)
         self.enrichment_loaders_directory = mkdtemp(prefix="enrichment_loaders", suffix=TestIntegration.__name__)
 
+        self.resource_accessor = StubResourceAccessor()
+
         # Setup enrichment
-        self.enrichment_loader_source = EnrichmentLoaderSource(self.enrichment_loaders_directory)
+        self.enrichment_loader_source = EnrichmentLoaderSource(
+            self.enrichment_loaders_directory, self.resource_accessor)
         self.enrichment_loader_source.start()
 
         # Setup cookie jar
         self.cookie_jar = create_magic_mock_cookie_jar()
 
         # Setup rules source
-        self.rules_source = RuleSource(self.rules_directory)
+        self.rules_source = RuleSource(self.rules_directory, self.resource_accessor)
         self.rules_source.start()
 
         # Setup notifications
@@ -56,8 +59,7 @@ class TestIntegration(unittest.TestCase):
         self.notification_receiver.receive = MagicMock()
 
         # Setup the data processor manager
-        self.processor_manager = BasicProcessorManager(self.cookie_jar, self.rules_source,
-                                                       self.enrichment_loader_source,
+        self.processor_manager = BasicProcessorManager(self.cookie_jar, self.rules_source, self.enrichment_loader_source,
                                                        ListDataSource([self.notification_receiver]))
 
         def cookie_jar_connector(*args):

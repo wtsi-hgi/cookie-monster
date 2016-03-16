@@ -4,6 +4,7 @@ from hgicommon.mixable import Priority
 from hgicommon.models import Model
 
 from cookiemonster.common.models import Notification, Cookie, Enrichment
+from cookiemonster.common.resource_accessor import ResourceAccessor
 
 
 class RuleAction(Model):
@@ -20,7 +21,7 @@ class RuleAction(Model):
         self.terminate_processing = terminate_processing
 
 
-class Rule(Model, Priority):
+class Rule(Model, Priority, ResourceAccessor):
     """
     A model of a rule that defines an action that should be executed if a criteria is matched.
     """
@@ -63,7 +64,7 @@ class Rule(Model, Priority):
         return str(id(self))
 
 
-class EnrichmentLoader(Model, Priority):
+class EnrichmentLoader(Model, Priority, ResourceAccessor):
     """
     Data loader that can load specific data that can be used to "enrich" a cookie with more information.
     """

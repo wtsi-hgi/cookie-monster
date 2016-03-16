@@ -4,9 +4,8 @@ import traceback
 from queue import PriorityQueue
 from typing import Optional, Iterable
 
-from hgicommon.data_source import RegisteringDataSource
-
 from cookiemonster.common.models import Cookie, Enrichment
+from cookiemonster.common.resource_accessor import ResourceRequiringRegisteringDataSource, ResourceAccessor
 from cookiemonster.processor.models import EnrichmentLoader
 
 
@@ -53,7 +52,7 @@ class EnrichmentManager:
         return None
 
 
-class EnrichmentLoaderSource(RegisteringDataSource):
+class EnrichmentLoaderSource(ResourceRequiringRegisteringDataSource):
     """
     Enrichment loader source where enrichment loaders are registered from within Python modules within a given
     directory. These modules can be changed on-the-fly.
@@ -62,12 +61,13 @@ class EnrichmentLoaderSource(RegisteringDataSource):
     FILE_PATH_MATCH_REGEX = ".*loader\.py"
     _COMPILED_FILE_PATH_MATCH_REGEX = re.compile(FILE_PATH_MATCH_REGEX)
 
-    def __init__(self, directory_location: str):
+    def __init__(self, directory_location: str, resource_accessor: ResourceAccessor=None):
         """
         Constructor.
         :param directory_location: the directory in which enrichment loaders can be sourced from
+        :param resource_accessor: resource accessor that enrichment loaders will be able to use to access resources
         """
-        super().__init__(directory_location, EnrichmentLoader)
+        super().__init__(directory_location, EnrichmentLoader, resource_accessor)
 
     def is_data_file(self, file_path: str) -> bool:
         return EnrichmentLoaderSource._COMPILED_FILE_PATH_MATCH_REGEX.search(file_path)
