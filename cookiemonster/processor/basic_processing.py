@@ -11,7 +11,7 @@ from hgicommon.data_source import DataSource
 from cookiemonster.common.models import Notification, Cookie
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.logging.logger import PythonLoggingLogger, Logger
-from cookiemonster.notifications.notification_receiver import NotificationReceiver
+from cookiemonster import NotificationReceiver
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._rules import RuleQueue
 from cookiemonster.processor.models import Rule, EnrichmentLoader, RuleAction

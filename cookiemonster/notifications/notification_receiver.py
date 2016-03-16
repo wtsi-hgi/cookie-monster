@@ -1,32 +1,10 @@
 import re
-from typing import Callable
 
-from hgicommon.data_source import RegisteringDataSource
-
-from cookiemonster import Notification
+from cookiemonster import NotificationReceiver
+from cookiemonster.common.resource_accessor import ResourceAccessorContainerRegisteringDataSource, ResourceAccessor
 
 
-class NotificationReceiver:
-    """
-    Receiver of notifications.
-    """
-    def __init__(self, receive: Callable[[Notification], None]):
-        """
-        Constructor.
-        :param receive: method proxied by `receive`
-        """
-        self._receive = receive
-
-    def receive(self, notification: Notification):
-        """
-        Receive notification. It is this method's responsibility to determine if it is interested in the given
-        notification (the cookie monster informs all notification receivers about all notifications).
-        :param notification: the notification to give to the receiver
-        """
-        self._receive(notification)
-
-
-class NotificationReceiverSource(RegisteringDataSource):
+class NotificationReceiverSource(ResourceAccessorContainerRegisteringDataSource):
     """
     Notification receiver source where `NotificationReceiver` are registered from within Python modules within a given
     directory. These modules can be changed on-the-fly.
@@ -35,12 +13,13 @@ class NotificationReceiverSource(RegisteringDataSource):
     FILE_PATH_MATCH_REGEX = ".*receiver\.py"
     _COMPILED_FILE_PATH_MATCH_REGEX = re.compile(FILE_PATH_MATCH_REGEX)
 
-    def __init__(self, directory_location: str):
+    def __init__(self, directory_location: str, resource_accessor: ResourceAccessor=None):
         """
         Constructor.
         :param directory_location: the directory in which notification receivers can be sourced from
+        :param resource_accessor: resource accessor that notification receivers will be able to use to access resources
         """
-        super().__init__(directory_location, NotificationReceiver)
+        super().__init__(directory_location, NotificationReceiver, resource_accessor)
 
     def is_data_file(self, file_path: str) -> bool:
         return NotificationReceiverSource._COMPILED_FILE_PATH_MATCH_REGEX.search(file_path)

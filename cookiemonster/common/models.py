@@ -46,17 +46,17 @@ class Cookie(Model):
         if len(self.enrichments) == 0:
             self.enrichments.append(enrichment)
         else:
-            number_of_prexisting_enrichments = len(self.enrichments)
+            number_of_pre_existing_enrichments = len(self.enrichments)
             i = 0
-            while i < number_of_prexisting_enrichments:
+            while i < number_of_pre_existing_enrichments:
                 prexisting_enrichment = self.enrichments[i]
                 if prexisting_enrichment.timestamp > enrichment.timestamp:
                     self.enrichments.insert(i, enrichment)
-                    i = number_of_prexisting_enrichments
-                elif i == number_of_prexisting_enrichments - 1:
+                    i = number_of_pre_existing_enrichments
+                elif i == number_of_pre_existing_enrichments - 1:
                     self.enrichments.append(enrichment)
                 i += 1
-            assert len(self.enrichments) == number_of_prexisting_enrichments + 1
+            assert len(self.enrichments) == number_of_pre_existing_enrichments + 1
 
     def get_most_recent_enrichment_from_source(self, source: str) -> Optional[Enrichment]:
         """

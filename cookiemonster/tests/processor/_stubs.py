@@ -1,7 +1,7 @@
 from datetime import timedelta
 from typing import Optional, Iterable, Sequence
 
-from cookiemonster import RuleAction
+from cookiemonster import RuleAction, NotificationReceiver
 from cookiemonster.common.models import Notification, Enrichment, Cookie
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.notifications.notification_receiver import NotificationReceiver
