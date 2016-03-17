@@ -72,17 +72,16 @@ License
 GPLv3 or later
 Copyright (c) 2015, 2016 Genome Research Limited
 """
+from copy import deepcopy
 from datetime import timedelta
-from typing import Any, Callable, Generator, Optional
-from threading import Lock, Thread
-from time import sleep
-from collections import deque, OrderedDict
+from typing import Any, Callable, Generator, List, Optional
 from uuid import uuid4
 
 from pycouchdb.exceptions import NotFound
 
 from cookiemonster.cookiejar.couchdb.softer import SofterCouchDB, UnresponsiveCouchDB, InvalidCouchDBKey
-from cookiemonster.cookiejar.couchdb.dream_catcher import TODO
+from cookiemonster.cookiejar.couchdb.dream_catcher import Cache, Actions, NotCached
+
 
 class _DesignDocument(object):
     ''' Design document model '''
@@ -150,6 +149,7 @@ class Sofabed(object):
     ''' Buffered, append-optimised CouchDB interface '''
     def __init__(self, url:str, database:str, max_buffer_size:int = 100,
                                               buffer_latency:timedelta = timedelta(milliseconds=50),
+                                              max_cache_size:int = 2097152,
                                               **kwargs):
         '''
         Acquire a connection with the CouchDB server and initialise the
@@ -159,6 +159,7 @@ class Sofabed(object):
         @param   database         Database name
         @param   max_buffer_size  Maximum buffer size (no. of documents)
         @param   buffer_latency   Buffer latency before discharge
+        @param   max_cache_size   Maximum in-memory cache size (bytes)
         @kwargs  Additional constructor parameters to
                  pycouchdb.client.Server should be passed through here
         '''
@@ -167,109 +168,43 @@ class Sofabed(object):
         self._designs = []
         self._designs_dirty = False
 
-        # Setup the upsert buffer and queue
-        self._upsert_queue_lock = Lock()
-        self._upsert_queue = deque()
+        # Batch action to DB method mapping
+        self._batch_methods = {
+            Actions.Upsert: self._db.save_bulk,
+            Actions.Delete: self._db.delete_bulk
+        }
 
-        self._upsert_buffer_lock = Lock()
-        self._upsert_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
-        self._upsert_buffer.add_listener(self._enqueue_buffer)
+        # Setup in-memory cache and buffer
+        self._cache = Cache(max_buffer_size, buffer_latency, max_cache_size)
+        self._cache.add_listener(self._batch)
 
-        # Queue watcher
-        self._watcher_thread = Thread(target=self._watcher, daemon=True)
-        self._thread_running = True
-        self._watcher_thread.start()
-
-    def __del__(self):
-        self._thread_running = False
-
-    def _enqueue_buffer(self, data:Any):
+    def _batch(self, action:Actions, docs:List[dict]):
         '''
-        Enqueue discharged buffer data to the upsert queue; should be
-        used as the buffer's listener
+        Perform a batch action against the database
 
-        @param   data  Buffer data
-
-        WARNING The upsert queue only exists in memory; if the
-        application were to fail, the discharged buffers that are
-        waiting would be lost
+        @param   action  Batch action to perform
+        @param   docs    Documents to apply the action against
         '''
-        with self._upsert_queue_lock:
-            self._upsert_queue.append(data)
+        to_batch = deepcopy(docs)
 
-        # Force upsert attempt
-        self._upsert_from_queue()
+        # To avoid conflicts, we must merge in the revision IDs of
+        # existing documents
+        document_ids = [doc['_id'] for doc in to_batch]
+        revision_ids = {
+            query_row['id']: query_row['value']['rev']
+            for query_row in self._db.all(keys=document_ids, include_docs=False)
+            if 'error' not in query_row
+        }
 
-    def _upsert_from_queue(self):
-        '''
-        Attempt to dequeue and upsert the data from the upsert queue
-        into CouchDB; if the upsert fails, then the data is requeued
-        '''
-        with self._upsert_queue_lock:
-            duplicates_to_requeue = False
-            if len(self._upsert_queue):
-                documents = self._upsert_queue.popleft()
-                to_requeue = []
+        for doc in to_batch:
+            if doc['_id'] in revision_ids:
+                doc['_rev'] = revision_ids['_id']
 
-                # Get unique documents (by ID) and find duplicates
-                document_ids = OrderedDict()
-                for index, doc in enumerate(documents):
-                    doc_id = doc['_id']
+        try:
+            _ = self._batch_methods[action](docs, transaction=True)
 
-                    if doc_id not in document_ids:
-                        document_ids[doc_id] = index
-
-                    else:
-                        # Duplicates should be requeued (rebuffering,
-                        # via upsert, would cause a deadlock)
-                        to_requeue.append(doc)
-
-                # Get revision IDs of unique documents
-                revision_ids = {
-                    x['id']: x['value']['rev']
-                    for x in self._db.all(keys=list(document_ids.keys()), include_docs=False)
-                    if 'id' in x
-                }
-
-                # Unique documents with merged revision IDs where they
-                # already exist (to avoid update conflicts)
-                to_upload = [
-                    {
-                        **documents[index],
-                        **({'_rev': revision_ids[doc_id]} if doc_id in revision_ids else {})
-                    }
-                    for doc_id, index in document_ids.items()
-                ]
-
-                # Requeue duplicates
-                if len(to_requeue):
-                    duplicates_to_requeue = True
-                    self._upsert_queue.appendleft(to_requeue)
-
-                # Upload, or requeue on failure
-                try:
-                    _ = self._db.save_bulk(to_upload, transaction=True)
-                    # TODO? Requeue on transaction failure
-
-                except UnresponsiveCouchDB:
-                    # We don't want to requeue any revision IDs
-                    self._upsert_queue.appendleft([
-                        documents[index]
-                        for index in document_ids.values()
-                    ])
-
-        # This must be outside the lock to avoid deadlock
-        # (A reentrant lock wouldn't work in this case)
-        if duplicates_to_requeue:
-            self._upsert_from_queue()
-
-    def _watcher(self):
-        ''' Periodically check the queue for pending upserts '''
-        zzz = _COUCHDB_TIMEOUT * 2
-
-        while self._thread_running:
-            self._upsert_from_queue()
-            sleep(zzz)
+        except UnresponsiveCouchDB:
+            self._cache.requeue(action, docs)
 
     def fetch(self, key:str, revision:Optional[str] = None) -> Optional[dict]:
         '''
@@ -279,25 +214,30 @@ class Sofabed(object):
         @param   revision  Revision ID
         @return  Database document (or None, if not found)
         '''
+        # First try the cache...
         try:
-            if not revision:
-                output = self._db.get(key)
+            output = self._cache.fetch(key, revision)
 
-            else:
-                output = next((
-                    doc
-                    for doc in self._db.revisions(key)
-                    if  doc['_rev'] == revision
-                ), None)
+        except NotCached:
+            try:
+                if not revision:
+                    output = self._db.get(key)
 
-        except NotFound:
-            output = None
+                else:
+                    output = next((
+                        doc
+                        for doc in self._db.revisions(key)
+                        if  doc['_rev'] == revision
+                    ), None)
+
+            except NotFound:
+                output = None
 
         return output
 
     def upsert(self, data:dict, key:Optional[str] = None):
         '''
-        Upsert document into CouchDB, via the upsert buffer and queue
+        Upsert document, via the in-memory cache
 
         @param   data  Document data
         @param   key   Document ID
@@ -306,24 +246,23 @@ class Sofabed(object):
         does not contain an '_id' member, then a key will be generated;
         revisions IDs (_rev) are stripped out; and any other CouchDB
         reserved keys (i.e., prefixed with an underscore) will raise an
-        exception
+        InvalidCouchDBKey exception
         '''
-        with self._upsert_buffer_lock:
-            if '_rev' in data:
-                del data['_rev']
+        if '_rev' in data:
+            del data['_rev']
 
-            if any(key.startswith('_') for key in data.keys() if key != '_id'):
-                raise InvalidCouchDBKey
+        if any(key.startswith('_') for key in data.keys() if key != '_id'):
+            raise InvalidCouchDBKey
 
-            self._upsert_buffer.append({'_id':key or uuid4().hex, **data})
+        self._cache.upsert({'_id':key or uuid4().hex, **data})
 
     def delete(self, key:str):
         '''
-        Delete document from CouchDB, via the delete buffer and queue
+        Delete document from CouchDB, via the in-memory cache
 
         @param   key  Document ID
         '''
-        raise NotImplementedError
+        self._cache.delete(key)
 
     def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Generator:
         '''
@@ -335,7 +274,7 @@ class Sofabed(object):
         @kwargs  Query string options for CouchDB
         @return  Results generator
         '''
-        # Check view exists
+        # Check view exists (not done through cache)
         doc = self.fetch('_design/{}'.format(design))
         if not doc or 'views' not in doc or view not in doc['views']:
             raise NotFound
@@ -370,9 +309,7 @@ class Sofabed(object):
         ), None)
 
     def commit_designs(self):
-        '''
-        Commit all design documents to the database
-        '''
+        ''' Commit all design documents to the database '''
         if self._designs_dirty:
             for design in self._designs:
                 design._commit()
