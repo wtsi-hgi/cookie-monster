@@ -87,9 +87,9 @@ Copyright (c) 2015, 2016 Genome Research Limited
 '''
 import json
 from datetime import timedelta
-from typing import Iterable, Optional, Tuple
-from time import time
 from threading import Lock, Timer
+from time import time
+from typing import Iterable, Optional, Tuple
 
 from hgicommon.collections import Metadata
 

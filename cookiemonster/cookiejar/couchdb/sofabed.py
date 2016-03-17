@@ -1,37 +1,42 @@
-'''
+"""
 Database Interface
 ==================
 Abstraction layer over a revisionable document-based database (i.e.,
-CouchDB), with queue management and metadata repository interfaces
+CouchDB), with in-memory caching and buffering to appease the DBA gods
 
-Exportable classes: `Sofabed`, `Bert`, `Ernie`
+Exportable classes: `Sofabed`
 
 Sofabed
 -------
 `Sofabed` is a CouchDB interface that provides automatic buffering of
-inserts and updates. It is instantiated per pycouchdb.client.Server
-(more-or-less), with the additional options of maximum buffer size and
-discharge latency, and ought to be passed into classes that represent
-document models.
+inserts, updates and deletions, while also maintaining an in-memory
+cache. It is instantiated per pycouchdb.client.Server (more-or-less),
+with the additional options of maximum buffer size and discharge
+latency, and ought to be passed into classes that represent document
+models.
 
-Each insert/update will be added to a buffer. If the time between that
-and the next is less than the discharge latency, then the next will be
-added to the same buffer. This will continue until either the latency
-between updates exceeds the discharge latency or the maximum buffer size
-(number of documents, rather than bytes) has been reached: At which
-point, that buffer will be discharged into an update queue and
-ultimately, presuming it's available, batch pushed into the database.
+Each insert, update or deletion will be added to a buffer. If the time
+between that and the next is less than the discharge latency, then the
+next will be added to the same buffer. This will continue until either
+the latency between operations exceeds the discharge latency or the
+maximum buffer size (number of documents, rather than bytes) has been
+reached: At which point, that buffer will be discharged into an
+appropriate queue and ultimately, presuming it's available, batched
+against the database.
 
 The Sofabed object will gracefully manage document conflicts and any
 connection problems it may have with the database.
 
 Methods:
 
-* `fetch` Fetch a document by its ID and, optionally, revision
+* `fetch` Fetch a document by its ID and, optionally, revision, checking
+  the in-memory cache first
 
-* `upsert` Insert or update a document into the database, via the buffer
-  and upsert queue; note that buffered and queued documents only exist
-  in memory until they are pushed to the database
+* `upsert` Insert or update a document into the database, via a buffer
+  and upsert queue (i.e., in-memory cache)
+
+* `delete` Delete a document from the database, via a buffer and
+  deletion queue (i.e., in-memory cache)
 
 * `query` Query a predefined view
 
@@ -40,6 +45,9 @@ Methods:
 * `get_design` Get an in-memory design document by name
 
 * `commit_designs` Commit all in-memory designs to the database
+
+Note that buffered and queued documents only exist in memory until they
+are pushed to the database. Data will be lost in the event of failure.
 
 _DesignDocument
 ---------------
@@ -55,13 +63,6 @@ Note that design documents are committed to the database on demand and
 as needed (i.e., when a change is detected), rather than through any
 batching process.
 
-
-
-Dependencies
-------------
-* pycouchdb
-* CouchDB 0.10, or later
-
 Authors
 -------
 * Christopher Harrison <ch12@sanger.ac.uk>
@@ -70,32 +71,22 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2015, 2016 Genome Research Limited
-'''
-import json
-from collections import deque, OrderedDict
-from copy import deepcopy
+"""
 from datetime import timedelta
-from os import environ
+from typing import Any, Callable, Generator, Optional
 from threading import Lock, Thread
-from time import monotonic, sleep, time
-from typing import Any, Callable, Generator, Iterable, Optional, Tuple
+from time import sleep
+from collections import deque, OrderedDict
 from uuid import uuid4
 
-from hgicommon.mixable import Listenable
+from pycouchdb.exceptions import NotFound
 
-
-
-
-
-
-
-
-
-
+from cookiemonster.cookiejar.couchdb.softer import SofterCouchDB, UnresponsiveCouchDB, InvalidCouchDBKey
+from cookiemonster.cookiejar.couchdb.dream_catcher import TODO
 
 class _DesignDocument(object):
     ''' Design document model '''
-    def __init__(self, db:_SofterCouchDB, name:str, language='javascript'):
+    def __init__(self, db:SofterCouchDB, name:str, language='javascript'):
         self._db = db
         self.design_id = '_design/{}'.format(name)
 
@@ -155,58 +146,6 @@ class _DesignDocument(object):
         self._design_dirty = True
 
 
-class _DocumentBuffer(Listenable):
-    ''' Document buffer '''
-    def __init__(self, max_size:int = 100, latency:timedelta = timedelta(milliseconds=50)):
-        super().__init__()
-
-        self._max_size = max_size if max_size > 0 else 1
-        self._latency = latency.total_seconds()
-
-        self._lock = Lock()
-        self.data = []
-        self.last_updated = monotonic()
-
-        # Start the watcher
-        self._watcher_thread = Thread(target=self._watcher, daemon=True)
-        self._thread_running = True
-        self._watcher_thread.start()
-
-    def __del__(self):
-        self._thread_running = False
-
-    def _discharge(self):
-        '''
-        Discharge the buffer (by pushing the data to listeners) when its
-        state requires so; i.e., when there is something listening and
-        either the buffer size or latency is exceeded
-        '''
-        with self._lock:
-            if len(self._listeners) and len(self.data):
-                latency = monotonic() - self.last_updated
-                if len(self.data) >= self._max_size or latency >= self._latency:
-                    self.notify_listeners(deepcopy(self.data))
-                    self.data[:] = []
-                    self.last_updated = monotonic()
-
-    def _watcher(self):
-        ''' Watcher thread for time-based discharging '''
-        zzz = self._latency / 2
-
-        while self._thread_running:
-            self._discharge()
-            sleep(zzz)
-
-    def append(self, document:dict):
-        ''' Add a document to the buffer '''
-        with self._lock:
-            self.data.append(document)
-            self.last_updated = monotonic()
-
-        # Force size-based discharging
-        self._discharge()
-
-
 class Sofabed(object):
     ''' Buffered, append-optimised CouchDB interface '''
     def __init__(self, url:str, database:str, max_buffer_size:int = 100,
@@ -223,7 +162,7 @@ class Sofabed(object):
         @kwargs  Additional constructor parameters to
                  pycouchdb.client.Server should be passed through here
         '''
-        self._db = _SofterCouchDB(url, database, **kwargs)
+        self._db = SofterCouchDB(url, database, **kwargs)
 
         self._designs = []
         self._designs_dirty = False
@@ -312,7 +251,7 @@ class Sofabed(object):
                     _ = self._db.save_bulk(to_upload, transaction=True)
                     # TODO? Requeue on transaction failure
 
-                except _UnresponsiveCouchDB:
+                except UnresponsiveCouchDB:
                     # We don't want to requeue any revision IDs
                     self._upsert_queue.appendleft([
                         documents[index]
@@ -374,7 +313,7 @@ class Sofabed(object):
                 del data['_rev']
 
             if any(key.startswith('_') for key in data.keys() if key != '_id'):
-                raise _InvalidCouchDBKey
+                raise InvalidCouchDBKey
 
             self._upsert_buffer.append({'_id':key or uuid4().hex, **data})
 
@@ -438,5 +377,3 @@ class Sofabed(object):
             for design in self._designs:
                 design._commit()
             self._designs_dirty = False
-
-
