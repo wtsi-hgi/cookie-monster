@@ -77,10 +77,10 @@ from datetime import timedelta
 from typing import Any, Callable, Generator, List, Optional
 from uuid import uuid4
 
-from pycouchdb.exceptions import NotFound
+from pycouchdb.exceptions import Conflict, NotFound
 
 from cookiemonster.cookiejar.couchdb.softer import SofterCouchDB, UnresponsiveCouchDB, InvalidCouchDBKey
-from cookiemonster.cookiejar.couchdb.dream_catcher import Cache, Actions, NotCached
+from cookiemonster.cookiejar.couchdb.dream_catcher import Cache, Actions, NotCached, BatchListenerT
 
 
 class _DesignDocument(object):
@@ -178,13 +178,13 @@ class Sofabed(object):
         self._cache = Cache(max_buffer_size, buffer_latency, max_cache_size)
         self._cache.add_listener(self._batch)
 
-    def _batch(self, action:Actions, docs:List[dict]):
+    def _batch(self, broadcast:BatchListenerT):
         '''
         Perform a batch action against the database
 
-        @param   action  Batch action to perform
-        @param   docs    Documents to apply the action against
+        @param   broadcast  Broadcast data pushed by the cache
         '''
+        action, docs = broadcast
         to_batch = deepcopy(docs)
 
         # To avoid conflicts, we must merge in the revision IDs of
@@ -203,7 +203,7 @@ class Sofabed(object):
         try:
             _ = self._batch_methods[action](docs, transaction=True)
 
-        except UnresponsiveCouchDB:
+        except (UnresponsiveCouchDB, Conflict):
             self._cache.requeue(action, docs)
 
     def fetch(self, key:str, revision:Optional[str] = None) -> Optional[dict]:
