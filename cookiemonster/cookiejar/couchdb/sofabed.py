@@ -216,7 +216,10 @@ class Sofabed(object):
         '''
         # First try the cache...
         try:
-            output = self._cache.fetch(key, revision)
+            if revision:
+                raise NotCached
+
+            output = self._cache.fetch(key)
 
         except NotCached:
             try:

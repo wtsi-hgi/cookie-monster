@@ -75,14 +75,12 @@ class Cache(Listenable[BatchListenerT]):
                        max_cache_size:int       = 2097152):
         pass
 
-    def fetch(self, key:str, revision:Optional[str] = None) -> Optional[dict]:
+    def fetch(self, key:str) -> Optional[dict]:
         '''
-        Get the document from the cache by its key and, optionally,
-        revision IDs
+        Get the document from the cache by its key
 
         @param   key       Document ID
-        @param   revision  Document revision ID
-        @return  The document (None, if not found)
+        @return  The document (None, if deleted)
 
         NOTE If the cache has no record of the document, then a
         NotCached exception will be raised
