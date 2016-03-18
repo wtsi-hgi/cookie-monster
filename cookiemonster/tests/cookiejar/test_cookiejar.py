@@ -68,8 +68,7 @@ from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer
 
 from hgicommon.collections import Metadata
 
-# We need these for mocking
-import cookiemonster.cookiejar._dbi as _dbi
+# We need this for mocking
 import cookiemonster.cookiejar.biscuit_tin as _biscuit_tin
 
 
@@ -409,7 +408,7 @@ class TestBiscuitTin(TestCookieJar):
         _biscuit_tin.Timer.assert_called_with(expected_timeout, expected_call)
 
     def _change_time(self, cookie_jar: CookieJar, change_time_to: int):
-        _dbi._now = MagicMock(return_value=change_time_to)
+        _biscuit_tin._now = MagicMock(return_value=change_time_to)
 
     def test14_connection_failure(self):
         """

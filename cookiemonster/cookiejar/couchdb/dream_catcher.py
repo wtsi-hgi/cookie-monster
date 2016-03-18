@@ -45,7 +45,7 @@ License
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
 """
-#from collections import deque, OrderedDict
+from collections import deque, OrderedDict
 from copy import deepcopy
 from datetime import timedelta
 from enum import Enum
@@ -64,7 +64,7 @@ class Actions(Enum):
 
 class _DocumentBuffer(Listenable[List[dict]]):
     ''' Document buffer '''
-    def __init__(self, max_size:int = 1000, latency:timedelta = timedelta(milliseconds=50)):
+    def __init__(self, max_size:int, latency:timedelta):
         super().__init__()
 
         self._max_size = max_size if max_size > 0 else 1
@@ -114,17 +114,100 @@ class _DocumentBuffer(Listenable[List[dict]]):
         self._discharge()
 
 
+class _QueueItem(object):
+    ''' Queue item '''
+    def __init__(self, action:Actions, docs:List[dict]):
+        self.action = action
+        self.docs = docs
+
+
 BatchListenerT = Tuple[Actions, List[dict]]
 
 class _Queue(Listenable[BatchListenerT]):
-    def __init__(self):
+    def __init__(self, buffer_max_size:int, buffer_latency:timedelta):
         super().__init__()
 
+        # The queue latency is a function of the buffer size and latency
+        # TODO...
+        self._latency = buffer_latency.total_seconds()
+
+        self._lock = Lock()
+        self._queue = deque()
+
+        # Start the watcher
+        self._watcher_thread = Thread(target=self._watcher, daemon=True)
+        self._thread_running = True
+        self._watcher_thread.start()
+
+    def __del__(self):
+        self._thread_running = False
+
+    def _dequeue(self):
+        '''
+        Push the deduplicated top of the queue to its listeners,
+        providing there is something listening
+        '''
+        to_requeue = None
+
+        with self._lock:
+            if len(self._listeners) and len(self._queue):
+                top = self._queue.popleft()
+                docs_to_dequeue = []
+                docs_to_requeue = []
+
+                # Get unique documents (by ID) and find duplicates
+                document_ids = OrderedDict()
+                for index, doc in enumerate(top.docs):
+                    doc_id = doc['_id']
+
+                    if doc_id not in document_ids:
+                        document_ids[doc_id] = index
+                        docs_to_dequeue.append(doc)
+
+                    else:
+                        # Duplicates should be requeued
+                        docs_to_requeue.append(doc)
+
+                if len(docs_to_requeue):
+                    to_requeue = _QueueItem(top.action, docs_to_requeue)
+
+                # Dequeue the documents to listeners
+                self.notify_listeners((top.action, docs_to_dequeue))
+
+        if to_requeue:
+            self.requeue(to_requeue.action, to_requeue.docs)
+
+    def _watcher(self):
+        ''' Watcher thread for time-based dequeueing '''
+        zzz = self._latency
+
+        while self._thread_running:
+            self._dequeue()
+            sleep(zzz)
+
     def enqueue(self, action:Actions, docs:List[dict]):
-        pass
+        '''
+        Add documents to the queue
+
+        @param   action  Database action
+        @param   docs    Documents
+        '''
+        with self._lock:
+            self._queue.append(_QueueItem(action, docs))
+
+        self._dequeue()
 
     def requeue(self, action:Actions, docs:List[dict]):
-        pass
+        '''
+        Add documents to the top of the queue
+
+        @param   action  Database action
+        @param   docs    Documents
+        '''
+        with self._lock:
+            self._queue.appendleft(_QueueItem(action, docs))
+
+        self._dequeue()
 
 
 class Buffer(Listenable[BatchListenerT]):
@@ -134,7 +217,7 @@ class Buffer(Listenable[BatchListenerT]):
 
         # Operation queue
         self._queue_lock = Lock()
-        self._queue = _Queue()
+        self._queue = _Queue(max_buffer_size, buffer_latency)
         self._queue.add_listener(self.notify_listeners)
 
         # Upsert buffer
@@ -150,6 +233,7 @@ class Buffer(Listenable[BatchListenerT]):
     def _enqueue_factory(self, action:Actions) -> Callable[[List[dict]], None]:
         '''
         Create a enqueue listener for the respective action
+
         @param   action  Database action
         @return  Listener function
         '''
@@ -177,7 +261,7 @@ class Buffer(Listenable[BatchListenerT]):
         with self._deletion_buffer_lock:
             self._deletion_buffer.append(doc)
 
-    def requeue(self, action:Action, docs:List[dict]):
+    def requeue(self, action:Actions, docs:List[dict]):
         '''
         Requeue (at the top) any documents with an appropriate action
 
