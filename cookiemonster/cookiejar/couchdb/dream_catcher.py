@@ -226,7 +226,7 @@ class Buffer(Listenable[BatchListenerT]):
 
         # Deletion buffer
         self._deletion_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
-        self._upsert_buffer.add_listener(lambda docs: self._queue.enqueue(Actions.Delete, docs))
+        self._deletion_buffer.add_listener(lambda docs: self._queue.enqueue(Actions.Delete, docs))
 
     def append(self, doc:dict):
         '''
