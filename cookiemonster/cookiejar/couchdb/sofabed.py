@@ -194,7 +194,7 @@ class Sofabed(object):
 
         for doc in to_batch:
             if doc['_id'] in revision_ids:
-                doc['_rev'] = revision_ids['_id']
+                doc['_rev'] = revision_ids[doc['_id']]
 
         try:
             _ = self._batch_methods[action](docs, transaction=True)
