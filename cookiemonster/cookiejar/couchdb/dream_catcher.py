@@ -45,10 +45,14 @@ License
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
 """
+#from collections import deque, OrderedDict
+from copy import deepcopy
 from datetime import timedelta
 from enum import Enum
-from typing import Tuple, List
-from threading import Thread, Lock
+from time import monotonic, sleep
+from typing import Callable, List, Tuple
+from threading import Lock, Thread
+
 from hgicommon.mixable import Listenable
 
 
@@ -58,13 +62,102 @@ class Actions(Enum):
     Delete = 2
 
 
+class _DocumentBuffer(Listenable[List[dict]]):
+    ''' Document buffer '''
+    def __init__(self, max_size:int = 1000, latency:timedelta = timedelta(milliseconds=50)):
+        super().__init__()
+
+        self._max_size = max_size if max_size > 0 else 1
+        self._latency = latency.total_seconds()
+
+        self._lock = Lock()
+        self.data = []
+        self.last_updated = monotonic()
+
+        # Start the watcher
+        self._watcher_thread = Thread(target=self._watcher, daemon=True)
+        self._thread_running = True
+        self._watcher_thread.start()
+
+    def __del__(self):
+        self._thread_running = False
+
+    def _discharge(self):
+        '''
+        Discharge the buffer (by pushing the data to listeners) when its
+        state requires so; i.e., when there is something listening and
+        either the buffer size or latency is exceeded
+        '''
+        with self._lock:
+            if len(self._listeners) and len(self.data):
+                latency = monotonic() - self.last_updated
+                if len(self.data) >= self._max_size or latency >= self._latency:
+                    self.notify_listeners(deepcopy(self.data))
+                    self.data[:] = []
+                    self.last_updated = monotonic()
+
+    def _watcher(self):
+        ''' Watcher thread for time-based discharging '''
+        zzz = self._latency / 2
+
+        while self._thread_running:
+            self._discharge()
+            sleep(zzz)
+
+    def append(self, document:dict):
+        ''' Add a document to the buffer '''
+        with self._lock:
+            self.data.append(document)
+            self.last_updated = monotonic()
+
+        # Force size-based discharging
+        self._discharge()
+
+
 BatchListenerT = Tuple[Actions, List[dict]]
 
-class Buffer(Listenable[BatchListenerT]):
-    ''' In-memory cache and buffering/queueing layer '''
-    def __init__(self, max_buffer_size:int      = 1000,
-                       buffer_latency:timedelta = timedelta(milliseconds=50)):
+class _Queue(Listenable[BatchListenerT]):
+    def __init__(self):
+        super().__init__()
+
+    def enqueue(self, action:Actions, docs:List[dict]):
         pass
+
+    def requeue(self, action:Actions, docs:List[dict]):
+        pass
+
+
+class Buffer(Listenable[BatchListenerT]):
+    ''' Buffer and queueing layer '''
+    def __init__(self, max_buffer_size:int = 1000, buffer_latency:timedelta = timedelta(milliseconds=50)):
+        super().__init__()
+
+        # Operation queue
+        self._queue_lock = Lock()
+        self._queue = _Queue()
+        self._queue.add_listener(self.notify_listeners)
+
+        # Upsert buffer
+        self._upsert_buffer_lock = Lock()
+        self._upsert_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
+        self._upsert_buffer.add_listener(self._enqueue_factory(Actions.Upsert))
+
+        # Deletion buffer
+        self._deletion_buffer_lock = Lock()
+        self._deletion_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
+        self._upsert_buffer.add_listener(self._enqueue_factory(Actions.Delete))
+
+    def _enqueue_factory(self, action:Actions) -> Callable[[List[dict]], None]:
+        '''
+        Create a enqueue listener for the respective action
+        @param   action  Database action
+        @return  Listener function
+        '''
+        def listener(docs:List[dict]):
+            with self._queue_lock:
+                self._queue.enqueue(action, docs)
+
+        return listener
 
     def append(self, doc:dict):
         '''
@@ -72,7 +165,8 @@ class Buffer(Listenable[BatchListenerT]):
 
         @param   doc  Document
         '''
-        pass
+        with self._upsert_buffer_lock:
+            self._upsert_buffer.append(doc)
 
     def remove(self, doc:dict):
         '''
@@ -80,7 +174,8 @@ class Buffer(Listenable[BatchListenerT]):
 
         @param   doc  Document
         '''
-        pass
+        with self._deletion_buffer_lock:
+            self._deletion_buffer.append(doc)
 
     def requeue(self, action:Action, docs:List[dict]):
         '''
@@ -89,68 +184,5 @@ class Buffer(Listenable[BatchListenerT]):
         @param   action  Database action
         @param   docs    List of documents
         '''
-        pass
-
-
-## from collections import deque, OrderedDict
-## from copy import deepcopy
-## from datetime import timedelta
-## from os import environ
-## from threading import Lock, Thread
-## from time import monotonic, sleep, time
-## from typing import Any, Callable, Generator, Iterable, Optional, Tuple
-## from uuid import uuid4
-## from enum import Enum
-## 
-## from hgicommon.mixable import Listenable
-## 
-## class _DocumentBuffer(Listenable):
-##     ''' Document buffer '''
-##     def __init__(self, max_size:int = 100, latency:timedelta = timedelta(milliseconds=50)):
-##         super().__init__()
-## 
-##         self._max_size = max_size if max_size > 0 else 1
-##         self._latency = latency.total_seconds()
-## 
-##         self._lock = Lock()
-##         self.data = []
-##         self.last_updated = monotonic()
-## 
-##         # Start the watcher
-##         self._watcher_thread = Thread(target=self._watcher, daemon=True)
-##         self._thread_running = True
-##         self._watcher_thread.start()
-## 
-##     def __del__(self):
-##         self._thread_running = False
-## 
-##     def _discharge(self):
-##         '''
-##         Discharge the buffer (by pushing the data to listeners) when its
-##         state requires so; i.e., when there is something listening and
-##         either the buffer size or latency is exceeded
-##         '''
-##         with self._lock:
-##             if len(self._listeners) and len(self.data):
-##                 latency = monotonic() - self.last_updated
-##                 if len(self.data) >= self._max_size or latency >= self._latency:
-##                     self.notify_listeners(deepcopy(self.data))
-##                     self.data[:] = []
-##                     self.last_updated = monotonic()
-## 
-##     def _watcher(self):
-##         ''' Watcher thread for time-based discharging '''
-##         zzz = self._latency / 2
-## 
-##         while self._thread_running:
-##             self._discharge()
-##             sleep(zzz)
-## 
-##     def append(self, document:dict):
-##         ''' Add a document to the buffer '''
-##         with self._lock:
-##             self.data.append(document)
-##             self.last_updated = monotonic()
-## 
-##         # Force size-based discharging
-##         self._discharge()
+        with self._queue_lock:
+            self._queue.requeue(action, docs)
