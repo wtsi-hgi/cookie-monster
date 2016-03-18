@@ -88,7 +88,7 @@ Copyright (c) 2015, 2016 Genome Research Limited
 import json
 from datetime import timedelta
 from threading import Lock, Timer
-from time import time
+from time import sleep, time
 from typing import Iterable, Optional, Tuple
 
 from hgicommon.collections import Metadata
@@ -469,6 +469,8 @@ class BiscuitTin(CookieJar):
 
         self._queue_lock = Lock()
 
+        self._latency = buffer_latency.total_seconds()
+
     def _broadcast(self):
         '''
         Broadcast to all listeners
@@ -494,6 +496,11 @@ class BiscuitTin(CookieJar):
     def enrich_cookie(self, identifier: str, enrichment: Enrichment):
         self._metadata.enrich(identifier, enrichment)
         self._queue.mark_dirty(identifier)
+
+        # Block until the cookie has been pushed to the database
+        # FIXME This is horrible
+        while not self.fetch_cookie(identifier):
+            sleep(self._latency)
         self._broadcast()
 
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
@@ -511,6 +518,11 @@ class BiscuitTin(CookieJar):
 
     def mark_for_processing(self, identifier: str):
         self._queue.mark_dirty(identifier)
+
+        # Block until the cookie has been pushed to the database
+        # FIXME This is horrible
+        while not self.fetch_cookie(identifier):
+            sleep(self._latency)
         self._broadcast()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
