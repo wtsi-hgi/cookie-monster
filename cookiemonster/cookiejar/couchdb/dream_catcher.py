@@ -49,9 +49,10 @@ from collections import deque, OrderedDict
 from copy import deepcopy
 from datetime import timedelta
 from enum import Enum
+from functools import partial
+from threading import Lock, Thread
 from time import monotonic, sleep
 from typing import Callable, List, Tuple
-from threading import Lock, Thread
 
 from hgicommon.mixable import Listenable
 
@@ -174,7 +175,6 @@ class _Queue(Listenable[BatchListenerT]):
                 # Dequeue the documents to listeners
                 self.notify_listeners((top.action, docs_to_dequeue))
 
-
         if to_requeue:
             self.requeue(to_requeue.action, to_requeue.docs)
 
@@ -222,11 +222,11 @@ class Buffer(Listenable[BatchListenerT]):
 
         # Upsert buffer
         self._upsert_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
-        self._upsert_buffer.add_listener(lambda docs: self._queue.enqueue(Actions.Upsert, docs))
+        self._upsert_buffer.add_listener(partial(self._queue.enqueue, Actions.Upsert))
 
         # Deletion buffer
         self._deletion_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
-        self._deletion_buffer.add_listener(lambda docs: self._queue.enqueue(Actions.Delete, docs))
+        self._deletion_buffer.add_listener(partial(self._queue.enqueue, Actions.Delete))
 
     def append(self, doc:dict):
         '''
