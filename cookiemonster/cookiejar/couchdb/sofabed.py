@@ -193,11 +193,12 @@ class Sofabed(object):
         }
 
         for doc in to_batch:
-            if doc['_id'] in revision_ids:
-                doc['_rev'] = revision_ids[doc['_id']]
+            doc_id = doc['_id']
+            if doc_id in revision_ids:
+                doc['_rev'] = revision_ids[doc_id]
 
         try:
-            _ = self._batch_methods[action](docs, transaction=True)
+            _ = self._batch_methods[action](to_batch, transaction=True)
 
         except (UnresponsiveCouchDB, Conflict):
             self._buffer.requeue(action, docs)

@@ -174,6 +174,7 @@ class _Queue(Listenable[BatchListenerT]):
                 # Dequeue the documents to listeners
                 self.notify_listeners((top.action, docs_to_dequeue))
 
+
         if to_requeue:
             self.requeue(to_requeue.action, to_requeue.docs)
 
@@ -216,32 +217,16 @@ class Buffer(Listenable[BatchListenerT]):
         super().__init__()
 
         # Operation queue
-        self._queue_lock = Lock()
         self._queue = _Queue(max_buffer_size, buffer_latency)
         self._queue.add_listener(self.notify_listeners)
 
         # Upsert buffer
-        self._upsert_buffer_lock = Lock()
         self._upsert_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
-        self._upsert_buffer.add_listener(self._enqueue_factory(Actions.Upsert))
+        self._upsert_buffer.add_listener(lambda docs: self._queue.enqueue(Actions.Upsert, docs))
 
         # Deletion buffer
-        self._deletion_buffer_lock = Lock()
         self._deletion_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
-        self._upsert_buffer.add_listener(self._enqueue_factory(Actions.Delete))
-
-    def _enqueue_factory(self, action:Actions) -> Callable[[List[dict]], None]:
-        '''
-        Create a enqueue listener for the respective action
-
-        @param   action  Database action
-        @return  Listener function
-        '''
-        def listener(docs:List[dict]):
-            with self._queue_lock:
-                self._queue.enqueue(action, docs)
-
-        return listener
+        self._upsert_buffer.add_listener(lambda docs: self._queue.enqueue(Actions.Delete, docs))
 
     def append(self, doc:dict):
         '''
@@ -249,8 +234,7 @@ class Buffer(Listenable[BatchListenerT]):
 
         @param   doc  Document
         '''
-        with self._upsert_buffer_lock:
-            self._upsert_buffer.append(doc)
+        self._upsert_buffer.append(doc)
 
     def remove(self, doc:dict):
         '''
@@ -258,8 +242,7 @@ class Buffer(Listenable[BatchListenerT]):
 
         @param   doc  Document
         '''
-        with self._deletion_buffer_lock:
-            self._deletion_buffer.append(doc)
+        self._deletion_buffer.append(doc)
 
     def requeue(self, action:Actions, docs:List[dict]):
         '''
@@ -268,5 +251,4 @@ class Buffer(Listenable[BatchListenerT]):
         @param   action  Database action
         @param   docs    List of documents
         '''
-        with self._queue_lock:
-            self._queue.requeue(action, docs)
+        self._queue.requeue(action, docs)
