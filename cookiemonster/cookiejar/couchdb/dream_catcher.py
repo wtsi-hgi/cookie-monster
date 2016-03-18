@@ -63,6 +63,10 @@ class Actions(Enum):
     Delete = 2
 
 
+# TODO _DocumentBuffer and _Queue follow almost exactly the same
+# pattern. This is rife for generalisation...
+
+
 class _DocumentBuffer(Listenable[List[dict]]):
     ''' Document buffer '''
     def __init__(self, max_size:int, latency:timedelta):
@@ -125,12 +129,11 @@ class _QueueItem(object):
 BatchListenerT = Tuple[Actions, List[dict]]
 
 class _Queue(Listenable[BatchListenerT]):
-    def __init__(self, buffer_max_size:int, buffer_latency:timedelta):
+    def __init__(self, buffer_latency:timedelta):
         super().__init__()
 
-        # The queue latency is a function of the buffer size and latency
-        # TODO...
-        self._latency = buffer_latency.total_seconds()
+        # The queue latency is twice the buffer latency
+        self._latency = buffer_latency.total_seconds() * 2
 
         self._lock = Lock()
         self._queue = deque()
@@ -217,32 +220,31 @@ class Buffer(Listenable[BatchListenerT]):
         super().__init__()
 
         # Operation queue
-        self._queue = _Queue(max_buffer_size, buffer_latency)
+        self._queue = _Queue(buffer_latency)
         self._queue.add_listener(self.notify_listeners)
 
-        # Upsert buffer
-        self._upsert_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
-        self._upsert_buffer.add_listener(partial(self._queue.enqueue, Actions.Upsert))
+        # Action buffers
+        self._buffers = {}
+        for action in Actions:
+            self._buffers[action] = _DocumentBuffer(max_buffer_size, buffer_latency)
+            self._buffers[action].add_listener(partial(self._queue.enqueue, action))
 
-        # Deletion buffer
-        self._deletion_buffer = _DocumentBuffer(max_buffer_size, buffer_latency)
-        self._deletion_buffer.add_listener(partial(self._queue.enqueue, Actions.Delete))
+    def _buffer(self, action:Actions, doc:dict):
+        '''
+        Add a document to an action buffer
+
+        @param   action  Database action
+        @param   doc     Document
+        '''
+        self._buffers[action].append(doc)
 
     def append(self, doc:dict):
-        '''
-        Add a document into the upsert buffer
-
-        @param   doc  Document
-        '''
-        self._upsert_buffer.append(doc)
+        ''' Add a document into the upsert buffer '''
+        self._buffer(Actions.Upsert, doc)
 
     def remove(self, doc:dict):
-        '''
-        Add a document into the deletion buffer
-
-        @param   doc  Document
-        '''
-        self._deletion_buffer.append(doc)
+        ''' Add a document into the deletion buffer '''
+        self._buffer(Actions.Delete, doc)
 
     def requeue(self, action:Actions, docs:List[dict]):
         '''
