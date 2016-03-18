@@ -452,7 +452,7 @@ class _Ernie(object):
 
 class BiscuitTin(CookieJar):
     ''' Persistent implementation of `CookieJar` '''
-    def __init__(self, couchdb_url:str, couchdb_name:str, buffer_capacity:int = 100,
+    def __init__(self, couchdb_url:str, couchdb_name:str, buffer_capacity:int = 1000,
                                                           buffer_latency:timedelta = timedelta(milliseconds=50)):
         '''
         Constructor: Initialise the database interfaces

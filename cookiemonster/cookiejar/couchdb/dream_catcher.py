@@ -1,44 +1,40 @@
 """
-In-Memory Cache and Buffering
-=============================
-Provides an in-memory cache of the most recent actions against the
-database and also an action buffering and queueing system to facilitate
-bulk operations
+Buffer and Queueing Layer
+=========================
+Provides buffering of database actions, which -- once the buffer is
+considered full -- are flushed into a queue and ultimately passed back
+to the database interface for bulk operation
 
-Exportable classes: Cache, Actions (Enum)
-Exportable exceptions: NotCached
+Exportable classes: Buffer, Actions (Enum)
 Exportable type aliases: BatchListenerT
 
-Cache
------
-`Cache` maintains an in-memory cache of upserts and deletes and queues
-them before pushing them to persistence. This gives us buffering, to
-save overloading the database server, with zero-latency for downstream
-applications.
-
-The `Cache` should be instantiated with the maximum buffer size (count
-of documents), the buffer latency and the maximum cache size (bytes).
+Buffer
+------
+`Buffer` maintains the upsert and deletion buffers and operation queue.
+It should be instantiated with the maximum buffer size (document count)
+and the buffer latency.
 
 Methods:
 
-* `fetch` Get a document from the in-memory cache
+* `append` Add a document to the upsert buffer and, ultimately, the
+  operation queue
 
-* `upsert` Update or insert a document in to the in-memory cache and
-  ultimately, via the upsert buffer and queue, the database
-
-* `delete` Mark a document as deleted in the in-memory cache and
-  ultimately, via the deletion buffer and queue, the databse
+* `remove` Add a document to the deletion buffer and, ultimately, the
+  operation queue
 
 * `requeue` Requeue a set of documents into the appropriate queue, at
   the top (used in event of database/transaction failure)
 
-Note that the `Cache` does not actually perform any operations against
+The `Buffer` will ensure document conflicts can't occur automatically,
+by enforcing unique IDs per buffer and requeueing any duplicates.
+
+Note that the `Buffer` does not actually perform any operations against
 the database. Instead, it implements `Listenable` and, whenever data is
 ready to be pushed from its queues, it injects them via the notifier. It
 is then the responsibility of the DB interface class to interact with
 the database.
 
-The `Cache` is thread-safe.
+The `Buffer` is thread-safe.
 
 Authors
 -------
@@ -49,8 +45,9 @@ License
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
 """
+from datetime import timedelta
 from enum import Enum
-from typing import Tuple, List, Optional
+from typing import Tuple, List
 from threading import Thread, Lock
 from hgicommon.mixable import Listenable
 
@@ -61,47 +58,27 @@ class Actions(Enum):
     Delete = 2
 
 
-class NotCached(Exception):
-    ''' Document state doesn't exist in the cache '''
-    pass
-
-
 BatchListenerT = Tuple[Actions, List[dict]]
 
-class Cache(Listenable[BatchListenerT]):
+class Buffer(Listenable[BatchListenerT]):
     ''' In-memory cache and buffering/queueing layer '''
-    def __init__(self, max_buffer_size:int      = 100,
-                       buffer_latency:timedelta = timedelta(milliseconds=50),
-                       max_cache_size:int       = 2097152):
+    def __init__(self, max_buffer_size:int      = 1000,
+                       buffer_latency:timedelta = timedelta(milliseconds=50)):
         pass
 
-    def fetch(self, key:str) -> Optional[dict]:
+    def append(self, doc:dict):
         '''
-        Get the document from the cache by its key
-
-        @param   key       Document ID
-        @return  The document (None, if deleted)
-
-        NOTE If the cache has no record of the document, then a
-        NotCached exception will be raised
-        '''
-        pass
-
-    def upsert(self, doc:dict):
-        '''
-        Update or insert a document into the in-memory cache and prepare
-        it for batch writing to the database
+        Add a document into the upsert buffer
 
         @param   doc  Document
         '''
         pass
 
-    def delete(self, key:str):
+    def remove(self, doc:dict):
         '''
-        Mark a document as deleted in the in-memory cache, if it exists,
-        and prepare it for batch deletion from the database
+        Add a document into the deletion buffer
 
-        @param   key  Document ID
+        @param   doc  Document
         '''
         pass
 

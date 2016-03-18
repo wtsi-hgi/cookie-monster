@@ -9,11 +9,10 @@ Exportable classes: `Sofabed`
 Sofabed
 -------
 `Sofabed` is a CouchDB interface that provides automatic buffering of
-inserts, updates and deletions, while also maintaining an in-memory
-cache. It is instantiated per pycouchdb.client.Server (more-or-less),
-with the additional options of maximum buffer size and discharge
-latency, and ought to be passed into classes that represent document
-models.
+inserts, updates and deletions. It is instantiated per (more-or-less)
+`pycouchdb.client.Server`, with the additional options of maximum buffer
+size and discharge latency, and ought to be passed into classes that
+represent document models.
 
 Each insert, update or deletion will be added to a buffer. If the time
 between that and the next is less than the discharge latency, then the
@@ -29,14 +28,13 @@ connection problems it may have with the database.
 
 Methods:
 
-* `fetch` Fetch a document by its ID and, optionally, revision, checking
-  the in-memory cache first
+* `fetch` Fetch a document by its ID and, optionally, revision
 
 * `upsert` Insert or update a document into the database, via a buffer
-  and upsert queue (i.e., in-memory cache)
+  and upsert queue
 
 * `delete` Delete a document from the database, via a buffer and
-  deletion queue (i.e., in-memory cache)
+  deletion queue
 
 * `query` Query a predefined view
 
@@ -80,7 +78,7 @@ from uuid import uuid4
 from pycouchdb.exceptions import Conflict, NotFound
 
 from cookiemonster.cookiejar.couchdb.softer import SofterCouchDB, UnresponsiveCouchDB, InvalidCouchDBKey
-from cookiemonster.cookiejar.couchdb.dream_catcher import Cache, Actions, NotCached, BatchListenerT
+from cookiemonster.cookiejar.couchdb.dream_catcher import Buffer, Actions, BatchListenerT
 
 
 class _DesignDocument(object):
@@ -147,9 +145,8 @@ class _DesignDocument(object):
 
 class Sofabed(object):
     ''' Buffered, append-optimised CouchDB interface '''
-    def __init__(self, url:str, database:str, max_buffer_size:int = 100,
+    def __init__(self, url:str, database:str, max_buffer_size:int = 1000,
                                               buffer_latency:timedelta = timedelta(milliseconds=50),
-                                              max_cache_size:int = 2097152,
                                               **kwargs):
         '''
         Acquire a connection with the CouchDB server and initialise the
@@ -159,7 +156,6 @@ class Sofabed(object):
         @param   database         Database name
         @param   max_buffer_size  Maximum buffer size (no. of documents)
         @param   buffer_latency   Buffer latency before discharge
-        @param   max_cache_size   Maximum in-memory cache size (bytes)
         @kwargs  Additional constructor parameters to
                  pycouchdb.client.Server should be passed through here
         '''
@@ -174,15 +170,15 @@ class Sofabed(object):
             Actions.Delete: self._db.delete_bulk
         }
 
-        # Setup in-memory cache and buffer
-        self._cache = Cache(max_buffer_size, buffer_latency, max_cache_size)
-        self._cache.add_listener(self._batch)
+        # Setup database action buffer and queue
+        self._buffer = Buffer(max_buffer_size, buffer_latency)
+        self._buffer.add_listener(self._batch)
 
     def _batch(self, broadcast:BatchListenerT):
         '''
         Perform a batch action against the database
 
-        @param   broadcast  Broadcast data pushed by the cache
+        @param   broadcast  Broadcast data pushed by the buffer
         '''
         action, docs = broadcast
         to_batch = deepcopy(docs)
@@ -204,7 +200,7 @@ class Sofabed(object):
             _ = self._batch_methods[action](docs, transaction=True)
 
         except (UnresponsiveCouchDB, Conflict):
-            self._cache.requeue(action, docs)
+            self._buffer.requeue(action, docs)
 
     def fetch(self, key:str, revision:Optional[str] = None) -> Optional[dict]:
         '''
@@ -214,33 +210,25 @@ class Sofabed(object):
         @param   revision  Revision ID
         @return  Database document (or None, if not found)
         '''
-        # First try the cache...
         try:
-            if revision:
-                raise NotCached
+            if not revision:
+                output = self._db.get(key)
 
-            output = self._cache.fetch(key)
+            else:
+                output = next((
+                    doc
+                    for doc in self._db.revisions(key)
+                    if  doc['_rev'] == revision
+                ), None)
 
-        except NotCached:
-            try:
-                if not revision:
-                    output = self._db.get(key)
-
-                else:
-                    output = next((
-                        doc
-                        for doc in self._db.revisions(key)
-                        if  doc['_rev'] == revision
-                    ), None)
-
-            except NotFound:
-                output = None
+        except NotFound:
+            output = None
 
         return output
 
     def upsert(self, data:dict, key:Optional[str] = None):
         '''
-        Upsert document, via the in-memory cache
+        Upsert document, via the upsert buffer and queue
 
         @param   data  Document data
         @param   key   Document ID
@@ -257,15 +245,25 @@ class Sofabed(object):
         if any(key.startswith('_') for key in data.keys() if key != '_id'):
             raise InvalidCouchDBKey
 
-        self._cache.upsert({'_id':key or uuid4().hex, **data})
+        self._buffer.append({'_id':key or uuid4().hex, **data})
 
     def delete(self, key:str):
         '''
-        Delete document from CouchDB, via the in-memory cache
+        Delete document from CouchDB, via the deletion buffer and queue
 
         @param   key  Document ID
         '''
-        self._cache.delete(key)
+        doc = self.fetch(key)
+
+        if doc:
+            # Remove all CouchDB keys except _id
+            to_delete = {
+                key: value
+                for key, value in doc.items()
+                if  key == '_id'
+                or  not key.startswith('_')
+            }
+            self._buffer.remove(to_delete)
 
     def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Generator:
         '''
@@ -277,7 +275,7 @@ class Sofabed(object):
         @kwargs  Query string options for CouchDB
         @return  Results generator
         '''
-        # Check view exists (not done through cache)
+        # Check view exists
         doc = self.fetch('_design/{}'.format(design))
         if not doc or 'views' not in doc or view not in doc['views']:
             raise NotFound
