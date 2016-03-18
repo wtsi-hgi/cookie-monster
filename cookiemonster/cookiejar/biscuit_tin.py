@@ -1,9 +1,9 @@
 '''
 Cookie Jar
 ==========
-An implementation of `CookieJar` using CouchDB as its database.
+An implementation of `CookieJar` using CouchDB as its database
 
-Exportable Classes: `BiscuitTin`, `RateLimitedBiscuitTin`
+Exportable classes: `BiscuitTin`, `RateLimitedBiscuitTin`
 
 BiscuitTin
 ----------
@@ -21,6 +21,61 @@ queue change to all downstream listeners.
 takes an additional argument, at initial position, in its constructor:
 `max_requests_per_second`.
 
+Bert and Ernie
+--------------
+`_Bert` and `_Ernie` are the queue management and metadata repository
+database interfaces, used by `BiscuitTin`, respectively. They are two
+halves of the same whole, share data together and love each other...
+Which is cool, man. Which is cool.
+
+In `BiscuitTin`, they share a `Sofabed` instance (i.e., use the same
+database), but they can be made to sleep separately...it's all part of
+life's rich tapestry.
+
+`_Bert` (queue management DBI) methods:
+
+* `get_by_identifier` Get a Cookie by its identifier
+
+* `queue_length` Get the current length of the queue of files to be
+  processed
+
+* `mark_dirty` Mark a file as requiring (re)processing, inserting a new
+  record if it doesn't already exist, with an optional delay
+
+* `dequeue` Dequeue the next file to process
+
+* `mark_finished` Mark a file as having finished processing
+
+* `delete` Remove a file's queue state, or mark it for deletion if
+  currently processing
+
+Document schema:
+
+    $queue      boolean  true (i.e., used as a schema classifier)
+    identifier  string   File identifier
+    dirty       boolean  Whether the file needs reprocessing
+    processing  boolean  Whether the file is currently being processed
+    deleted     boolean  Whether the file has been deleted
+    queue_from  int      Timestamp from when to queue (Unix epoch)
+
+`_Ernie` (metadata repository DBI) methods:
+
+* `enrich` Add a metadata enrichment document for a file to the
+  repository
+
+* `get_metadata` Fetch all the metadata enrichments for a file, in
+  chronological order
+
+* `delete_metadata` Delete all the metadata enrichments for a file
+
+Document schema:
+
+    $metadata   boolean  true (i.e., used as a schema classifier)
+    identifier  string   File identifier
+    source      string   Metadata source
+    timestamp   int      Timestamp (Unix epoch)
+    metadata    object   Key-value store
+
 Authors
 -------
 * Christopher Harrison <ch12@sanger.ac.uk>
@@ -30,19 +85,374 @@ License
 GPLv3 or later
 Copyright (c) 2015, 2016 Genome Research Limited
 '''
+import json
 from datetime import timedelta
-from typing import Optional
 from threading import Lock, Timer
+from time import sleep, time
+from typing import Iterable, Optional, Tuple
+
+from hgicommon.collections import Metadata
 
 from cookiemonster.common.models import Enrichment, Cookie
+
+from hgijson.json.models import JsonPropertyMapping
+from hgijson.json.primitive import DatetimeEpochJSONEncoder, DatetimeEpochJSONDecoder
+from hgijson.json.builders import MappingJSONEncoderClassBuilder, MappingJSONDecoderClassBuilder
+
 from cookiemonster.cookiejar.cookiejar import CookieJar
-from cookiemonster.cookiejar._dbi import Sofabed, Bert, Ernie
+from cookiemonster.cookiejar.couchdb import Sofabed
 from cookiemonster.cookiejar._rate_limiter import rate_limited
+
+
+_ENRICHMENT_JSON_MAPPING = [
+    JsonPropertyMapping('source',    'source',
+                                     object_constructor_parameter_name='source'),
+    JsonPropertyMapping('timestamp', 'timestamp',
+                                     object_constructor_parameter_name='timestamp',
+                                     encoder_cls=DatetimeEpochJSONEncoder,
+                                     decoder_cls=DatetimeEpochJSONDecoder),
+    JsonPropertyMapping('metadata',  object_constructor_parameter_name='metadata',
+                                     object_constructor_argument_modifier=Metadata,
+                                     object_property_getter=lambda enrichment: dict(enrichment.metadata.items()))
+]
+
+_EnrichmentJSONEncoder = MappingJSONEncoderClassBuilder(Enrichment, _ENRICHMENT_JSON_MAPPING).build()
+_EnrichmentJSONDecoder = MappingJSONDecoderClassBuilder(Enrichment, _ENRICHMENT_JSON_MAPPING).build()
+
+
+def _now() -> int:
+    ''' @return The current Unix time '''
+    return int(time())
+
+
+class _Bert(object):
+    ''' Interface to the queue database documents '''
+    @staticmethod
+    def _reset_processing(row:dict) -> dict:
+        '''
+        Wrapper function that resets the processing state of the results
+        returned from the queue/in_progress view
+        '''
+        return {
+            **row['doc'],
+            'dirty':      True,
+            'processing': False,
+            'queue_from': _now()
+        }
+
+    def __init__(self, sofa:Sofabed):
+        '''
+        Constructor: Create/update the views to provide the queue
+        management interface
+
+        @param   sofa  Sofabed object
+        '''
+        self._db = sofa
+        self._define_schema()
+
+        # Document schema, with defaults
+        self._schema = {
+            '$queue':     True,
+            'identifier': None,
+            'dirty':      False,
+            'processing': False,
+            'deleted':    False,
+            'queue_from': None
+        }
+
+        # If there are any files marked as currently processing, this
+        # must be due to a previous failure. Reset all of these for
+        # immediate reprocessing
+        in_progress = self._db.query('queue', 'in_progress', wrapper      = _Bert._reset_processing,
+                                                             include_docs = True,
+                                                             reduce       = False)
+        for doc in in_progress:
+            self._db.upsert(doc)
+
+        # If there are any files marked as deleted, they can be cleaned
+        # up without consequence
+        to_delete = self._db.query('queue', 'to_clean', flat='value', reduce=False)
+
+        for doc_id in to_delete:
+            self._db.delete(doc_id)
+
+    def get_by_identifier(self, identifier:str) -> Optional[Tuple[str, dict]]:
+        '''
+        Get queue document by its file identifier
+
+        @param   identifier  File identifier
+        @return  Document ID and Document tuple (None, if not found)
+        '''
+        results = self._db.query('queue', 'get_id', key          = identifier,
+                                                    include_docs = True,
+                                                    reduce       = False)
+        try:
+            result = next(results)
+            return result['value'], result['doc']
+
+        except StopIteration:
+            return None
+
+    def delete(self, identifier:str):
+        '''
+        Delete a queue document, or mark it for deletion if it is
+        currently being processed
+
+        @param   identifier  File identifier
+        '''
+        doc_id, current_doc = self.get_by_identifier(identifier) or (None, None)
+
+        if doc_id:
+            if current_doc['processing']:
+                deleted_doc = {
+                    **current_doc,
+                    'deleted': True
+                }
+                self._db.upsert(deleted_doc)
+            else:
+                self._db.delete(doc_id)
+
+    def queue_length(self) -> int:
+        '''
+        @return The current (for-processing) queue length
+        '''
+        results = self._db.query('queue', 'to_process', endkey = _now(),
+                                                        reduce = True,
+                                                        group  = False)
+        try:
+            return next(results)['value']
+
+        except StopIteration:
+            return 0
+
+    def mark_dirty(self, identifier:str, latency:Optional[timedelta] = None):
+        '''
+        Mark a file as requiring, potentially delayed, (re)processing,
+        resetting any deleted status
+
+        @param  identifier  File identifier
+        @param  latency     Requeue latency
+        '''
+        # Get document, or define minimal default
+        doc_id, current_doc = self.get_by_identifier(identifier) or (None, {'identifier': identifier})
+
+        dirty_doc = {
+            **self._schema,
+            **current_doc,
+            'dirty':      True,
+            'deleted':    False,
+            'queue_from': _now()
+        }
+
+        # Latency is only for existing documents
+        if doc_id and latency:
+            dirty_doc['queue_from'] += latency.total_seconds()
+
+        self._db.upsert(dirty_doc)
+
+    def dequeue(self) -> Optional[str]:
+        '''
+        Get the next document on the queue and mark it as processing
+
+        @return File identifier (None, if empty queue)
+        '''
+        results = self._db.query('queue', 'to_process', endkey       = _now(),
+                                                        include_docs = True,
+                                                        reduce       = False,
+                                                        limit        = 1)
+        try:
+            latest = next(results)
+            identifier, current_doc = latest['value'], latest['doc']
+
+            processing_doc = {
+                **current_doc,
+                'dirty':      False,
+                'processing': True,
+                'queue_from': None
+            }
+
+            self._db.upsert(processing_doc)
+            return identifier
+
+        except StopIteration:
+            return None
+
+    def mark_finished(self, identifier:str):
+        '''
+        Mark a file as finished processing, or delete it if it is marked
+        as such
+
+        @param  identifier  File identifier
+        '''
+        # Get document
+        doc_id, current_doc = self.get_by_identifier(identifier) or (None, None)
+
+        if doc_id:
+            if current_doc['deleted']:
+                self._db.delete(doc_id)
+
+            else:
+                finished_doc = {
+                    **current_doc,
+                    'processing': False
+                }
+
+                self._db.upsert(finished_doc)
+
+    def _define_schema(self):
+        ''' Define views '''
+        queue = self._db.create_design('queue')
+
+        # View: queue/to_process
+        # Queue documents marked as dirty and not currently processing
+        # Keyed by `queue_from`, set the endkey in queries appropriately
+        # Reduce to the number of items in the queue
+        queue.define_view('to_process',
+            map_fn = '''
+                function(doc) {
+                    if (doc.$queue && doc.dirty && !doc.processing && !doc.deleted) {
+                        emit(doc.queue_from, doc.identifier);
+                    }
+                }
+            ''',
+            reduce_fn = '_count'
+        )
+
+        # View: queue/in_progress
+        # Queue documents marked as currently processing
+        queue.define_view('in_progress',
+            map_fn = '''
+                function(doc) {
+                    if (doc.$queue && doc.processing && !doc.deleted) {
+                        emit(doc.identifier, doc._id)
+                    }
+                }
+            '''
+        )
+
+        # View: queue/to_clean
+        # Queue documents marked for deletion
+        queue.define_view('to_clean',
+            map_fn = '''
+                function(doc) {
+                    if (doc.$queue && doc.deleted) {
+                        emit(doc.identifier, doc._id)
+                    }
+                }
+            '''
+        )
+
+        # View: queue/get_id
+        # Queue documents, keyed by their file identifier
+        queue.define_view('get_id',
+            map_fn = '''
+                function (doc) {
+                    if (doc.$queue) {
+                        emit(doc.identifier, doc._id);
+                    }
+                }
+            '''
+        )
+
+        self._db.commit_designs()
+
+
+class _Ernie(object):
+    ''' Interface to the metadata database documents '''
+    @staticmethod
+    def _to_enrichment(row:dict) -> Enrichment:
+        '''
+        Wrapper function that decodes enrichment data from query result
+        rows into its respective Enrichment object
+        '''
+        # FIXME? Annoyingly, we have to re-encode the data back to JSON
+        row_json = json.dumps(row['doc'])
+        return json.loads(row_json, cls=_EnrichmentJSONDecoder)
+
+    def __init__(self, sofa:Sofabed):
+        '''
+        Constructor: Create/update the views to provide the metadata
+        repository interface
+
+        @param   sofa  Sofabed object
+        '''
+        self._db = sofa
+        self._define_schema()
+
+        # Document schema, with defaults
+        self._schema = {
+            '$metadata':  True,
+            'identifier': None,
+            'source':     None,
+            'timestamp':  None,
+            'metadata':   {}
+        }
+
+    def enrich(self, identifier:str, enrichment:Enrichment):
+        '''
+        Add a metadata enrichment document to the repository for a file
+
+        @param  identifier  File identifier
+        @param  enrichment  Enrichment model
+        '''
+        # FIXME? Annoyingly, we have to convert back and forth
+        enrichment_dict = json.loads(json.dumps(enrichment, cls=_EnrichmentJSONEncoder))
+
+        enrichment_doc = {
+            **self._schema,
+            **enrichment_dict,
+            'identifier': identifier
+        }
+
+        self._db.upsert(enrichment_doc)
+
+    def get_metadata(self, identifier:str) -> Iterable:
+        '''
+        Get all the collected enrichments for a file
+
+        @param   identifier  File identifier
+        @return  Iterator of Enrichments
+        '''
+        results = self._db.query('metadata', 'collate', wrapper      = _Ernie._to_enrichment,
+                                                        key          = identifier,
+                                                        include_docs = True,
+                                                        reduce       = False)
+        return sorted(results)
+
+    def delete_metadata(self, identifier:str):
+        '''
+        Delete all the enrichments for a file
+
+        @param   identifier  File identifier
+        '''
+        to_delete = self._db.query('metadata', 'collate', flat   = 'value',
+                                                          key    = identifier,
+                                                          reduce = False)
+        for doc_id in to_delete:
+            self._db.delete(doc_id)
+
+    def _define_schema(self):
+        ''' Define views '''
+        metadata = self._db.create_design('metadata')
+
+        # View: metadata/collate
+        # Metadata (Enrichment) document IDs keyed by `identifier`
+        metadata.define_view('collate',
+            map_fn = '''
+                function(doc) {
+                    if (doc.$metadata) {
+                        emit(doc.identifier, doc._id);
+                    }
+                }
+            '''
+        )
+
+        self._db.commit_designs()
 
 
 class BiscuitTin(CookieJar):
     ''' Persistent implementation of `CookieJar` '''
-    def __init__(self, couchdb_url:str, couchdb_name:str, buffer_capacity:int = 100,
+    def __init__(self, couchdb_url:str, couchdb_name:str, buffer_capacity:int = 1000,
                                                           buffer_latency:timedelta = timedelta(milliseconds=50)):
         '''
         Constructor: Initialise the database interfaces
@@ -54,10 +464,12 @@ class BiscuitTin(CookieJar):
         '''
         super().__init__()
         self._sofa = Sofabed(couchdb_url, couchdb_name, buffer_capacity, buffer_latency)
-        self._queue = Bert(self._sofa)
-        self._metadata = Ernie(self._sofa)
+        self._queue = _Bert(self._sofa)
+        self._metadata = _Ernie(self._sofa)
 
         self._queue_lock = Lock()
+
+        self._latency = buffer_latency.total_seconds()
 
     def _broadcast(self):
         '''
@@ -66,9 +478,29 @@ class BiscuitTin(CookieJar):
         '''
         self.notify_listeners()
 
+    def fetch_cookie(self, identifier: str) -> Optional[Cookie]:
+        _, doc = self._queue.get_by_identifier(identifier) or (None, None)
+
+        if doc is None:
+            return None
+
+        cookie = Cookie(identifier)
+        cookie.enrichments = self._metadata.get_metadata(identifier)
+
+        return cookie
+
+    def delete_cookie(self, identifier: str):
+        self._metadata.delete_metadata(identifier)
+        self._queue.delete(identifier)
+
     def enrich_cookie(self, identifier: str, enrichment: Enrichment):
         self._metadata.enrich(identifier, enrichment)
         self._queue.mark_dirty(identifier)
+
+        # Block until the cookie has been pushed to the database
+        # FIXME This is horrible
+        while not self.fetch_cookie(identifier):
+            sleep(self._latency)
         self._broadcast()
 
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
@@ -86,6 +518,11 @@ class BiscuitTin(CookieJar):
 
     def mark_for_processing(self, identifier: str):
         self._queue.mark_dirty(identifier)
+
+        # Block until the cookie has been pushed to the database
+        # FIXME This is horrible
+        while not self.fetch_cookie(identifier):
+            sleep(self._latency)
         self._broadcast()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
@@ -95,10 +532,7 @@ class BiscuitTin(CookieJar):
         if to_process is None:
             return None
 
-        cookie = Cookie(to_process)
-        cookie.enrichments = self._metadata.get_metadata(to_process)
-
-        return cookie
+        return self.fetch_cookie(to_process)
 
     def queue_length(self) -> int:
         return self._queue.queue_length()

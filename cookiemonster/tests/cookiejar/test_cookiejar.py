@@ -37,6 +37,12 @@ The following sequences are specific to `BiscuitTin` and derivatives:
 
 * Enrich -> Get Next -> Reconnect -> Get Next
 
+* Enrich -> Fetch by Identifier
+
+* Enrich -> Delete by Identifier
+
+* Enrich -> Get Next -> Delete -> Mark Complete
+
 Authors
 -------
 * Christopher Harrison <ch12@sanger.ac.uk>
@@ -62,8 +68,7 @@ from cookiemonster.tests._utils.docker_couchdb import CouchDBContainer
 
 from hgicommon.collections import Metadata
 
-# We need these for mocking
-import cookiemonster.cookiejar._dbi as _dbi
+# We need this for mocking
 import cookiemonster.cookiejar.biscuit_tin as _biscuit_tin
 
 
@@ -317,6 +322,59 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(before, after)
         self.assertEqual(self.eg_listener.call_count, 2)
 
+    def test11_fetch_by_id(self):
+        """
+        CookieJar Sequence: Enrich -> Fetch by Identifier
+        """
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
+
+        cookie = self.jar.fetch_cookie(self.eg_identifiers[0])
+        self.assertIsInstance(cookie, Cookie)
+        self.assertEqual(cookie.identifier, self.eg_identifiers[0])
+        self.assertEqual(len(cookie.enrichments), 1)
+        self.assertEqual(cookie.enrichments[0], self.eg_enrichments[0])
+
+        no_cookie = self.jar.fetch_cookie('this does not exist')
+        self.assertIsNone(no_cookie)
+
+    def test12_delete_by_id(self):
+        """
+        CookieJar Sequence: Enrich -> Delete by Identifer
+        """
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0])
+
+        cookie = self.jar.fetch_cookie(self.eg_identifiers[0])
+        self.assertIsInstance(cookie, Cookie)
+
+        self.jar.delete_cookie(self.eg_identifiers[0])
+
+        deleted_cookie = self.jar.fetch_cookie(self.eg_identifiers[0])
+        self.assertIsNone(deleted_cookie)
+
+    def test13_delete_while_processing(self):
+        """
+        CookieJar Sequence: Enrich -> Get Next -> Delete -> Mark Complete
+        """
+        ident = self.eg_identifiers[0]
+
+        self.jar.enrich_cookie(ident, self.eg_enrichments[0])
+        to_process = self.jar.get_next_for_processing()
+        self.assertEqual(to_process.identifier, ident)
+        self.jar.delete_cookie(ident)
+
+        # A cookie that is deleted while processing will still exist,
+        # except for its enrichments (which are removed)
+        to_be_deleted = self.jar.fetch_cookie(ident)
+        self.assertIsInstance(to_be_deleted, Cookie)
+        self.assertEqual(to_be_deleted.identifier, ident)
+        self.assertEqual(len(to_be_deleted.enrichments), 0)
+
+        self.jar.mark_as_complete(ident)
+
+        # Once completed, the cookie should be completely removed
+        deleted = self.jar.fetch_cookie(ident)
+        self.assertIsNone(deleted)
+
 
 class TestBiscuitTin(TestCookieJar):
     """
@@ -350,9 +408,9 @@ class TestBiscuitTin(TestCookieJar):
         _biscuit_tin.Timer.assert_called_with(expected_timeout, expected_call)
 
     def _change_time(self, cookie_jar: CookieJar, change_time_to: int):
-        _dbi._now = MagicMock(return_value=change_time_to)
+        _biscuit_tin._now = MagicMock(return_value=change_time_to)
 
-    def test11_connection_failure(self):
+    def test14_connection_failure(self):
         """
         CookieJar Sequence: Enrich -> Reconnect -> Get Next
         """
@@ -369,7 +427,7 @@ class TestBiscuitTin(TestCookieJar):
         self.assertEqual(len(to_process.enrichments), 1)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
 
-    def test12_connection_failure_while_processing(self):
+    def test15_connection_failure_while_processing(self):
         """
         CookieJar Sequence: Enrich -> Get Next -> Reconnect -> Get Next
         """
@@ -419,5 +477,5 @@ class TestInMemoryCookieJar(TestCookieJar):
 del TestCookieJar
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
