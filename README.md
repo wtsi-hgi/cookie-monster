@@ -210,6 +210,12 @@ port. Currently, the following endpoints are defined:
   expects a JSON request body consisting of an object with a `path`
   member; returning the same.
 
+**`/cookiejar/<identifier>`**
+* `GET` Get a file and its enrichments from the metadata respository, by
+  its identifier.
+* `DELETE` Delete a file and its enrichments from the metadata
+  repository, by its identifier.
+
 Note that *all* requests must include `application/json` in their
 `Accept` header.
 

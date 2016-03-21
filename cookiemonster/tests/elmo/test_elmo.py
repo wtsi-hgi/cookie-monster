@@ -22,9 +22,13 @@ from cookiemonster.tests._utils.docker_helpers import get_open_port
 import json
 from typing import Any
 from time import sleep
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from http.client import HTTPConnection, HTTPResponse
 
+from hgicommon.collections import Metadata
+
+from cookiemonster.common.models import Enrichment, Cookie
+from cookiemonster.common.helpers import EnrichmentJSONDecoder
 from cookiemonster.cookiejar import BiscuitTin
 from cookiemonster.elmo import HTTP_API, APIDependency
 
@@ -130,8 +134,8 @@ class TestElmo(unittest.TestCase):
         dirty_cookie_listener = MagicMock()
         self.jar.add_listener(dirty_cookie_listener)
 
-        cookie_path = '/foo'
-        request = {'path': cookie_path}
+        cookie_identifier = '/foo'
+        request = {'identifier': cookie_identifier}
         self.http.request('POST', '/queue/reprocess', body=json.dumps(request), headers=self.REQ_HEADER)
         r = self.http.getresponse()
 
@@ -147,6 +151,56 @@ class TestElmo(unittest.TestCase):
         self.assertEqual(self.jar.queue_length(), 1)
         self.assertEqual(dirty_cookie_listener.call_count, 1)
 
+    def test_fetch(self):
+        '''
+        HTTP API: GET /cookiejar/<identifier>
+        '''
+        identifier = '/path/to/foo'
+        source = 'foobar'
+        timestamp = datetime.now().replace(microsecond=0, tzinfo=timezone.utc)
+        metadata = Metadata({'foo': 123, 'bar': 'quux'})
+        enrichment = Enrichment(source, timestamp, metadata)
+
+        self.jar.enrich_cookie(identifier, enrichment)
+
+        # n.b. Have to strip the opening slash
+        self.http.request('GET', '/cookiejar/{}'.format(identifier[1:]), headers=self.REQ_HEADER)
+        r = self.http.getresponse()
+
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.headers.get_content_type(), 'application/json')
+
+        data = _decode_json_response(r)
+
+        fetched_identifier = data['identifier']
+        fetched_enrichment = json.loads(json.dumps(data['enrichments']), cls=EnrichmentJSONDecoder)[0]
+
+        self.assertEqual(fetched_identifier, identifier)
+        self.assertEqual(fetched_enrichment, enrichment)
+
+    def test_delete(self):
+        '''
+        HTTP API: DELETE /cookiejar/<identifier>
+        '''
+        identifier = '/path/to/foo'
+        self.jar.mark_for_processing(identifier)
+        self.jar.mark_as_complete(identifier)
+
+        cookie = self.jar.fetch_cookie(identifier)
+        self.assertIsInstance(cookie, Cookie)
+
+        # n.b. Have to strip the opening slash
+        self.http.request('DELETE', '/cookiejar/{}'.format(identifier[1:]), headers=self.REQ_HEADER)
+        r = self.http.getresponse()
+
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.headers.get_content_type(), 'application/json')
+
+        data = _decode_json_response(r)
+        self.assertEqual(data, {'deleted':identifier})
+
+        deleted_cookie = self.jar.fetch_cookie(identifier)
+        self.assertIsNone(deleted_cookie)
 
 if __name__ == '__main__':
     unittest.main()

@@ -94,30 +94,11 @@ from typing import Iterable, Optional, Tuple
 from hgicommon.collections import Metadata
 
 from cookiemonster.common.models import Enrichment, Cookie
-
-from hgijson.json.models import JsonPropertyMapping
-from hgijson.json.primitive import DatetimeEpochJSONEncoder, DatetimeEpochJSONDecoder
-from hgijson.json.builders import MappingJSONEncoderClassBuilder, MappingJSONDecoderClassBuilder
+from cookiemonster.common.helpers import EnrichmentJSONEncoder, EnrichmentJSONDecoder
 
 from cookiemonster.cookiejar.cookiejar import CookieJar
 from cookiemonster.cookiejar.couchdb import Sofabed
 from cookiemonster.cookiejar._rate_limiter import rate_limited
-
-
-_ENRICHMENT_JSON_MAPPING = [
-    JsonPropertyMapping('source',    'source',
-                                     object_constructor_parameter_name='source'),
-    JsonPropertyMapping('timestamp', 'timestamp',
-                                     object_constructor_parameter_name='timestamp',
-                                     encoder_cls=DatetimeEpochJSONEncoder,
-                                     decoder_cls=DatetimeEpochJSONDecoder),
-    JsonPropertyMapping('metadata',  object_constructor_parameter_name='metadata',
-                                     object_constructor_argument_modifier=Metadata,
-                                     object_property_getter=lambda enrichment: dict(enrichment.metadata.items()))
-]
-
-_EnrichmentJSONEncoder = MappingJSONEncoderClassBuilder(Enrichment, _ENRICHMENT_JSON_MAPPING).build()
-_EnrichmentJSONDecoder = MappingJSONDecoderClassBuilder(Enrichment, _ENRICHMENT_JSON_MAPPING).build()
 
 
 def _now() -> int:
@@ -367,7 +348,7 @@ class _Ernie(object):
         '''
         # FIXME? Annoyingly, we have to re-encode the data back to JSON
         row_json = json.dumps(row['doc'])
-        return json.loads(row_json, cls=_EnrichmentJSONDecoder)
+        return json.loads(row_json, cls=EnrichmentJSONDecoder)
 
     def __init__(self, sofa:Sofabed):
         '''
@@ -396,7 +377,7 @@ class _Ernie(object):
         @param  enrichment  Enrichment model
         '''
         # FIXME? Annoyingly, we have to convert back and forth
-        enrichment_dict = json.loads(json.dumps(enrichment, cls=_EnrichmentJSONEncoder))
+        enrichment_dict = json.loads(json.dumps(enrichment, cls=EnrichmentJSONEncoder))
 
         enrichment_doc = {
             **self._schema,
