@@ -100,6 +100,9 @@ class HTTP_API(object):
 
         api.create_route('/queue/reprocess') \
            .set_method_handler(HTTPMethod.POST, dep[APIDependency.CookieJar].POST_mark_for_processing)
+        
+        api.create_route('/cookiejar/<path:cookie>') \
+            .set_method_handler(HTTPMethod.GET, dep[APIDependency.CookieJar].GET_cookie)
 
         # Start service
         self._service = Thread(target=api.listen, args=(port,), daemon=True)

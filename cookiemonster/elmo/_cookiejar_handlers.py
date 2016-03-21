@@ -25,7 +25,12 @@ GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
 '''
 
+import json
 from typing import Any
+
+from werkzeug.exceptions import NotFound
+
+from cookiemonster.common.helpers import EnrichmentJSONEncoder
 from cookiemonster.elmo._handler_injection import DependencyInjectionHandler
 
 
@@ -47,3 +52,19 @@ class CookieJarHandlers(DependencyInjectionHandler):
 
         cookiejar.mark_for_processing(cookie['path'])
         return cookie
+
+    def GET_cookie(self, **kwargs):
+        cookiejar = self._dependency
+
+        # Try raw identifier first; if that fails, try absolute path
+        # (This is because prepending the slash in the URL won't work)
+        identifier = kwargs['cookie']
+        cookie = cookiejar.fetch_cookie(identifier) \
+              or cookiejar.fetch_cookie('/{}'.format(identifier))
+
+        if not cookie:
+            raise NotFound
+
+        # FIXME? Back-and-forward JSON decoding :P
+        enrichments = json.loads(json.dumps(cookie.enrichments, cls=EnrichmentJSONEncoder))
+        return {'identifier':cookie.identifier, 'enrichments':enrichments}
