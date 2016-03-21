@@ -27,7 +27,7 @@ from http.client import HTTPConnection, HTTPResponse
 
 from hgicommon.collections import Metadata
 
-from cookiemonster.common.models import Enrichment
+from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.common.helpers import EnrichmentJSONDecoder
 from cookiemonster.cookiejar import BiscuitTin
 from cookiemonster.elmo import HTTP_API, APIDependency
@@ -153,7 +153,7 @@ class TestElmo(unittest.TestCase):
 
     def test_fetch(self):
         '''
-        HTP API: GET /cookiejar/<identifier>
+        HTTP API: GET /cookiejar/<identifier>
         '''
         identifier = '/path/to/foo'
         source = 'foobar'
@@ -165,7 +165,7 @@ class TestElmo(unittest.TestCase):
 
         # n.b. Have to strip the opening slash
         self.http.request('GET', '/cookiejar/{}'.format(identifier[1:]), headers=self.REQ_HEADER)
-        r =self.http.getresponse()
+        r = self.http.getresponse()
 
         self.assertEqual(r.status, 200)
         self.assertEqual(r.headers.get_content_type(), 'application/json')
@@ -177,6 +177,26 @@ class TestElmo(unittest.TestCase):
 
         self.assertEqual(fetched_identifier, identifier)
         self.assertEqual(fetched_enrichment, enrichment)
+
+    def test_delete(self):
+        '''
+        HTTP API: DELETE /cookiejar/<identifier>
+        '''
+        identifier = '/path/to/foo'
+        self.jar.mark_for_processing(identifier)
+        self.jar.mark_as_complete(identifier)
+
+        cookie = self.jar.fetch_cookie(identifier)
+        self.assertIsInstance(cookie, Cookie)
+
+        # n.b. Have to strip the opening slash
+        self.http.request('DELETE', '/cookiejar/{}'.format(identifier[1:]), headers=self.REQ_HEADER)
+        r = self.http.getresponse()
+
+        self.assertEqual(r.status, 200)
+
+        deleted_cookie = self.jar.fetch_cookie(identifier)
+        self.assertIsNone(deleted_cookie)
 
 if __name__ == '__main__':
     unittest.main()
