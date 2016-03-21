@@ -134,8 +134,8 @@ class TestElmo(unittest.TestCase):
         dirty_cookie_listener = MagicMock()
         self.jar.add_listener(dirty_cookie_listener)
 
-        cookie_path = '/foo'
-        request = {'path': cookie_path}
+        cookie_identifier = '/foo'
+        request = {'identifier': cookie_identifier}
         self.http.request('POST', '/queue/reprocess', body=json.dumps(request), headers=self.REQ_HEADER)
         r = self.http.getresponse()
 

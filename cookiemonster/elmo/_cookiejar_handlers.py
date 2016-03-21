@@ -12,8 +12,8 @@ Method handlers for the Cookie Jar:
 
 * `POST_mark_for_processing` POST handler for marking cookies for
   (re)processing; expects either a plain string or a dictionary with a
-  `path` string member in the request data, returns a dictionary with a
-  `path` member
+  `identifier` string member in the request data, returns a dictionary
+  with a `identifier` member
 
 Authors
 -------
@@ -44,13 +44,13 @@ class CookieJarHandlers(DependencyInjectionHandler):
         cookiejar = self._dependency
 
         if isinstance(data, str):
-            cookie = {'path': data}
-        elif isinstance(data, dict) and 'path' in data:
-            cookie = {'path': data['path']}
+            cookie = {'identifier': data}
+        elif isinstance(data, dict) and 'identifier' in data:
+            cookie = {'identifier': data['identifier']}
         else:
             raise ValueError()
 
-        cookiejar.mark_for_processing(cookie['path'])
+        cookiejar.mark_for_processing(cookie['identifier'])
         return cookie
 
     def GET_cookie(self, **kwargs):
