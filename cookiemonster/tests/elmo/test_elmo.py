@@ -194,6 +194,10 @@ class TestElmo(unittest.TestCase):
         r = self.http.getresponse()
 
         self.assertEqual(r.status, 200)
+        self.assertEqual(r.headers.get_content_type(), 'application/json')
+
+        data = _decode_json_response(r)
+        self.assertEqual(data, {'deleted':identifier})
 
         deleted_cookie = self.jar.fetch_cookie(identifier)
         self.assertIsNone(deleted_cookie)

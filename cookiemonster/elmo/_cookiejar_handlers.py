@@ -68,3 +68,22 @@ class CookieJarHandlers(DependencyInjectionHandler):
         # FIXME? Back-and-forward JSON decoding :P
         enrichments = json.loads(json.dumps(cookie.enrichments, cls=EnrichmentJSONEncoder))
         return {'identifier':cookie.identifier, 'enrichments':enrichments}
+
+    def DELETE_cookie(self, **kwargs):
+        cookiejar = self._dependency
+
+        identifier = kwargs['cookie']
+        cookie = cookiejar.fetch_cookie(identifier)
+
+        # Try raw identifier first; if that fails, try absolute path
+        # (This is because prepending the slash in the URL won't work)
+        if not cookie:
+            identifier = '/{}'.format(identifier)
+            cookie = cookiejar.fetch_cookie(identifier)
+
+        cookie = cookiejar.fetch_cookie(identifier)
+        if not cookie:
+            raise NotFound
+
+        cookiejar.delete_cookie(identifier)
+        return {'deleted':identifier}

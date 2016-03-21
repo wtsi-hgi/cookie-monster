@@ -27,10 +27,14 @@ Routes
 The following routes have been specified:
 
     /queue
-      GET   The current processing queue length
+      GET     The current processing queue length
 
     /queue/reprocess
-      POST  Mark the file in the request's `.path` for reprocessing
+      POST    Mark the file in the request's `.path` for reprocessing
+
+    /cookiejar/<identifier>
+      GET     Fetch cookie by identifier
+      DELETE  Delete cookie by identifier
 
 FIXME While we don't have any hypermedia, sources and sinks goes against
       proper RESTful design. However, this is largely from the lack of
@@ -100,9 +104,10 @@ class HTTP_API(object):
 
         api.create_route('/queue/reprocess') \
            .set_method_handler(HTTPMethod.POST, dep[APIDependency.CookieJar].POST_mark_for_processing)
-        
+
         api.create_route('/cookiejar/<path:cookie>') \
-            .set_method_handler(HTTPMethod.GET, dep[APIDependency.CookieJar].GET_cookie)
+            .set_method_handler(HTTPMethod.GET, dep[APIDependency.CookieJar].GET_cookie) \
+            .set_method_handler(HTTPMethod.DELETE, dep[APIDependency.CookieJar].DELETE_cookie)
 
         # Start service
         self._service = Thread(target=api.listen, args=(port,), daemon=True)
