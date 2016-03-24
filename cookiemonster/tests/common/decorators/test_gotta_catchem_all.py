@@ -13,7 +13,7 @@ class TestException(Exception):
 class ABCStub(metaclass=ABCMeta):
     @abstractmethod
     def this_will_fail_unless(self, condition:bool) -> bool:
-        ''' This method will raise an exception unless condition is True '''
+        """ This method will raise an exception unless condition is True """
 
 @too_big_to_fail()
 class CatchEverything(ABCStub):

@@ -1,4 +1,4 @@
-'''
+"""
 Dependency Injection Handler
 ============================
 Exportable classes: `DependencyInjectionHandler`
@@ -16,9 +16,9 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
-'''
+"""
 
 class DependencyInjectionHandler(object):
-    ''' Dependency injection superclass for handlers '''
+    """ Dependency injection superclass for handlers """
     def inject_dependency(self, dependency:object):
         self._dependency = dependency

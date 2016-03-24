@@ -1,4 +1,4 @@
-'''
+"""
 HTTP API Test
 =============
 High-level testing of the HTTP API.
@@ -11,7 +11,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
-'''
+"""
 
 import unittest
 from unittest.mock import MagicMock
@@ -34,7 +34,7 @@ from cookiemonster.elmo import HTTP_API, APIDependency
 
 
 def _decode_json_response(r:HTTPResponse) -> Any:
-    ''' Decode JSON HTTP response '''
+    """ Decode JSON HTTP response """
     charset = r.getheader('charset', 'utf-8')
 
     if r.headers.get_content_type() != 'application/json':
@@ -45,7 +45,7 @@ def _decode_json_response(r:HTTPResponse) -> Any:
 
 class TestElmo(unittest.TestCase):
     def setUp(self):
-        '''
+        """
         Test set up:
 
         * Build, if necessary, and start a CouchDB container and
@@ -53,7 +53,7 @@ class TestElmo(unittest.TestCase):
         * Start the HTTP API service on a free port, with the necessary
           dependencies injected
         * Create an HTTP client connection to the API service
-        '''
+        """
         self.couchdb_container = CouchDBContainer()
 
         # Configuration for Cookie Jar
@@ -98,15 +98,15 @@ class TestElmo(unittest.TestCase):
             raise ConnectionError('Couldn\'t start API service in a reasonable amount of time')
 
     def tearDown(self):
-        ''' Tear down test set up '''
+        """ Tear down test set up """
         self.http.close()
         self.api.stop()
         self.couchdb_container.tear_down()
 
     def test_queue(self):
-        '''
+        """
         HTTP API: GET /queue
-        '''
+        """
         self.http.request('GET', '/queue', headers=self.REQ_HEADER)
         r = self.http.getresponse()
 
@@ -127,9 +127,9 @@ class TestElmo(unittest.TestCase):
         self.assertEqual(data['queue_length'], self.jar.queue_length()) # Should be 1
 
     def test_reprocess(self):
-        '''
+        """
         HTTP API: POST /queue/reprocess
-        '''
+        """
         # Add mocked update notifier to Cookie Jar
         dirty_cookie_listener = MagicMock()
         self.jar.add_listener(dirty_cookie_listener)
@@ -152,9 +152,9 @@ class TestElmo(unittest.TestCase):
         self.assertEqual(dirty_cookie_listener.call_count, 1)
 
     def test_fetch(self):
-        '''
+        """
         HTTP API: GET /cookiejar/<identifier>
-        '''
+        """
         identifier = '/path/to/foo'
         source = 'foobar'
         timestamp = datetime.now().replace(microsecond=0, tzinfo=timezone.utc)
@@ -179,9 +179,9 @@ class TestElmo(unittest.TestCase):
         self.assertEqual(fetched_enrichment, enrichment)
 
     def test_delete(self):
-        '''
+        """
         HTTP API: DELETE /cookiejar/<identifier>
-        '''
+        """
         identifier = '/path/to/foo'
         self.jar.mark_for_processing(identifier)
         self.jar.mark_as_complete(identifier)

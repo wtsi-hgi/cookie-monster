@@ -1,4 +1,4 @@
-'''
+"""
 Dockerised CouchDB Instance
 ===========================
 Build and start a containerised CouchDB instance on an available port
@@ -15,7 +15,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2015 Genome Research Limited
-'''
+"""
 
 import atexit
 import logging
@@ -37,7 +37,7 @@ _COUCHDB_IMAGE   = 'hgi/couchdb'
 
 class CouchDBContainer(object):
     def __init__(self):
-        ''' Build and start the containerised instance '''
+        """ Build and start the containerised instance """
         docker_environment = kwargs_from_env(assert_hostname=False)
 
         if 'base_url' not in docker_environment:
@@ -106,7 +106,7 @@ class CouchDBContainer(object):
         logging.info('CouchDB container available on {fqdn}'.format(fqdn=self.couchdb_fqdn))
 
     def tear_down(self):
-        ''' Tear down the containerised instance '''
+        """ Tear down the containerised instance """
         if self.container:
             self._client.kill(self.container['Id'])
             self.container = None

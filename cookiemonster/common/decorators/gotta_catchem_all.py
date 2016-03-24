@@ -1,4 +1,4 @@
-'''
+"""
 Exception Catching Decorator
 ============================
 A class decorator for abstract base classes that will automatically
@@ -50,7 +50,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
-'''
+"""
 from typing import Any, Callable
 
 
@@ -64,17 +64,17 @@ def too_big_to_fail(*suppressed:Exception) -> Callable[['Class'], 'Class']:
         suppressed = Exception,
 
     def decorator(base:'Class') -> 'Class':
-        '''
+        """
         Decorator to catch and retry all abstract methods that raise
         any suppressed exceptions
-        '''
+        """
         def _catcher(fn:Callable[..., Any]) -> Callable[..., Any]:
-            '''
+            """
             Decorator that catches suppressed exceptions
 
             @param   fn  Function to decorate
             @return  Catching function
-            '''
+            """
             def wrapper(obj, *args, **kwargs):
                 completed = False
                 output = None

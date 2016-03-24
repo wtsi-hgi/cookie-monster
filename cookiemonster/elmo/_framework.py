@@ -1,4 +1,4 @@
-'''
+"""
 HTTP API Framework
 ==================
 A minimal framework for building an HTTP-based API service, where
@@ -60,7 +60,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
-'''
+"""
 
 import re
 import inspect
@@ -81,7 +81,7 @@ _HandlerT = Callable[..., Union[Any, Iterable[Any]]]
 
 
 class HTTPMethod(Enum):
-    ''' Supported HTTP method enumeration '''
+    """ Supported HTTP method enumeration """
     GET    = 'GET'
     POST   = 'POST'
     PUT    = 'PUT'
@@ -89,15 +89,15 @@ class HTTPMethod(Enum):
 
 
 def _has_request_body(method:HTTPMethod) -> bool:
-    '''
+    """
     @param  HTTP method
     @return Whether the above comes with a non-trivial request body
-    '''
+    """
     return method in [HTTPMethod.POST, HTTPMethod.PUT]
 
 
 class Endpoint(object):
-    ''' HTTP data source and method handlers '''
+    """ HTTP data source and method handlers """
     def __init__(self, route:str):
         self._route   = route
         self._methods = {}
@@ -106,13 +106,13 @@ class Endpoint(object):
         self._parametrised = True if re.search('<\w+>', route) else False
 
     def set_method_handler(self, method:HTTPMethod, handler:_HandlerT) -> 'Endpoint':
-        '''
+        """
         Add/update an HTTP method handler for the data source
 
         @param  method   The HTTP method
         @param  handler  The method handling function
         @return Itself (i.e., the Endpoint object)
-        '''
+        """
         handler_args = inspect.getfullargspec(handler)
 
         if self._parametrised and not handler_args.varkw:
@@ -131,19 +131,19 @@ class Endpoint(object):
         return self
 
     def _get_methods(self) -> List[str]:
-        '''
+        """
         @return A list of the defined method strings
-        '''
+        """
         return [method.value for method in self._methods.keys()]
 
     def _response(self, **kwargs) -> _ResponseT:
-        '''
+        """
         The global response handler for the data source, with automagic
         serialisation and deserialisation to/from JSON
 
         @kwargs URL route parameters
         @return HTTP response body
-        '''
+        """
         if not request.accept_mimetypes.accept_json:
             # Client must accept JSON
             return 'I only understand JSON', 406
@@ -170,11 +170,11 @@ class Endpoint(object):
         return serialised, 200, {'Content-Type': 'application/json'}
 
 class API(object):
-    ''' HTTP API building framework '''
+    """ HTTP API building framework """
     def __init__(self, name:str):
-        '''
+        """
         @param  name  API service name
-        '''
+        """
         self._service = Flask(name)
         self._routes = {}
 
@@ -182,10 +182,10 @@ class API(object):
         self._shutdown_route = '/{}'.format(uuid4().hex)
 
     def _shutdown_handler(self) -> str:
-        '''
+        """
         Initiate server shutdown request
         Based on http://flask.pocoo.org/snippets/67/
-        '''
+        """
         shutdown = request.environ.get('werkzeug.server.shutdown')
         if shutdown is None:
             raise RuntimeError('Not running with the Werkzeug server')
@@ -194,7 +194,7 @@ class API(object):
         return 'API service shutting down...'
 
     def create_route(self, route:str) -> Endpoint:
-        '''
+        """
         Define a route; where routes may be parametrised, using tags
         within angled brackets
        
@@ -207,7 +207,7 @@ class API(object):
 
         Here the value of `foo` would be mapped into the respective
         keyword argument of the Endpoint's method handlers.
-        '''
+        """
         if route in self._routes:
             del self._routes[route]
 
@@ -215,11 +215,11 @@ class API(object):
         return self._routes[route]
 
     def listen(self, port:int=5000):
-        '''
+        """
         Build the API service, defined by its endpoints, and start it
 
         @param  port  The port to listen for HTTP requests
-        '''
+        """
         for route, source in self._routes.items():
             self._service.add_url_rule(
                 rule=route,
@@ -241,10 +241,10 @@ class API(object):
         self._service.run(debug=False, host='0.0.0.0', port=port)
 
     def stop(self):
-        '''
+        """
         Stop the running service: We can only do this by making a
         request to a special endpoint :P
-        '''
+        """
         if self._running:
             conn = HTTPConnection('localhost', self._port)
             conn.request('POST', self._shutdown_route)

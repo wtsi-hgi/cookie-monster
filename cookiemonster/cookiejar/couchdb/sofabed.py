@@ -82,7 +82,7 @@ from cookiemonster.cookiejar.couchdb.dream_catcher import Buffer, Actions, Batch
 
 
 class _DesignDocument(object):
-    ''' Design document model '''
+    """ Design document model """
     def __init__(self, db:SofterCouchDB, name:str, language='javascript'):
         self._db = db
         self.design_id = '_design/{}'.format(name)
@@ -102,7 +102,7 @@ class _DesignDocument(object):
         self._design_dirty = (self._design != current_design)
 
     def _commit(self):
-        ''' Commit the design to the database, if it has changed '''
+        """ Commit the design to the database, if it has changed """
         if self._design_dirty:
             do_update = True
 
@@ -124,13 +124,13 @@ class _DesignDocument(object):
             self._design_dirty = False
 
     def define_view(self, name:str, map_fn:str, reduce_fn:Optional[str] = None):
-        '''
+        """
         Define a MapReduce view
 
         @param   name       View name
         @param   map_fn     Map function
         @param   reduce_fn  Reduce function (optional)
-        '''
+        """
         # Ensure the design document has a `views` member
         if 'views' not in self._design:
             self._design['views'] = {}
@@ -144,11 +144,11 @@ class _DesignDocument(object):
 
 
 class Sofabed(object):
-    ''' Buffered, append-optimised CouchDB interface '''
+    """ Buffered, append-optimised CouchDB interface """
     def __init__(self, url:str, database:str, max_buffer_size:int = 1000,
                                               buffer_latency:timedelta = timedelta(milliseconds=50),
                                               **kwargs):
-        '''
+        """
         Acquire a connection with the CouchDB server and initialise the
         buffering queue
 
@@ -158,7 +158,7 @@ class Sofabed(object):
         @param   buffer_latency   Buffer latency before discharge
         @kwargs  Additional constructor parameters to
                  pycouchdb.client.Server should be passed through here
-        '''
+        """
         self._db = SofterCouchDB(url, database, **kwargs)
 
         self._designs = []
@@ -175,11 +175,11 @@ class Sofabed(object):
         self._buffer.add_listener(self._batch)
 
     def _batch(self, broadcast:BatchListenerT):
-        '''
+        """
         Perform a batch action against the database
 
         @param   broadcast  Broadcast data pushed by the buffer
-        '''
+        """
         action, docs = broadcast
         to_batch = deepcopy(docs)
 
@@ -204,13 +204,13 @@ class Sofabed(object):
             self._buffer.requeue(action, docs)
 
     def fetch(self, key:str, revision:Optional[str] = None) -> Optional[dict]:
-        '''
+        """
         Get a database document by its ID and, optionally, revision
 
         @param   key       Document ID
         @param   revision  Revision ID
         @return  Database document (or None, if not found)
-        '''
+        """
         try:
             if not revision:
                 output = self._db.get(key)
@@ -228,7 +228,7 @@ class Sofabed(object):
         return output
 
     def upsert(self, data:dict, key:Optional[str] = None):
-        '''
+        """
         Upsert document, via the upsert buffer and queue
 
         @param   data  Document data
@@ -239,7 +239,7 @@ class Sofabed(object):
         revisions IDs (_rev) are stripped out; and any other CouchDB
         reserved keys (i.e., prefixed with an underscore) will raise an
         InvalidCouchDBKey exception
-        '''
+        """
         if '_rev' in data:
             del data['_rev']
 
@@ -249,11 +249,11 @@ class Sofabed(object):
         self._buffer.append({'_id':key or uuid4().hex, **data})
 
     def delete(self, key:str):
-        '''
+        """
         Delete document from CouchDB, via the deletion buffer and queue
 
         @param   key  Document ID
-        '''
+        """
         doc = self.fetch(key)
 
         if doc:
@@ -267,7 +267,7 @@ class Sofabed(object):
             self._buffer.remove(to_delete)
 
     def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Generator:
-        '''
+        """
         Query a predefined view
 
         @param   design   Design document name
@@ -275,7 +275,7 @@ class Sofabed(object):
         @param   wrapper  Wrapper function applied over result rows
         @kwargs  Query string options for CouchDB
         @return  Results generator
-        '''
+        """
         # Check view exists
         doc = self.fetch('_design/{}'.format(design))
         if not doc or 'views' not in doc or view not in doc['views']:
@@ -285,24 +285,24 @@ class Sofabed(object):
         return self._db.query(view_name, wrapper=wrapper, **kwargs)
 
     def create_design(self, name:str) -> _DesignDocument:
-        '''
+        """
         Append a new design document
 
         @param   name  Design document name
         @return  The design document
-        '''
+        """
         new_design = _DesignDocument(self._db, name)
         self._designs.append(new_design)
         self._designs_dirty = True
         return new_design
 
     def get_design(self, name:str) -> Optional[_DesignDocument]:
-        '''
+        """
         Get an in-memory design document by name
 
         @param   name  Design document name
         @return  The design document (None, if not found)
-        '''
+        """
         design_id = '_design/{}'.format(name)
         return next((
             design
@@ -311,7 +311,7 @@ class Sofabed(object):
         ), None)
 
     def commit_designs(self):
-        ''' Commit all design documents to the database '''
+        """ Commit all design documents to the database """
         if self._designs_dirty:
             for design in self._designs:
                 design._commit()

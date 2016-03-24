@@ -1,4 +1,4 @@
-'''
+"""
 Cookie Jar API Handlers
 =======================
 Exportable classes: `CookieJarHandlers`
@@ -23,7 +23,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
-'''
+"""
 
 import json
 from typing import Any
@@ -35,7 +35,7 @@ from cookiemonster.elmo._handler_injection import DependencyInjectionHandler
 
 
 class CookieJarHandlers(DependencyInjectionHandler):
-    ''' Handler functions for CookieJar '''
+    """ Handler functions for CookieJar """
     def GET_queue_length(self):
         cookiejar = self._dependency
         return {'queue_length': cookiejar.queue_length()}

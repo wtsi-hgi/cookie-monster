@@ -1,4 +1,4 @@
-'''
+"""
 Rate Limiter Decorator
 ======================
 A class decorator for `CookieJar`s that implements rate-limiting
@@ -35,7 +35,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
-'''
+"""
 from threading import Semaphore, Timer
 from typing import Any, Callable
 
@@ -46,15 +46,15 @@ _cookie_jar_methods = CookieJar.__abstractmethods__
 
 
 class _RateLimitedSemaphore(Semaphore):
-    '''
+    """
     Semaphore that takes a second to release.
-    '''
+    """
     def release(self):
         Timer(1.0, super().release).start()
 
 
 def rate_limited(cookiejar:CookieJar) -> CookieJar:
-    ''' Decorator to apply rate limiting on all CookieJar methods '''
+    """ Decorator to apply rate limiting on all CookieJar methods """
     class _rate_limited(cookiejar):
         def __init__(self, max_requests_per_second:int, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -65,12 +65,12 @@ def rate_limited(cookiejar:CookieJar) -> CookieJar:
                 setattr(self.__class__, method, self._limiter(getattr(cookiejar, method)))
 
         def _limiter(self, fn:Callable[..., Any]) -> Callable[..., Any]:
-            '''
+            """
             Decorator that rate-limits a function
 
             @param   fn  Function to decorate
             @return  Rate-limited function
-            '''
+            """
             def wrapper(cls, *args, **kwargs):
                 with self._request_semaphore:
                     return fn(cls, *args, **kwargs)

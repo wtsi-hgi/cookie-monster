@@ -66,26 +66,26 @@ _COUCHDB_RETRIES = environ.get('COOKIEMONSTER_COUCHDB_RETRIES', 10)
 
 
 class UnresponsiveCouchDB(Exception):
-    ''' Unresponsive (i.e., down/busy) database exception '''
+    """ Unresponsive (i.e., down/busy) database exception """
     pass
 
 
 class InvalidCouchDBKey(Exception):
-    ''' Invalid (i.e., prefixed with an underscore) key exception '''
+    """ Invalid (i.e., prefixed with an underscore) key exception """
     pass
 
 
 class SofterCouchDB(object):
-    ''' A CouchDB client interface with a gentle touch '''
+    """ A CouchDB client interface with a gentle touch """
     def __init__(self, url:str, database:str, **kwargs):
-        '''
+        """
         Acquire a connection with the CouchDB database
 
         @param   url       CouchDB server URL
         @param   database  Database name
         @kwargs  Additional constructor parameters to
                  pycouchdb.client.Server should be passed through here
-        '''
+        """
         self._url = url
 
         # Set up pycouchdb constructor arguments and instantiate
@@ -113,12 +113,12 @@ class SofterCouchDB(object):
             setattr(self.__class__, method, self._lightly_hammer(getattr(self._db, method)))
 
     def _connect(self, database:str) -> Database:
-        '''
+        """
         Connect to (or create, if it doesn't exist) a database
 
         @param   database  Database name
         @return  Database object
-        '''
+        """
         try:
             db = self._server.database(database)
         except NotFound:
@@ -127,7 +127,7 @@ class SofterCouchDB(object):
         return db
 
     def _lightly_hammer(self, fn:Callable[..., Any]) -> Callable[..., Any]:
-        '''
+        """
         Decorator that first checks the responsiveness of the database
         connection before executing the function; if the database is
         unresponsive, then we wait a bit and try again until such time
@@ -137,7 +137,7 @@ class SofterCouchDB(object):
 
         @param   fn  Function to decorate
         @return  Decorated function
-        '''
+        """
         def wrapper(obj, *args, **kwargs):
             good_connection = False
             attempts = 0

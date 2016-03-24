@@ -58,7 +58,7 @@ from hgicommon.mixable import Listenable
 
 
 class Actions(Enum):
-    ''' Enumeration of database actions '''
+    """ Enumeration of database actions """
     Upsert = 1
     Delete = 2
 
@@ -68,7 +68,7 @@ class Actions(Enum):
 
 
 class _DocumentBuffer(Listenable[List[dict]]):
-    ''' Document buffer '''
+    """ Document buffer """
     def __init__(self, max_size:int, latency:timedelta):
         super().__init__()
 
@@ -88,11 +88,11 @@ class _DocumentBuffer(Listenable[List[dict]]):
         self._thread_running = False
 
     def _discharge(self):
-        '''
+        """
         Discharge the buffer (by pushing the data to listeners) when its
         state requires so; i.e., when there is something listening and
         either the buffer size or latency is exceeded
-        '''
+        """
         with self._lock:
             if len(self._listeners) and len(self.data):
                 latency = monotonic() - self.last_updated
@@ -102,7 +102,7 @@ class _DocumentBuffer(Listenable[List[dict]]):
                     self.last_updated = monotonic()
 
     def _watcher(self):
-        ''' Watcher thread for time-based discharging '''
+        """ Watcher thread for time-based discharging """
         zzz = self._latency / 2
 
         while self._thread_running:
@@ -110,7 +110,7 @@ class _DocumentBuffer(Listenable[List[dict]]):
             sleep(zzz)
 
     def append(self, document:dict):
-        ''' Add a document to the buffer '''
+        """ Add a document to the buffer """
         with self._lock:
             self.data.append(document)
             self.last_updated = monotonic()
@@ -120,7 +120,7 @@ class _DocumentBuffer(Listenable[List[dict]]):
 
 
 class _QueueItem(object):
-    ''' Queue item '''
+    """ Queue item """
     def __init__(self, action:Actions, docs:List[dict]):
         self.action = action
         self.docs = docs
@@ -147,10 +147,10 @@ class _Queue(Listenable[BatchListenerT]):
         self._thread_running = False
 
     def _dequeue(self):
-        '''
+        """
         Push the deduplicated top of the queue to its listeners,
         providing there is something listening
-        '''
+        """
         to_requeue = None
 
         with self._lock:
@@ -182,7 +182,7 @@ class _Queue(Listenable[BatchListenerT]):
             self.requeue(to_requeue.action, to_requeue.docs)
 
     def _watcher(self):
-        ''' Watcher thread for time-based dequeueing '''
+        """ Watcher thread for time-based dequeueing """
         zzz = self._latency
 
         while self._thread_running:
@@ -190,24 +190,24 @@ class _Queue(Listenable[BatchListenerT]):
             sleep(zzz)
 
     def enqueue(self, action:Actions, docs:List[dict]):
-        '''
+        """
         Add documents to the queue
 
         @param   action  Database action
         @param   docs    Documents
-        '''
+        """
         with self._lock:
             self._queue.append(_QueueItem(action, docs))
 
         self._dequeue()
 
     def requeue(self, action:Actions, docs:List[dict]):
-        '''
+        """
         Add documents to the top of the queue
 
         @param   action  Database action
         @param   docs    Documents
-        '''
+        """
         with self._lock:
             self._queue.appendleft(_QueueItem(action, docs))
 
@@ -215,7 +215,7 @@ class _Queue(Listenable[BatchListenerT]):
 
 
 class Buffer(Listenable[BatchListenerT]):
-    ''' Buffer and queueing layer '''
+    """ Buffer and queueing layer """
     def __init__(self, max_buffer_size:int = 1000, buffer_latency:timedelta = timedelta(milliseconds=50)):
         super().__init__()
 
@@ -230,27 +230,27 @@ class Buffer(Listenable[BatchListenerT]):
             self._buffers[action].add_listener(partial(self._queue.enqueue, action))
 
     def _buffer(self, action:Actions, doc:dict):
-        '''
+        """
         Add a document to an action buffer
 
         @param   action  Database action
         @param   doc     Document
-        '''
+        """
         self._buffers[action].append(doc)
 
     def append(self, doc:dict):
-        ''' Add a document into the upsert buffer '''
+        """ Add a document into the upsert buffer """
         self._buffer(Actions.Upsert, doc)
 
     def remove(self, doc:dict):
-        ''' Add a document into the deletion buffer '''
+        """ Add a document into the deletion buffer """
         self._buffer(Actions.Delete, doc)
 
     def requeue(self, action:Actions, docs:List[dict]):
-        '''
+        """
         Requeue (at the top) any documents with an appropriate action
 
         @param   action  Database action
         @param   docs    List of documents
-        '''
+        """
         self._queue.requeue(action, docs)

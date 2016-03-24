@@ -1,4 +1,4 @@
-'''
+"""
 Cookie Jar
 ==========
 An implementation of `CookieJar` using CouchDB as its database
@@ -84,7 +84,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2015, 2016 Genome Research Limited
-'''
+"""
 import json
 from datetime import timedelta
 from threading import Lock, Timer
@@ -102,18 +102,18 @@ from cookiemonster.cookiejar._rate_limiter import rate_limited
 
 
 def _now() -> int:
-    ''' @return The current Unix time '''
+    """ @return The current Unix time """
     return int(time())
 
 
 class _Bert(object):
-    ''' Interface to the queue database documents '''
+    """ Interface to the queue database documents """
     @staticmethod
     def _reset_processing(row:dict) -> dict:
-        '''
+        """
         Wrapper function that resets the processing state of the results
         returned from the queue/in_progress view
-        '''
+        """
         return {
             **row['doc'],
             'dirty':      True,
@@ -122,12 +122,12 @@ class _Bert(object):
         }
 
     def __init__(self, sofa:Sofabed):
-        '''
+        """
         Constructor: Create/update the views to provide the queue
         management interface
 
         @param   sofa  Sofabed object
-        '''
+        """
         self._db = sofa
         self._define_schema()
 
@@ -158,12 +158,12 @@ class _Bert(object):
             self._db.delete(doc_id)
 
     def get_by_identifier(self, identifier:str) -> Optional[Tuple[str, dict]]:
-        '''
+        """
         Get queue document by its file identifier
 
         @param   identifier  File identifier
         @return  Document ID and Document tuple (None, if not found)
-        '''
+        """
         results = self._db.query('queue', 'get_id', key          = identifier,
                                                     include_docs = True,
                                                     reduce       = False)
@@ -175,12 +175,12 @@ class _Bert(object):
             return None
 
     def delete(self, identifier:str):
-        '''
+        """
         Delete a queue document, or mark it for deletion if it is
         currently being processed
 
         @param   identifier  File identifier
-        '''
+        """
         doc_id, current_doc = self.get_by_identifier(identifier) or (None, None)
 
         if doc_id:
@@ -194,9 +194,9 @@ class _Bert(object):
                 self._db.delete(doc_id)
 
     def queue_length(self) -> int:
-        '''
+        """
         @return The current (for-processing) queue length
-        '''
+        """
         results = self._db.query('queue', 'to_process', endkey = _now(),
                                                         reduce = True,
                                                         group  = False)
@@ -207,13 +207,13 @@ class _Bert(object):
             return 0
 
     def mark_dirty(self, identifier:str, latency:Optional[timedelta] = None):
-        '''
+        """
         Mark a file as requiring, potentially delayed, (re)processing,
         resetting any deleted status
 
         @param  identifier  File identifier
         @param  latency     Requeue latency
-        '''
+        """
         # Get document, or define minimal default
         doc_id, current_doc = self.get_by_identifier(identifier) or (None, {'identifier': identifier})
 
@@ -232,11 +232,11 @@ class _Bert(object):
         self._db.upsert(dirty_doc)
 
     def dequeue(self) -> Optional[str]:
-        '''
+        """
         Get the next document on the queue and mark it as processing
 
         @return File identifier (None, if empty queue)
-        '''
+        """
         results = self._db.query('queue', 'to_process', endkey       = _now(),
                                                         include_docs = True,
                                                         reduce       = False,
@@ -259,12 +259,12 @@ class _Bert(object):
             return None
 
     def mark_finished(self, identifier:str):
-        '''
+        """
         Mark a file as finished processing, or delete it if it is marked
         as such
 
         @param  identifier  File identifier
-        '''
+        """
         # Get document
         doc_id, current_doc = self.get_by_identifier(identifier) or (None, None)
 
@@ -281,7 +281,7 @@ class _Bert(object):
                 self._db.upsert(finished_doc)
 
     def _define_schema(self):
-        ''' Define views '''
+        """ Define views """
         queue = self._db.create_design('queue')
 
         # View: queue/to_process
@@ -289,74 +289,74 @@ class _Bert(object):
         # Keyed by `queue_from`, set the endkey in queries appropriately
         # Reduce to the number of items in the queue
         queue.define_view('to_process',
-            map_fn = '''
+            map_fn = """
                 function(doc) {
                     if (doc.$queue && doc.dirty && !doc.processing && !doc.deleted) {
                         emit(doc.queue_from, doc.identifier);
                     }
                 }
-            ''',
+            """,
             reduce_fn = '_count'
         )
 
         # View: queue/in_progress
         # Queue documents marked as currently processing
         queue.define_view('in_progress',
-            map_fn = '''
+            map_fn = """
                 function(doc) {
                     if (doc.$queue && doc.processing && !doc.deleted) {
                         emit(doc.identifier, doc._id)
                     }
                 }
-            '''
+            """
         )
 
         # View: queue/to_clean
         # Queue documents marked for deletion
         queue.define_view('to_clean',
-            map_fn = '''
+            map_fn = """
                 function(doc) {
                     if (doc.$queue && doc.deleted) {
                         emit(doc.identifier, doc._id)
                     }
                 }
-            '''
+            """
         )
 
         # View: queue/get_id
         # Queue documents, keyed by their file identifier
         queue.define_view('get_id',
-            map_fn = '''
+            map_fn = """
                 function (doc) {
                     if (doc.$queue) {
                         emit(doc.identifier, doc._id);
                     }
                 }
-            '''
+            """
         )
 
         self._db.commit_designs()
 
 
 class _Ernie(object):
-    ''' Interface to the metadata database documents '''
+    """ Interface to the metadata database documents """
     @staticmethod
     def _to_enrichment(row:dict) -> Enrichment:
-        '''
+        """
         Wrapper function that decodes enrichment data from query result
         rows into its respective Enrichment object
-        '''
+        """
         # FIXME? Annoyingly, we have to re-encode the data back to JSON
         row_json = json.dumps(row['doc'])
         return json.loads(row_json, cls=EnrichmentJSONDecoder)
 
     def __init__(self, sofa:Sofabed):
-        '''
+        """
         Constructor: Create/update the views to provide the metadata
         repository interface
 
         @param   sofa  Sofabed object
-        '''
+        """
         self._db = sofa
         self._define_schema()
 
@@ -370,12 +370,12 @@ class _Ernie(object):
         }
 
     def enrich(self, identifier:str, enrichment:Enrichment):
-        '''
+        """
         Add a metadata enrichment document to the repository for a file
 
         @param  identifier  File identifier
         @param  enrichment  Enrichment model
-        '''
+        """
         # FIXME? Annoyingly, we have to convert back and forth
         enrichment_dict = json.loads(json.dumps(enrichment, cls=EnrichmentJSONEncoder))
 
@@ -388,12 +388,12 @@ class _Ernie(object):
         self._db.upsert(enrichment_doc)
 
     def get_metadata(self, identifier:str) -> Iterable:
-        '''
+        """
         Get all the collected enrichments for a file
 
         @param   identifier  File identifier
         @return  Iterator of Enrichments
-        '''
+        """
         results = self._db.query('metadata', 'collate', wrapper      = _Ernie._to_enrichment,
                                                         key          = identifier,
                                                         include_docs = True,
@@ -401,11 +401,11 @@ class _Ernie(object):
         return sorted(results)
 
     def delete_metadata(self, identifier:str):
-        '''
+        """
         Delete all the enrichments for a file
 
         @param   identifier  File identifier
-        '''
+        """
         to_delete = self._db.query('metadata', 'collate', flat   = 'value',
                                                           key    = identifier,
                                                           reduce = False)
@@ -413,36 +413,36 @@ class _Ernie(object):
             self._db.delete(doc_id)
 
     def _define_schema(self):
-        ''' Define views '''
+        """ Define views """
         metadata = self._db.create_design('metadata')
 
         # View: metadata/collate
         # Metadata (Enrichment) document IDs keyed by `identifier`
         metadata.define_view('collate',
-            map_fn = '''
+            map_fn = """
                 function(doc) {
                     if (doc.$metadata) {
                         emit(doc.identifier, doc._id);
                     }
                 }
-            '''
+            """
         )
 
         self._db.commit_designs()
 
 
 class BiscuitTin(CookieJar):
-    ''' Persistent implementation of `CookieJar` '''
+    """ Persistent implementation of `CookieJar` """
     def __init__(self, couchdb_url:str, couchdb_name:str, buffer_capacity:int = 1000,
                                                           buffer_latency:timedelta = timedelta(milliseconds=50)):
-        '''
+        """
         Constructor: Initialise the database interfaces
 
         @param  couchdb_url      CouchDB URL
         @param  couchdb_name     Database name
         @param  buffer_capacity  Buffer capacity
         @param  buffer_latency   Buffer latency
-        '''
+        """
         super().__init__()
         self._sofa = Sofabed(couchdb_url, couchdb_name, buffer_capacity, buffer_latency)
         self._queue = _Bert(self._sofa)
@@ -453,10 +453,10 @@ class BiscuitTin(CookieJar):
         self._latency = buffer_latency.total_seconds()
 
     def _broadcast(self):
-        '''
+        """
         Broadcast to all listeners
         This should be called on queue changes
-        '''
+        """
         self.notify_listeners()
 
     def fetch_cookie(self, identifier: str) -> Optional[Cookie]:

@@ -1,4 +1,4 @@
-'''
+"""
 Cookie Monster HTTP API
 =======================
 The external HTTP-based API for interacting with Cookie Monster.
@@ -49,7 +49,7 @@ License
 -------
 GPLv3 or later
 Copyright (c) 2016 Genome Research Limited
-'''
+"""
 
 from enum import Enum
 from threading import Thread
@@ -61,35 +61,35 @@ from cookiemonster.elmo._cookiejar_handlers import CookieJarHandlers
 
 
 class APIDependency(Enum):
-    ''' Dependency injection enumeration and mapping '''
+    """ Dependency injection enumeration and mapping """
     CookieJar = CookieJarHandlers
 
 
 class HTTP_API(object):
-    ''' HTTP API service '''
+    """ HTTP API service """
     def __init__(self):
         self._api = API('elmo')
         self._handlers = {}
         self._service = None
 
     def inject(self, name:APIDependency, dependency:object):
-        '''
+        """
         Inject a Cookie Monster dependency into the service
         
         @param  name        Dependency name
         @param  dependency  Cookie Monster dependency
-        '''
+        """
         handler = name.value()
         handler.inject_dependency(dependency)
         self._handlers[name] = handler
 
     def listen(self, port:int=5000):
-        '''
+        """
         Check all dependencies are satisfied, define the service and
         start it on a separate thread
 
         @param  port  The port to listen for HTTP requests
-        '''
+        """
         api = self._api
         dep = self._handlers
 
@@ -114,7 +114,7 @@ class HTTP_API(object):
         self._service.start()
 
     def stop(self):
-        ''' Stop the running service '''
+        """ Stop the running service """
         if self._service.is_alive():
             self._api.stop()
             self._service.join()
