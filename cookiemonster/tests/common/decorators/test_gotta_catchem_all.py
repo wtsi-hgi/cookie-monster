@@ -1,5 +1,13 @@
-# GPLv3 or later
-# Copyright (c) 2016 Genome Research Limited
+"""
+Authors
+-------
+* Christopher Harrison <ch12@sanger.ac.uk>
+
+License
+-------
+GPLv3 or later
+Copyright (c) 2016 Genome Research Limited
+"""
 import unittest
 from abc import ABCMeta, abstractmethod
 

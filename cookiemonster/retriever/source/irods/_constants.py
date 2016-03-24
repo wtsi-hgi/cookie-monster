@@ -1,3 +1,13 @@
+"""
+Authors
+-------
+* Colin Nolan <cn13@sanger.ac.uk>
+
+License
+-------
+GPLv3 or later
+Copyright (c) 2016 Genome Research Limited
+"""
 MODIFIED_DATA_QUERY_ALIAS = "dataModifiedPartial"
 MODIFIED_METADATA_QUERY_ALIAS = "metadataModifiedPartial"
 

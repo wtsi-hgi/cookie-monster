@@ -1,3 +1,14 @@
+"""
+Authors
+-------
+* Colin Nolan <cn13@sanger.ac.uk>
+* Christopher Harrison <ch12@sanger.ac.uk>
+
+License
+-------
+GPLv3 or later
+Copyright (c) 2015, 2016 Genome Research Limited
+"""
 from datetime import datetime
 from functools import total_ordering
 from typing import Any, Set, List, Optional

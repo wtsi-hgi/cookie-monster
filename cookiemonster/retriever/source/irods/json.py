@@ -1,3 +1,13 @@
+"""
+Authors
+-------
+* Colin Nolan <cn13@sanger.ac.uk>
+
+License
+-------
+GPLv3 or later
+Copyright (c) 2016 Genome Research Limited
+"""
 from dateutil.parser import parser
 from baton.json import DataObjectReplicaCollectionJSONDecoder, IrodsMetadataJSONDecoder, IrodsMetadataJSONEncoder
 from baton.json import DataObjectReplicaCollectionJSONEncoder

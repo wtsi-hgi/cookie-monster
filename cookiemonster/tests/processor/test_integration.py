@@ -1,3 +1,13 @@
+"""
+Authors
+-------
+* Colin Nolan <cn13@sanger.ac.uk>
+
+License
+-------
+GPLv3 or later
+Copyright (c) 2015, 2016 Genome Research Limited
+"""
 import shutil
 import unittest
 from os.path import normpath, join, dirname, realpath

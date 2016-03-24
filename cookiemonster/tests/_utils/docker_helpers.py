@@ -1,3 +1,13 @@
+"""
+Authors
+-------
+* Colin Nolan <cn13@sanger.ac.uk>
+
+License
+-------
+GPLv3 or later
+Copyright (c) 2016 Genome Research Limited
+"""
 import socket
 from typing import Tuple
 from urllib.parse import urlparse

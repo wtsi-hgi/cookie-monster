@@ -1,3 +1,13 @@
+"""
+Authors
+-------
+* Colin Nolan <cn13@sanger.ac.uk>
+
+License
+-------
+GPLv3 or later
+Copyright (c) 2015 Genome Research Limited
+"""
 from datetime import datetime
 from typing import List
 
