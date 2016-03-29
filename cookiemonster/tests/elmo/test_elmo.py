@@ -163,11 +163,16 @@ class TestElmo(unittest.TestCase):
         self.assertEqual(self.jar.queue_length(), 1)
         self.assertEqual(dirty_cookie_listener.call_count, 1)
 
-    def test_fetch(self):
-        """
-        HTTP API: GET /cookiejar/<identifier>
-        """
-        identifier = '/path/to/foo'
+    @staticmethod
+    def _url_for_identifier(identifier:str):
+        """ URL for identifier """
+        if identifier[0] == "/":
+            return '/cookiejar?identifier={}'.format(identifier)
+        else:
+            return '/cookiejar/{}'.format(identifier)
+
+    def _fetch_test(self, identifier:str):
+        """ Generic fetch test """
         source = 'foobar'
         timestamp = datetime.now().replace(microsecond=0, tzinfo=timezone.utc)
         metadata = Metadata({'foo': 123, 'bar': 'quux'})
@@ -175,8 +180,7 @@ class TestElmo(unittest.TestCase):
 
         self.jar.enrich_cookie(identifier, enrichment)
 
-        # n.b. Have to strip the opening slash
-        self.http.request('GET', '/cookiejar/{}'.format(identifier[1:]), headers=self.REQ_HEADER)
+        self.http.request('GET', TestElmo._url_for_identifier(identifier), headers=self.REQ_HEADER)
         r = self.http.getresponse()
 
         self.assertEqual(r.status, 200)
@@ -190,19 +194,29 @@ class TestElmo(unittest.TestCase):
         self.assertEqual(fetched_identifier, identifier)
         self.assertEqual(fetched_enrichment, enrichment)
 
-    def test_delete(self):
+    def test_fetch_by_qs(self):
         """
-        HTTP API: DELETE /cookiejar/<identifier>
+        HTTP API: GET /cookiejar?identifier=<identifier>
         """
-        identifier = '/path/to/foo'
+        self._fetch_test('/path/to/foo')
+
+    def test_fetch_by_route(self):
+        """
+        HTTP API: GET /cookiejar/<identifier>
+        """
+        self._fetch_test('foo_bar')
+
+    def _delete_test(self, identifier:str):
+        """ Generic delete test """
         self.jar.mark_for_processing(identifier)
         self.jar.mark_as_complete(identifier)
 
         cookie = self.jar.fetch_cookie(identifier)
         self.assertIsInstance(cookie, Cookie)
 
-        # n.b. Have to strip the opening slash
-        self.http.request('DELETE', '/cookiejar/{}'.format(identifier[1:]), headers=self.REQ_HEADER)
+        # Because our example identifiers have opening slashes,
+        # we have to use the query string form
+        self.http.request('DELETE', TestElmo._url_for_identifier(identifier), headers=self.REQ_HEADER)
         r = self.http.getresponse()
 
         self.assertEqual(r.status, 200)
@@ -213,6 +227,18 @@ class TestElmo(unittest.TestCase):
 
         deleted_cookie = self.jar.fetch_cookie(identifier)
         self.assertIsNone(deleted_cookie)
+
+    def test_delete_by_qs(self):
+        """
+        HTTP API: DELETE /cookiejar?identifier=<identifier>
+        """
+        self._delete_test('/path/to/foo')
+
+    def test_delete_by_route(self):
+        """
+        HTTP API: DELETE /cookiejar/<identifier>
+        """
+        self._delete_test('foo_bar')
 
 if __name__ == '__main__':
     unittest.main()

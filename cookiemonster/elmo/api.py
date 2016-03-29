@@ -32,14 +32,16 @@ The following routes have been specified:
     /queue/reprocess
       POST    Mark the file in the request's `.path` for reprocessing
 
+    /cookiejar?identifier=<identifier>
     /cookiejar/<identifier>
       GET     Fetch cookie by identifier
       DELETE  Delete cookie by identifier
 
-FIXME While we don't have any hypermedia, sources and sinks goes against
-      proper RESTful design. However, this is largely from the lack of
-      useful exposed methods that could use parametrised routes
-      productively...
+      n.b. The query string version of this route is to accommodate
+      identifiers that start with a leading slash
+
+NOTE This is not True RESTfulness, as we have no hypermedia; but this is
+from lack of a sufficiently non-trivial graph to model
 
 Legalese
 --------
@@ -117,7 +119,11 @@ class HTTP_API(object):
         api.create_route('/queue/reprocess') \
            .set_method_handler(HTTPMethod.POST, dep[APIDependency.CookieJar].POST_mark_for_processing)
 
-        api.create_route('/cookiejar/<path:cookie>') \
+        api.create_route('/cookiejar') \
+            .set_method_handler(HTTPMethod.GET, dep[APIDependency.CookieJar].GET_cookie) \
+            .set_method_handler(HTTPMethod.DELETE, dep[APIDependency.CookieJar].DELETE_cookie)
+
+        api.create_route('/cookiejar/<path:identifier>') \
             .set_method_handler(HTTPMethod.GET, dep[APIDependency.CookieJar].GET_cookie) \
             .set_method_handler(HTTPMethod.DELETE, dep[APIDependency.CookieJar].DELETE_cookie)
 

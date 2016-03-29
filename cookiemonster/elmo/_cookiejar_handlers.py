@@ -48,11 +48,11 @@ from cookiemonster.elmo._handler_injection import DependencyInjectionHandler
 
 class CookieJarHandlers(DependencyInjectionHandler):
     """ Handler functions for CookieJar """
-    def GET_queue_length(self):
+    def GET_queue_length(self, **kwargs):
         cookiejar = self._dependency
         return {'queue_length': cookiejar.queue_length()}
 
-    def POST_mark_for_processing(self, data:Any):
+    def POST_mark_for_processing(self, data:Any, **kwargs):
         cookiejar = self._dependency
 
         if isinstance(data, str):
@@ -68,12 +68,13 @@ class CookieJarHandlers(DependencyInjectionHandler):
     def GET_cookie(self, **kwargs):
         cookiejar = self._dependency
 
-        # Try raw identifier first; if that fails, try absolute path
-        # (This is because prepending the slash in the URL won't work)
-        identifier = kwargs['cookie']
-        cookie = cookiejar.fetch_cookie(identifier) \
-              or cookiejar.fetch_cookie('/{}'.format(identifier))
+        # Get the identifier from the query string first,
+        # then look at the URL parameter
+        identifier = kwargs['_query'].get('identifier')
+        if not identifier:
+            identifier = kwargs['identifier']
 
+        cookie = cookiejar.fetch_cookie(identifier)
         if not cookie:
             raise NotFound
 
@@ -84,14 +85,11 @@ class CookieJarHandlers(DependencyInjectionHandler):
     def DELETE_cookie(self, **kwargs):
         cookiejar = self._dependency
 
-        identifier = kwargs['cookie']
-        cookie = cookiejar.fetch_cookie(identifier)
-
-        # Try raw identifier first; if that fails, try absolute path
-        # (This is because prepending the slash in the URL won't work)
-        if not cookie:
-            identifier = '/{}'.format(identifier)
-            cookie = cookiejar.fetch_cookie(identifier)
+        # Get the identifier from the query string first,
+        # then look at the URL parameter
+        identifier = kwargs['_query'].get('identifier')
+        if not identifier:
+            identifier = kwargs['identifier']
 
         cookie = cookiejar.fetch_cookie(identifier)
         if not cookie:

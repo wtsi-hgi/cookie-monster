@@ -162,11 +162,19 @@ class Endpoint(object):
 
         method = HTTPMethod(request.method)
 
+        # Extract URL route and other request arguments
+        arguments = {
+            '_headers': request.headers,
+            '_query':   request.args,
+            '_form':    request.form,
+            **kwargs
+        }
+
         if _has_request_body(method):
             # Deserialise request body
             try:
                 data = request.get_json(force=True)
-                response = self._methods[method](data, **kwargs)
+                response = self._methods[method](data, **arguments)
 
             except (BadRequest, ValueError):
                 # If the JSON cannot be decoded (BadRequest), or the
@@ -175,7 +183,7 @@ class Endpoint(object):
                 return 'Couldn\'t decode request body', 400
 
         else:
-            response = self._methods[method](**kwargs)
+            response = self._methods[method](**arguments)
 
         # Serialise and return
         serialised = json.dumps(response, separators=(',', ':'))
