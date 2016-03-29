@@ -214,8 +214,6 @@ class TestElmo(unittest.TestCase):
         cookie = self.jar.fetch_cookie(identifier)
         self.assertIsInstance(cookie, Cookie)
 
-        # Because our example identifiers have opening slashes,
-        # we have to use the query string form
         self.http.request('DELETE', TestElmo._url_for_identifier(identifier), headers=self.REQ_HEADER)
         r = self.http.getresponse()
 
