@@ -143,7 +143,7 @@ class Cookie(Model):
                 return enrichment
         return None
 
-    def get_enrichment_changes_from_source(self, source:str, keys:Union[None, str, List[str]] = None) -> List[EnrichmentDiff]:
+    def get_enrichment_changes_from_source(self, source:str, keys:Union[None, str, List[str]] = None, since:Optional[datetime] = None) -> List[EnrichmentDiff]:
         """
         Get the running changes in metadata from an enrichment source
         and, optional, key/list of keys based from the first known
@@ -151,20 +151,31 @@ class Cookie(Model):
 
         @param   source  Enrichment source
         @param   keys    Metadata key(s) to check (optional; check all if omitted)
+        @param   since   Time from which to check for changes (optional; check all if omitted)
         @return  List of differences
-        """
-        output = []
-        enrichment_count = len(self.enrichments)
 
-        # Nothing to compare
-        if enrichment_count < 2:
+        TODO? Do we need a `before` parameter, as well...
+        """
+        first_comparator_index = 1
+        output = []
+
+        if since:
+            for enrichment in self.enrichments[1:]:
+                if enrichment.timestamp < since:
+                    first_comparator_index += 1
+                else:
+                    # Enrichment list should be ordered by timestamp
+                    break
+
+        total = len(self.enrichments)
+        if total <= first_comparator_index:
             return output
 
         # Normalise single key
         if isinstance(keys, str):
             keys = [keys]
 
-        for i in range(1, enrichment_count):
+        for i in range(first_comparator_index, total):
             diff = EnrichmentDiff(self.enrichments[i - 1], self.enrichments[i], keys)
             if diff.is_different():
                 output.append(diff)
