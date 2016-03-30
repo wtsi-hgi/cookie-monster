@@ -3,7 +3,9 @@ Legalese
 --------
 Copyright (c) 2015, 2016 Genome Research Ltd.
 
-Author: Colin Nolan <cn13@sanger.ac.uk>
+Authors:
+* Colin Nolan <cn13@sanger.ac.uk>
+* Christopher Harrison <ch12@sanger.ac.uk>
 
 This file is part of Cookie Monster.
 
@@ -25,7 +27,7 @@ from datetime import datetime
 
 from hgicommon.collections import Metadata
 
-from cookiemonster import Cookie, Enrichment
+from cookiemonster import Cookie, Enrichment, EnrichmentDiff
 
 
 class TestCookie(unittest.TestCase):
@@ -86,6 +88,58 @@ class TestCookie(unittest.TestCase):
         self._cookie.enrich(Enrichment("source_2", datetime(1, 1, 1), Metadata()))
         self.assertCountEqual(self._cookie.get_enrichment_sources(), ["source_1", "source_2"])
 
+    def test_enrichment_no_diff(self):
+        self._cookie.enrich(Enrichment('source', datetime(1, 1, 1), Metadata()))
+        self._cookie.enrich(Enrichment('source', datetime(2, 2, 2), Metadata()))
+
+        diffs = self._cookie.get_enrichment_changes_from_source('source')
+        self.assertEqual(len(diffs), 0)
+
+    def test_enrichment_diff(self):
+        first_enrichment = Enrichment('source', datetime(1, 1, 1), Metadata({'foo': 123, 'bar': 456, 'quux': 789}))
+        newer_enrichment = Enrichment('source', datetime(2, 2, 2), Metadata({'xyz': 123, 'bar': 456, 'quux': 999}))
+
+        self._cookie.enrich(first_enrichment)
+        self._cookie.enrich(newer_enrichment)
+
+        diffs = self._cookie.get_enrichment_changes_from_source('source')
+        self.assertEqual(len(diffs), 1)
+
+        diff = diffs[0]
+        self.assertIsInstance(diff, EnrichmentDiff)
+        self.assertEqual(diff.source, 'source')
+        self.assertEqual(diff.timestamp, datetime(2, 2, 2))
+        self.assertTrue(diff.is_different())
+        self.assertEqual(diff.additions, Metadata({'xyz': 123, 'quux': 999}))
+        self.assertEqual(diff.deletions, Metadata({'foo': 123, 'quux': 789}))
+
+    def test_enrichment_diff_by_key(self):
+        first_enrichment = Enrichment('source', datetime(1, 1, 1), Metadata({'foo': 123, 'bar': 456, 'quux': 789}))
+        newer_enrichment = Enrichment('source', datetime(2, 2, 2), Metadata({'xyz': 123, 'bar': 456, 'quux': 999}))
+
+        self._cookie.enrich(first_enrichment)
+        self._cookie.enrich(newer_enrichment)
+
+        diffs = self._cookie.get_enrichment_changes_from_source('source', 'foo')
+        self.assertEqual(len(diffs), 1)
+
+        diff = diffs[0]
+        self.assertEqual(diff.additions, Metadata())
+        self.assertEqual(diff.deletions, Metadata({'foo': 123}))
+
+    def test_enrichment_diff_by_keys(self):
+        first_enrichment = Enrichment('source', datetime(1, 1, 1), Metadata({'foo': 123, 'bar': 456, 'quux': 789}))
+        newer_enrichment = Enrichment('source', datetime(2, 2, 2), Metadata({'xyz': 123, 'bar': 456, 'quux': 999}))
+
+        self._cookie.enrich(first_enrichment)
+        self._cookie.enrich(newer_enrichment)
+
+        diffs = self._cookie.get_enrichment_changes_from_source('source', ['bar', 'quux'])
+        self.assertEqual(len(diffs), 1)
+
+        diff = diffs[0]
+        self.assertEqual(diff.additions, Metadata({'quux': 999}))
+        self.assertEqual(diff.deletions, Metadata({'quux': 789}))
 
 if __name__ == "__main__":
     unittest.main()
