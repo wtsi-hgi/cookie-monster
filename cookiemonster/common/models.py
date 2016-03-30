@@ -67,11 +67,11 @@ class EnrichmentDiff(Model):
         self.timestamp = comparator.timestamp
 
         # Metadata diffs
-        self.additions = {}
-        self.deletions = {}
+        self.additions = Metadata()
+        self.deletions = Metadata()
         self._diff(basis.metadata, comparator.metadata, keys)
 
-    def _diff(self, base:dict, comp:dict, keys:Optional[List[str]] = None):
+    def _diff(self, base:Metadata, comp:Metadata, keys:Optional[List[str]] = None):
         """
         Calculate the difference between two metadata dictionaries,
         optionally specific to a list of keys
