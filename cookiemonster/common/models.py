@@ -24,7 +24,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from datetime import datetime
 from functools import total_ordering
-from typing import Any, Set, List, Optional
+from typing import Any, Set, List, Optional, Union
 
 from hgicommon.collections import Metadata
 from hgicommon.models import Model
@@ -52,6 +52,56 @@ class Enrichment(Model):
 
     def __lt__(self, other):
         return self.timestamp < other.timestamp
+
+
+class EnrichmentDiff(Model):
+    """
+    Metadata enrichment difference model
+    """
+    def __init__(self, basis:Enrichment, comparator:Enrichment, keys:Optional[List[str]] = None):
+        if basis.source != comparator.source:
+            # FIXME? This isn't really a TypeError
+            raise TypeError('Basis and comparator are from different enrichment sources')
+
+        self.source = basis.source
+        self.timestamp = comparator.timestamp
+
+        # Metadata diffs
+        self.additions = {}
+        self.deletions = {}
+        self._diff(basis.metadata, comparator.metadata, keys)
+
+    def _diff(self, base:dict, comp:dict, keys:Optional[List[str]] = None):
+        """
+        Calculate the difference between two metadata dictionaries,
+        optionally specific to a list of keys
+
+        @param   base  Metadata dictionary that forms the basis of comparison
+        @param   comp  Metadata dictionary to check against basis
+        @param   keys  Interested keys (optional; check all if omitted)
+        """
+        # Common keys
+        for common in set(comp.keys()).intersection(set(base.keys())):
+            if not keys or common in keys:
+                if base[common] != comp[common]:
+                    self.additions[common] = comp[common]
+                    self.deletions[common] = base[common]
+
+        # New keys
+        for added in (comp.keys() - base.keys()):
+            if not keys or added in keys:
+                self.additions[added] = comp[added]
+
+        # Deleted keys
+        for deleted in (base.keys() - comp.keys()):
+            if not keys or deleted in keys:
+                self.deletions[deleted] = base[deleted]
+
+    def is_different(self) -> bool:
+        """
+        Is this a non-trivial diff?
+        """
+        return bool(self.additions or self.deletions)
 
 
 class Cookie(Model):
@@ -92,6 +142,34 @@ class Cookie(Model):
             if enrichment.source == source:
                 return enrichment
         return None
+
+    def get_enrichment_changes_from_source(self, source:str, keys:Union[None, str, List[str]] = None) -> List[EnrichmentDiff]:
+        """
+        Get the running changes in metadata from an enrichment source
+        and, optional, key/list of keys based from the first known
+        enrichment
+
+        @param   source  Enrichment source
+        @param   keys    Metadata key(s) to check (optional; check all if omitted)
+        @return  List of differences
+        """
+        output = []
+        enrichment_count = len(self.enrichments)
+
+        # Nothing to compare
+        if enrichment_count < 2:
+            return output
+
+        # Normalise single key
+        if isinstance(keys, str):
+            keys = [keys]
+
+        for i in range(1, enrichment_count):
+            diff = EnrichmentDiff(self.enrichments[i - 1], self.enrichments[i], keys)
+            if diff.is_different():
+                output.append(diff)
+
+        return output
 
     def get_enrichment_sources(self) -> Set[str]:
         """
