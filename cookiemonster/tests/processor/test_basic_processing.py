@@ -31,6 +31,7 @@ from hgicommon.data_source import ListDataSource
 from hgicommon.mixable import Priority
 
 from cookiemonster.common.models import Cookie, Notification, Enrichment
+from cookiemonster.common.resource_accessor import ResourceAccessor
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
 from cookiemonster.processor.basic_processing import BasicProcessor, BasicProcessorManager
 from cookiemonster.processor.models import Rule, RuleAction, EnrichmentLoader
@@ -236,7 +237,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         match_lock = Lock()
         match_lock.acquire()
 
-        def matching_criteria(cookie: Cookie) -> bool:
+        def matching_criteria(cookie: Cookie, _:ResourceAccessor) -> bool:
             match_lock.release()
             rule_lock.acquire()
             return True
