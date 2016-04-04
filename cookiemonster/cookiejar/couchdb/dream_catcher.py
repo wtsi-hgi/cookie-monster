@@ -64,7 +64,7 @@ from enum import Enum
 from functools import partial
 from threading import Lock, Thread
 from time import monotonic, sleep
-from typing import Callable, List, Tuple
+from typing import Callable, Iterable, List, Tuple, TypeVar
 
 from hgicommon.mixable import Listenable
 
@@ -75,29 +75,44 @@ class Actions(Enum):
     Delete = 2
 
 
-# TODO _DocumentBuffer and _Queue follow almost exactly the same
-# pattern. This is rife for generalisation...
+_DischargerT = TypeVar('DischargerT')
 
-
-class _DocumentBuffer(Listenable[List[dict]]):
-    """ Document buffer """
-    def __init__(self, max_size:int, latency:timedelta):
+class _Discharger(Listenable[_DischargerT]):
+    """ Time-based notifier """
+    def __init__(self, payload_factory:Callable[..., Iterable], latency:timedelta):
         super().__init__()
 
-        self._max_size = max_size if max_size > 0 else 1
-        self._latency = latency.total_seconds()
+        self._discharge_latency = latency.total_seconds()
 
         self._lock = Lock()
-        self.data = []
-        self.last_updated = monotonic()
+        self._payload = payload_factory()
 
         # Start the watcher
         self._watcher_thread = Thread(target=self._watcher, daemon=True)
-        self._thread_running = True
+        self._watching = True
         self._watcher_thread.start()
 
     def __del__(self):
-        self._thread_running = False
+        """ Make the thread exit on garbage collection """
+        self._watching = False
+
+    def _watcher(self):
+        """ Watcher thread for time-based discharging """
+        zzz = self._discharge_latency
+
+        while self._watching:
+            self._discharge()
+            sleep(zzz)
+
+
+class _DocumentBuffer(_Discharger[List[dict]]):
+    """ Document buffer """
+    def __init__(self, max_size:int, latency:timedelta):
+        self._max_size = max_size if max_size > 0 else 1
+        self._latency = latency.total_seconds()
+
+        super().__init__(list, latency / 2)
+        self.last_updated = monotonic()
 
     def _discharge(self):
         """
@@ -106,25 +121,17 @@ class _DocumentBuffer(Listenable[List[dict]]):
         either the buffer size or latency is exceeded
         """
         with self._lock:
-            if len(self._listeners) and len(self.data):
+            if len(self._listeners) and len(self._payload):
                 latency = monotonic() - self.last_updated
-                if len(self.data) >= self._max_size or latency >= self._latency:
-                    self.notify_listeners(deepcopy(self.data))
-                    self.data[:] = []
+                if len(self._payload) >= self._max_size or latency >= self._latency:
+                    self.notify_listeners(deepcopy(self._payload))
+                    self._payload[:] = []
                     self.last_updated = monotonic()
-
-    def _watcher(self):
-        """ Watcher thread for time-based discharging """
-        zzz = self._latency / 2
-
-        while self._thread_running:
-            self._discharge()
-            sleep(zzz)
 
     def append(self, document:dict):
         """ Add a document to the buffer """
         with self._lock:
-            self.data.append(document)
+            self._payload.append(document)
             self.last_updated = monotonic()
 
         # Force size-based discharging
@@ -140,25 +147,11 @@ class _QueueItem(object):
 
 BatchListenerT = Tuple[Actions, List[dict]]
 
-class _Queue(Listenable[BatchListenerT]):
+class _Queue(_Discharger[BatchListenerT]):
     def __init__(self, buffer_latency:timedelta):
-        super().__init__()
+        super().__init__(deque, buffer_latency * 2)
 
-        # The queue latency is twice the buffer latency
-        self._latency = buffer_latency.total_seconds() * 2
-
-        self._lock = Lock()
-        self._queue = deque()
-
-        # Start the watcher
-        self._watcher_thread = Thread(target=self._watcher, daemon=True)
-        self._thread_running = True
-        self._watcher_thread.start()
-
-    def __del__(self):
-        self._thread_running = False
-
-    def _dequeue(self):
+    def _discharge(self):
         """
         Push the deduplicated top of the queue to its listeners,
         providing there is something listening
@@ -166,8 +159,8 @@ class _Queue(Listenable[BatchListenerT]):
         to_requeue = None
 
         with self._lock:
-            if len(self._listeners) and len(self._queue):
-                top = self._queue.popleft()
+            if len(self._listeners) and len(self._payload):
+                top = self._payload.popleft()
                 docs_to_dequeue = []
                 docs_to_requeue = []
 
@@ -193,14 +186,6 @@ class _Queue(Listenable[BatchListenerT]):
         if to_requeue:
             self.requeue(to_requeue.action, to_requeue.docs)
 
-    def _watcher(self):
-        """ Watcher thread for time-based dequeueing """
-        zzz = self._latency
-
-        while self._thread_running:
-            self._dequeue()
-            sleep(zzz)
-
     def enqueue(self, action:Actions, docs:List[dict]):
         """
         Add documents to the queue
@@ -209,9 +194,9 @@ class _Queue(Listenable[BatchListenerT]):
         @param   docs    Documents
         """
         with self._lock:
-            self._queue.append(_QueueItem(action, docs))
+            self._payload.append(_QueueItem(action, docs))
 
-        self._dequeue()
+        self._discharge()
 
     def requeue(self, action:Actions, docs:List[dict]):
         """
@@ -221,9 +206,9 @@ class _Queue(Listenable[BatchListenerT]):
         @param   docs    Documents
         """
         with self._lock:
-            self._queue.appendleft(_QueueItem(action, docs))
+            self._payload.appendleft(_QueueItem(action, docs))
 
-        self._dequeue()
+        self._discharge()
 
 
 class Buffer(Listenable[BatchListenerT]):
