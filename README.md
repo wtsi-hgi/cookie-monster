@@ -197,8 +197,10 @@ retrieval_manager.add_listener(put_updates_in_cookie_jar)
 
 
 ### HTTP API
-A JSON-based HTTP API is provided to expose certain functionality as an outwardly facing interface, on a configurable 
-port. Currently, the following endpoints are defined:
+
+A JSON-based HTTP API is provided to expose certain functionality as an
+outwardly facing interface, on a configurable port. Currently, the
+following endpoints are defined:
 
 **`/queue`**
 * `GET` Get the current status details of the "to process" queue,
@@ -210,15 +212,18 @@ port. Currently, the following endpoints are defined:
   expects a JSON request body consisting of an object with a `path`
   member; returning the same.
 
-**`/cookiejar/<identifier>`**
-* `GET` Get a file and its enrichments from the metadata respository, by
-  its identifier.
+**`/cookiejar/<identifier>` (and `/cookiejar?identifier=<identifier>`)**
+* `GET` Get a file and its enrichments from the metadata repository, by
+  its identifier. (Note that the identifier must be percent encoded. If
+  it begins with a slash, then the query string form of this endpoint
+  *must* be used.)
 * `DELETE` Delete a file and its enrichments from the metadata
-  repository, by its identifier.
+  repository, by its identifier. (Note that the identifier must be
+  percent encoded. If it begins with a slash, then the query string form
+  of this endpoint *must* be used.)
 
 Note that *all* requests must include `application/json` in their
 `Accept` header.
-
 
 ## How to develop
 ### Testing
