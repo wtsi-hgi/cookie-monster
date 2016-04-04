@@ -158,7 +158,7 @@ class Endpoint(object):
         """
         if not request.accept_mimetypes.accept_json:
             # Client must accept JSON
-            return 'I only understand JSON', 406
+            return 'I only speak JSON', 406
 
         method = HTTPMethod(request.method)
 
