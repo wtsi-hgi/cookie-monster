@@ -21,8 +21,10 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import json
+import logging
 import unittest
 from datetime import datetime, timezone, timedelta
+from time import sleep
 from typing import Dict, List
 
 from hgijson.json.primitive import DatetimeISOFormatJSONDecoder
@@ -62,15 +64,15 @@ class TestInfluxDBLoggger(unittest.TestCase):
     def _get_all_points(self) -> List[Dict]:
         """
         Gets all points within all tables.
-        :return:
+        :return: all points within all tables
         """
         retrieved = self._influxdb_client.query("select * from /.*/", database=_INFLUXDB_DATABASE)
         return list(retrieved.get_points())
 
     def test_record_value(self):
         log = Log("measured", 123, {"host": "1"}, datetime(2015, 3, 2, tzinfo=timezone.utc))
-        self._logger.record(log.measured, log.values, log.metadata, log.timestamp)
-        self._logger.record("measured", 456)
+        self._logger.record(log.measured, log.value, log.metadata, log.timestamp)
+        self._logger.record(log.measured, 456)
 
         retrieved = self._influxdb_client.query("select * from measured where host = '1'", database=_INFLUXDB_DATABASE)
         self.assertEqual(len(list(retrieved.get_points())), 1)
@@ -98,9 +100,12 @@ class TestInfluxDBLoggger(unittest.TestCase):
         self._logger.static_tags = {"host": "1"}
 
         log = Log("measured", 123)
-        self._logger.record(log.measured, log.values)
+        self._logger.record(log.measured, log.value)
 
-        retrieved = self._influxdb_client.query("select * from measured where host = '1'", database=_INFLUXDB_DATABASE)
+        # Buffer to protect against case where local clock is not in sync with clock used by InfluxDB:
+        # https://github.com/influxdata/influxdb/issues/192#issuecomment-32908071
+        retrieved = self._influxdb_client.query("select * from measured where host = '1' and time < now + 1h",
+                                                database=_INFLUXDB_DATABASE)
         retrieved_point = list(retrieved.get_points())[0]
 
         self.assertEqual(retrieved_point["value"], log.value)

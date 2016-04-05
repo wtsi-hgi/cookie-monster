@@ -20,7 +20,7 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Union, Dict
 
 from hgicommon.models import Model
@@ -41,4 +41,4 @@ class Log(Model):
         self.measured = measured
         self.values = values
         self.metadata = metadata if metadata is not None else dict()
-        self.timestamp = timestamp if timestamp is not None else datetime.now()
+        self.timestamp = timestamp if timestamp is not None else datetime.now(timezone.utc)

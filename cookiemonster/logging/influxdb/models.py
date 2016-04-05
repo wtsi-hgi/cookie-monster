@@ -44,10 +44,8 @@ class InfluxDBLog(Log):
     @staticmethod
     def value_of(log: Log):
         """
-        Static factory method to build an intance of this type from its superclass.
+        Static factory method to build an instance of this type from its superclass.
         :param log: log to build instance of this type from
         :return: instance of this type, based of the log given
         """
-        if isinstance(log, InfluxDBLog):
-            return log
         return InfluxDBLog(log.measured, log.values, log.metadata, log.timestamp)
