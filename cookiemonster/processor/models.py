@@ -20,7 +20,7 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Optional
 
 from hgicommon.mixable import Priority
 from hgicommon.models import Model
@@ -29,36 +29,23 @@ from cookiemonster.common.models import Notification, Cookie, Enrichment
 from cookiemonster.common.resource_accessor import ResourceAccessorContainer, ResourceAccessor
 
 
-class RuleAction(Model):
-    """
-    A model of the action that has outcome from matching a rule.
-    """
-    def __init__(self, notifications: Iterable[Notification], terminate_processing: bool=False):
-        """
-        Constructor.
-        :param notifications: notifications for external processes
-        :param terminate_processing: whether the data processor should stop processing the update
-        """
-        self.notifications = notifications
-        self.terminate_processing = terminate_processing
-
-
 class Rule(ResourceAccessorContainer, Priority):
     """
-    A model of a rule that defines an action that should be executed if a criteria is matched.
+    A production rule that defines a sensory precondition and an action to be executed if the precondition is matched.
     """
-    def __init__(self, matches: Callable[[Cookie, ResourceAccessor], bool],
-                 generate_action: Callable[[Cookie, ResourceAccessor], RuleAction],
+    def __init__(self, precondition: Callable[[Cookie, ResourceAccessor], bool],
+                 action: Callable[[Cookie, ResourceAccessor], Optional[bool]],
                  priority: int = Priority.MIN_PRIORITY):
         """
-        Default constructor.
-        :param matches: see `Rule._matches`
-        :param generate_action: see `Rule.generate_action`
-        :param priority: the priority of the rule (default to the minimum possible)
+        Constructor.
+        :param precondition: the precondition that should return `True` if the action is to be executed
+        :param action: the action to be executed if the production rule is triggered. May return whether the system
+        should not process any further rules (`True` halts, defaults to `False`)
+        :param priority: the priority of the rule (defaults to the minimum priority)
         """
         super().__init__(priority)
-        self._matches = matches
-        self._generate_action = generate_action
+        self._precondition = precondition
+        self._action = action
 
     def matches(self, cookie: Cookie) -> bool:
         """
@@ -66,19 +53,20 @@ class Rule(ResourceAccessorContainer, Priority):
         :param cookie: the cookie to check if the rule applies to
         :return: whether the rule applies
         """
-        return self._matches(cookie, self.resource_accessor)
+        return self._precondition(cookie, self.resource_accessor)
 
-    def generate_action(self, cookie: Cookie) -> RuleAction:
+    def execute_action(self, cookie: Cookie) -> bool:
         """
-        Returns the action that should be taken in response to the given cookie.
+        Executes the action associated to this rule.
 
-        Will raise a `ValueError` if the rule does not match the given cookie
+        Does not check if this rule's precondition is satisfied.
         :param cookie: the cookie to generate an action for
-        :return: the generated action
+        :return: whether rule processing should halt and stop processing any more rules
         """
-        if not self._matches(cookie, self.resource_accessor):
-            return ValueError("Rules does not match cookie: %s" % cookie)
-        return self._generate_action(cookie, self.resource_accessor)
+        halt = self._action(cookie, self.resource_accessor)
+        if halt is None:
+            halt = False
+        return  halt
 
     def __hash__(self):
         return id(self)

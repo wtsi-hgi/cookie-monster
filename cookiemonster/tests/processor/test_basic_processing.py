@@ -34,10 +34,8 @@ from cookiemonster.common.models import Cookie, Notification, Enrichment
 from cookiemonster.common.resource_accessor import ResourceAccessor
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
 from cookiemonster.processor.basic_processing import BasicProcessor, BasicProcessorManager
-from cookiemonster.processor.models import Rule, RuleAction, EnrichmentLoader
-from cookiemonster.processor.processing import ABOUT_NO_RULES_MATCH
+from cookiemonster.processor.models import Rule, EnrichmentLoader
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
-from cookiemonster.tests.processor._stubs import StubNotificationReceiver
 
 
 COOKIE_IDENTIFIER = "/my/cookie"
@@ -50,7 +48,7 @@ class TestBasicProcessor(unittest.TestCase):
     """
     def setUp(self):
         self.cookie_jar = InMemoryCookieJar()
-        self.rules = [Rule(lambda *args: False, lambda *args: RuleAction([], False)) for _ in range(10)]
+        self.rules = [Rule(lambda *args: False, lambda *args: ActionResult([], False)) for _ in range(10)]
         self.cookie = Cookie(COOKIE_IDENTIFIER)
         self.processor = BasicProcessor(self.cookie_jar, [], [], [])
 
@@ -67,8 +65,8 @@ class TestBasicProcessor(unittest.TestCase):
         notifications = [Notification(str(i)) for i in range(3)]
 
         extra_rules = [
-            Rule(lambda *args: True, lambda *args: RuleAction([notifications[0], notifications[1]], False)),
-            Rule(lambda *args: True, lambda *args: RuleAction([notifications[2]], False))
+            Rule(lambda *args: True, lambda *args: ActionResult([notifications[0], notifications[1]], False)),
+            Rule(lambda *args: True, lambda *args: ActionResult([notifications[2]], False))
         ]
         self.processor.rules = self.rules + extra_rules
         rule_actions = self.processor.evaluate_rules_with_cookie(self.cookie)
@@ -80,10 +78,10 @@ class TestBasicProcessor(unittest.TestCase):
         notifications = [Notification(str(i)) for i in range(2)]
 
         extra_rules = [
-            Rule(lambda *args: True, lambda *args: RuleAction([notifications[0]], False), Priority.MIN_PRIORITY),
-            Rule(lambda *args: True, lambda *args: RuleAction([notifications[1]], True),
+            Rule(lambda *args: True, lambda *args: ActionResult([notifications[0]], False), Priority.MIN_PRIORITY),
+            Rule(lambda *args: True, lambda *args: ActionResult([notifications[1]], True),
                  Priority.get_lower_priority_value(Priority.MAX_PRIORITY)),
-            Rule(lambda *args: False, lambda *args: RuleAction([Notification("-1")], True), Priority.MAX_PRIORITY)
+            Rule(lambda *args: False, lambda *args: ActionResult([Notification("-1")], True), Priority.MAX_PRIORITY)
         ]
         self.processor.rules = self.rules + extra_rules
         rule_actions = self.processor.evaluate_rules_with_cookie(self.cookie)
@@ -106,8 +104,8 @@ class TestBasicProcessor(unittest.TestCase):
                 change_detected_in_next_rule = True
 
         self.processor.rules = [
-            Rule(cookie_changer, self.rules[0]._generate_action, priority=Priority.MAX_PRIORITY),
-            Rule(record_fail_if_changed, self.rules[0]._generate_action, priority=Priority.MIN_PRIORITY)
+            Rule(cookie_changer, self.rules[0]._action, priority=Priority.MAX_PRIORITY),
+            Rule(record_fail_if_changed, self.rules[0]._action, priority=Priority.MIN_PRIORITY)
         ]
         self.processor.process_cookie(self.cookie)
 
@@ -117,10 +115,10 @@ class TestBasicProcessor(unittest.TestCase):
         self.processor.execute_rule_actions([])
 
     def test_execute_rule_actions_when_rule_actions_but_no_notification_receivers(self):
-        self.processor.execute_rule_actions([RuleAction([Notification("")])])
+        self.processor.execute_rule_actions([ActionResult([Notification("")])])
 
     def test_execute_rule_actions_when_rule_actions_and_notification_receivers(self):
-        rule_actions = [RuleAction([Notification(str(i)) for i in range(3)]) for _ in range(4)]
+        rule_actions = [ActionResult([Notification(str(i)) for i in range(3)]) for _ in range(4)]
 
         self.processor.notification_receivers = [MagicMock() for _ in range(5)]
         self.processor.execute_rule_actions(rule_actions)
@@ -158,7 +156,7 @@ class TestBasicProcessor(unittest.TestCase):
         self.assertIn(SAMPLE_ENRICHMENT, cookie.enrichments)
 
     @staticmethod
-    def _get_all_notifications(rule_actions: Iterable[RuleAction]) -> Sequence[Iterable]:
+    def _get_all_notifications(rule_actions: Iterable[ActionResult]) -> Sequence[Iterable]:
         """
         TODO
         """
@@ -209,7 +207,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         self.cookie_jar.mark_as_complete = MagicMock(side_effect=on_complete)
 
-        self.rules.append(Rule(lambda *args: True, lambda *args: RuleAction([], True)))
+        self.rules.append(Rule(lambda *args: True, lambda *args: ActionResult([], True)))
 
         number_to_process = 100
         for i in range(number_to_process):
@@ -242,7 +240,7 @@ class TestBasicProcessorManager(unittest.TestCase):
             rule_lock.acquire()
             return True
 
-        self.rules.append(Rule(matching_criteria, lambda *args: RuleAction([], True)))
+        self.rules.append(Rule(matching_criteria, lambda *args: ActionResult([], True)))
 
         self.cookie_jar.mark_for_processing(self.cookie.identifier)
         processor_manager.process_any_cookies()
@@ -255,7 +253,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         # Change the rules for the next cookie to be processed
         self.rules.pop()
-        self.rules.append(Rule(lambda *args: True, lambda *args: RuleAction([], True)))
+        self.rules.append(Rule(lambda *args: True, lambda *args: ActionResult([], True)))
 
         # Free the processor to complete the first cookie
         rule_lock.release()

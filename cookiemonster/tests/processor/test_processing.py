@@ -23,7 +23,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 import unittest
 from unittest.mock import MagicMock
 
-from cookiemonster import Cookie, RuleAction
+from cookiemonster import Cookie, ActionResult
 from cookiemonster.tests.processor._stubs import StubProcessor
 
 
@@ -33,7 +33,7 @@ class TestProcessor(unittest.TestCase):
     """
     def setUp(self):
         self.cookie = Cookie("id")
-        self.rule_actions = [RuleAction([])]
+        self.rule_actions = [ActionResult([])]
 
         self.processor = StubProcessor()
         self.processor.evaluate_rules_with_cookie = MagicMock(return_value=self.rule_actions)
@@ -48,7 +48,7 @@ class TestProcessor(unittest.TestCase):
         self.processor.handle_cookie_enrichment.assert_called_once_with(self.cookie)
 
     def test_process_cookie_when_termination(self):
-        self.rule_actions.append(RuleAction([], True))
+        self.rule_actions.append(ActionResult([], True))
         self.processor.process_cookie(self.cookie)
 
         self.processor.evaluate_rules_with_cookie.assert_called_once_with(self.cookie)

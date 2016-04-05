@@ -24,7 +24,7 @@ from cookiemonster.common.resource_accessor import ResourceAccessor
 from hgicommon.data_source import register
 from hgicommon.mixable import Priority
 
-from cookiemonster import Cookie, Notification, Rule, RuleAction
+from cookiemonster import Cookie, Notification, Rule, ActionResult
 from cookiemonster.tests.processor.example_enrichment_loader.hash_loader import SOURCE_NAME, KEY
 
 MATCHES_ENIRCHED_COOKIE_WITH_IDENTIFIER = "/my/special/cookie"
@@ -38,8 +38,8 @@ def _matches(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
     return KEY in enrichment_from_source.metadata
 
 
-def _generate_action(cookie: Cookie, resource_accessor: ResourceAccessor) -> RuleAction:
-    return RuleAction([Notification(NOTIFIES, cookie.identifier)], True)
+def _generate_action(cookie: Cookie, resource_accessor: ResourceAccessor) -> ActionResult:
+    return ActionResult([Notification(NOTIFIES, cookie.identifier)], True)
 
 
 _priority = Priority.MAX_PRIORITY

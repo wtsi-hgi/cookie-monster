@@ -91,15 +91,15 @@ existing rule file. Alternatively, it can be added to a new file in the rules di
 format: ``*.rule.py``. Rule files can be put into subdirectories. If the Python module does not compile (e.g. it 
 contains invalid syntax or uses a Python library that has not been installed), the module will be ignored.
 ```python
-from cookiemonster import Cookie, Notification, Rule, RuleAction
+from cookiemonster import Cookie, Notification, Rule, ActionResult
 from hgicommon.mixable import Priority
 from hgicommon.data_source import register
 
 def _matches(cookie: Cookie) -> bool:
     return "my_study" in cookie.path
         
-def _generate_action(cookie: Cookie) -> RuleAction:
-    return RuleAction([Notification("everyone", data=cookie.path, sender="this_rule")], True)
+def _generate_action(cookie: Cookie) -> ActionResult:
+    return ActionResult([Notification("everyone", data=cookie.path, sender="this_rule")], True)
 
 _priority = Priority.MAX_PRIORITY
 

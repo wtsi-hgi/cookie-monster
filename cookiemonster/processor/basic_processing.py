@@ -22,22 +22,20 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import copy
 import logging
-import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from typing import Sequence, Iterable
+from typing import Sequence
 
 from hgicommon.data_source import DataSource
 
-from cookiemonster.common.models import Notification, Cookie
+from cookiemonster.common.models import Cookie
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.logging.logger import PythonLoggingLogger, Logger
-from cookiemonster import NotificationReceiver
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._rules import RuleQueue
-from cookiemonster.processor.models import Rule, EnrichmentLoader, RuleAction
-from cookiemonster.processor.processing import ProcessorManager, Processor, ABOUT_NO_RULES_MATCH
+from cookiemonster.processor.models import Rule, EnrichmentLoader
+from cookiemonster.processor.processing import ProcessorManager, Processor
 
 _MEASUREMENT_CURRENTLY_PROCESSING = "processing"
 _MEASUREMENT_TIME_TO_PROCESS = "time_to_process"
@@ -47,24 +45,19 @@ class BasicProcessor(Processor):
     """
     Simple processor for a single Cookie.
     """
-    def __init__(self, cookie_jar: CookieJar, rules: Sequence[Rule], enrichment_loaders: Sequence[EnrichmentLoader],
-                 notification_receivers: Sequence[NotificationReceiver]):
+    def __init__(self, cookie_jar: CookieJar, rules: Sequence[Rule], enrichment_loaders: Sequence[EnrichmentLoader]):
         """
         Constructor.
         :param cookie_jar: the cookie jar to use
         :param rules: the rules to process the Cookie with
         :param enrichment_loaders: the enrichment loaders that may be able to enrich the Cookie
-        :param notification_receivers: the receivers of notifications
         """
         self.cookie_jar = cookie_jar
         self.rules = rules
-        self.notification_receivers = notification_receivers
         self.enrichment_loaders = enrichment_loaders
 
-    def evaluate_rules_with_cookie(self, cookie: Cookie) -> Sequence[RuleAction]:
+    def evaluate_rules_with_cookie(self, cookie: Cookie) -> bool:
         rule_queue = RuleQueue(self.rules)
-
-        rule_actions = []
         terminate = False
 
         while not terminate and rule_queue.has_unapplied_rules():
@@ -72,20 +65,12 @@ class BasicProcessor(Processor):
             isolated_cookie = copy.deepcopy(cookie)
             try:
                 if rule.matches(isolated_cookie):
-                    rule_action = rule.generate_action(isolated_cookie)
-                    rule_actions.append(rule_action)
-                    terminate = rule_action.terminate_processing
+                    terminate = rule.execute_action(isolated_cookie)
             except Exception:
                 logging.error("Error applying rule; Rule: %s; Error: %s" % (rule, traceback.format_exc()))
             rule_queue.mark_as_applied(rule)
 
-        return rule_actions
-
-    def execute_rule_actions(self, rule_actions: Iterable[RuleAction]):
-        # Broadcast notifications
-        for rule_action in rule_actions:
-            for notification in rule_action.notifications:
-                self._broadcast_notification(notification)
+        return terminate
 
     def handle_cookie_enrichment(self, cookie: Cookie):
         logging.info("Checking if any of the %d enrichment loader(s) can load enrichment for cookie with identifier "
@@ -96,40 +81,26 @@ class BasicProcessor(Processor):
         if enrichment is None:
             logging.info("Cannot enrich cookie with identifier \"%s\" any further - notifying listeners"
                          % cookie.identifier)
-            no_rules_match_notification = Notification(ABOUT_NO_RULES_MATCH, cookie.identifier, BasicProcessor.__qualname__)
-            self._broadcast_notification(no_rules_match_notification)
+            # TODO: Should anything else be done here?
         else:
             logging.info("Applying enrichment from source \"%s\" to cookie with identifier \"%s\""
                          % (enrichment.source, cookie.identifier))
             self.cookie_jar.enrich_cookie(cookie.identifier, enrichment)
             # Enrichment method sets cookie for processing when enriched so no need to repeat that
 
-    def _broadcast_notification(self, notification: Notification):
-        """
-        Notifies the notification receivers of the given notification.
-        :param notification: the notification to give to all notification receivers
-        """
-        logging.info("Notifying %d notification receiver(s) of notification about \"%s\""
-                     % (len(self.notification_receivers), notification.about))
-
-        for notification_receiver in self.notification_receivers:
-            notification_receiver.receive(notification)
-
 
 class BasicProcessorManager(ProcessorManager):
     """
     Simple manager for the continuous processing of enriched Cookies.
     """
-    def __init__(self, cookie_jar: CookieJar,
-                 rules_source: DataSource[Rule], enrichment_loaders_source: DataSource[EnrichmentLoader],
-                 notification_receivers_source: DataSource[NotificationReceiver], number_of_threads: int=16,
+    def __init__(self, cookie_jar: CookieJar, rules_source: DataSource[Rule],
+                 enrichment_loaders_source: DataSource[EnrichmentLoader], number_of_threads: int=16,
                  logger: Logger=PythonLoggingLogger()):
         """
         Constructor.
         :param cookie_jar: the cookie jar to get updates from
         :param rules_source: the source of the rules
         :param enrichment_loaders_source: the source of enrichment loaders
-        :param notification_receivers_source: the source of notification receivers
         :param number_of_threads: the maximum number of threads to use
         :param logger: log recorder
         """
@@ -138,7 +109,6 @@ class BasicProcessorManager(ProcessorManager):
 
         self._cookie_jar = cookie_jar
         self._rules_source = rules_source
-        self._notification_receivers_source = notification_receivers_source
         self._enrichment_loaders_source = enrichment_loaders_source
         self._cookie_processing_thread_pool = ThreadPoolExecutor(max_workers=number_of_threads)
         self._currently_processing_count = 0
@@ -165,8 +135,7 @@ class BasicProcessorManager(ProcessorManager):
             started_at = time.monotonic()
 
             processor = BasicProcessor(self._cookie_jar, self._rules_source.get_all(),
-                                       self._enrichment_loaders_source.get_all(),
-                                       self._notification_receivers_source.get_all())
+                                       self._enrichment_loaders_source.get_all())
             try:
                 # Process Cookie
                 self._currently_processing_count += 1

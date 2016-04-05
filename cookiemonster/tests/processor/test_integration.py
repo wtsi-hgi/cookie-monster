@@ -25,7 +25,7 @@ import unittest
 from os.path import normpath, join, dirname, realpath
 from tempfile import mkdtemp
 from typing import Sequence
-from unittest.mock import MagicMock, call
+from unittest.mock import call
 
 from hgicommon.data_source import ListDataSource
 
@@ -36,7 +36,6 @@ from cookiemonster.processor.basic_processing import BasicProcessorManager
 from cookiemonster.tests.common.stubs import StubResourceAccessor
 from cookiemonster.tests.processor._helpers import add_data_files, block_until_processed
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
-from cookiemonster.tests.processor._stubs import StubNotificationReceiver
 from cookiemonster.tests.processor.example_rule.enrich_match_rule import MATCHES_ENIRCHED_COOKIE_WITH_IDENTIFIER
 from cookiemonster.tests.processor.example_rule.name_match_rule import MATCHES_COOKIES_WITH_IDENTIFIER, NOTIFIES
 
@@ -76,10 +75,6 @@ class TestIntegration(unittest.TestCase):
         # Setup rules source
         self.rules_source = RuleSource(self.rules_directory, self.resource_accessor)
         self.rules_source.start()
-
-        # Setup notifications
-        self.notification_receiver = StubNotificationReceiver()
-        self.notification_receiver.receive = MagicMock()
 
         # Setup the data processor manager
         self.processor_manager = BasicProcessorManager(self.cookie_jar, self.rules_source, self.enrichment_loader_source,
