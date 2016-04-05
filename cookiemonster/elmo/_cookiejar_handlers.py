@@ -15,6 +15,10 @@ Method handlers for the Cookie Jar:
   `identifier` string member in the request data, returns a dictionary
   with a `identifier` member
 
+* `GET_cookie` GET handler for fetching cookie data by its identifier
+
+* `DELETE_cookie` DELETE handler for removing a cookie by its identifier
+
 Legalese
 --------
 Copyright (c) 2016 Genome Research Ltd.
