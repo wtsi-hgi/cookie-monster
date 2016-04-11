@@ -104,7 +104,7 @@ class TestInfluxDBLoggger(unittest.TestCase):
 
         # Buffer to protect against case where local clock is not in sync with clock used by InfluxDB:
         # https://github.com/influxdata/influxdb/issues/192#issuecomment-32908071
-        retrieved = self._influxdb_client.query("select * from measured where host = '1' and time < now + 1h",
+        retrieved = self._influxdb_client.query("select * from measured where host = '1' and time < now + 24h",
                                                 database=_INFLUXDB_DATABASE)
         retrieved_point = list(retrieved.get_points())[0]
 
