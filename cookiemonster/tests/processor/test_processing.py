@@ -23,7 +23,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 import unittest
 from unittest.mock import MagicMock
 
-from cookiemonster import Cookie, ActionResult
+from cookiemonster.common.models import Cookie
 from cookiemonster.tests.processor._stubs import StubProcessor
 
 
@@ -32,28 +32,24 @@ class TestProcessor(unittest.TestCase):
     Tests for `Processor`.
     """
     def setUp(self):
-        self.cookie = Cookie("id")
-        self.rule_actions = [ActionResult([])]
-
-        self.processor = StubProcessor()
-        self.processor.evaluate_rules_with_cookie = MagicMock(return_value=self.rule_actions)
-        self.processor.execute_rule_actions = MagicMock()
-        self.processor.handle_cookie_enrichment = MagicMock()
+        self._cookie = Cookie("id")
+        self._processor = StubProcessor()
+        self._processor.evaluate_rules_with_cookie = MagicMock()
+        self._processor.handle_cookie_enrichment = MagicMock()
 
     def test_process_cookie_when_no_termination(self):
-        self.processor.process_cookie(self.cookie)
+        self._processor.evaluate_rules_with_cookie.return_value = False
+        self._processor.process_cookie(self._cookie)
 
-        self.processor.evaluate_rules_with_cookie.assert_called_once_with(self.cookie)
-        self.processor.execute_rule_actions.assert_called_once_with(self.rule_actions)
-        self.processor.handle_cookie_enrichment.assert_called_once_with(self.cookie)
+        self._processor.evaluate_rules_with_cookie.assert_called_once_with(self._cookie)
+        self._processor.handle_cookie_enrichment.assert_called_once_with(self._cookie)
 
     def test_process_cookie_when_termination(self):
-        self.rule_actions.append(ActionResult([], True))
-        self.processor.process_cookie(self.cookie)
+        self._processor.evaluate_rules_with_cookie.return_value = True
+        self._processor.process_cookie(self._cookie)
 
-        self.processor.evaluate_rules_with_cookie.assert_called_once_with(self.cookie)
-        self.processor.execute_rule_actions.assert_called_once_with(self.rule_actions)
-        self.processor.handle_cookie_enrichment.assert_not_called()
+        self._processor.evaluate_rules_with_cookie.assert_called_once_with(self._cookie)
+        self._processor.handle_cookie_enrichment.assert_not_called()
 
 
 if __name__ == "__main__":

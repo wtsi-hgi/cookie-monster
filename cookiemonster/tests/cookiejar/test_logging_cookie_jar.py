@@ -27,7 +27,7 @@ from unittest.mock import MagicMock
 
 from hgicommon.collections import Metadata
 
-from cookiemonster import Enrichment
+from cookiemonster.common.models import Enrichment
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
 from cookiemonster.cookiejar.logging_cookie_jar import add_cookie_jar_logging, MEASUREMENT_QUERY_TIME, \

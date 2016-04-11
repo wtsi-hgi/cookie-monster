@@ -22,13 +22,14 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from datetime import datetime
 
+from cookiemonster.common.models import Cookie, Enrichment
 from cookiemonster.common.resource_accessor import ResourceAccessor
 from hgicommon.collections import Metadata
 
-from cookiemonster import EnrichmentLoader, Cookie, Enrichment
 from hgicommon.mixable import Priority
 from hgicommon.data_source import register
 
+from cookiemonster.processor.models import EnrichmentLoader
 
 SOURCE_NAME = "hash_loader"
 KEY = "hash"
