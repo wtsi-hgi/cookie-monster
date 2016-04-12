@@ -147,7 +147,7 @@ class BasicProcessorManager(ProcessorManager):
 
                 total_time = time.monotonic() - started_at
                 self._logger.record(_MEASUREMENT_TIME_TO_PROCESS, total_time)
-                logging.info("Processed cookie with path \"%s\" in %f seconds (wall time)."
+                logging.info("Processed and marked as complete cookie with path \"%s\" in %f seconds (wall time)."
                              % (cookie.identifier, total_time))
             except Exception:
                 logging.error("Exception raised whilst processing cookie with identifier \"%s\": %s"

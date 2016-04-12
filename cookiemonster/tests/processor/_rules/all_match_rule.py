@@ -20,22 +20,26 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from unittest.mock import MagicMock
+
+from cookiemonster.common.models import Cookie
 from cookiemonster.common.resource_accessor import ResourceAccessor
 from hgicommon.data_source import register
 from hgicommon.mixable import Priority
 
-from cookiemonster import EnrichmentLoader, Cookie, Enrichment
+from cookiemonster.processor.models import Rule
+
+ALL_MATCH_RULE_ID = "all_match_rule"
+
+def _matches(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+    return True
 
 
-def _can_enrich(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+def _action(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
     return False
-
-
-def _load_enrichment(cookie: Cookie, resource_accessor: ResourceAccessor) -> Enrichment:
-    assert False
 
 
 _priority = Priority.MAX_PRIORITY
 
-_enrichment_loader = EnrichmentLoader(_can_enrich, _load_enrichment, _priority)
-register(_enrichment_loader)
+_rule = Rule(MagicMock(side_effect=_matches), MagicMock(side_effect=_action), _priority, ALL_MATCH_RULE_ID)
+register(_rule)

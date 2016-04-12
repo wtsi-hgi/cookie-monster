@@ -20,22 +20,29 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from unittest.mock import MagicMock
+
+from cookiemonster.common.models import Cookie
 from cookiemonster.common.resource_accessor import ResourceAccessor
 from hgicommon.data_source import register
 from hgicommon.mixable import Priority
 
-from cookiemonster import Cookie, Rule, ActionResult
+from cookiemonster.processor.models import Rule
+
+NAME_MATCH_RULE_ID = "name_match_rule"
+NAME_RULE_MATCH_COOKIE = "/cookie/matches/name/for/rule"
+NOTIFIES = "everyone"
 
 
 def _matches(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+    return cookie.identifier == NAME_RULE_MATCH_COOKIE
+
+
+def _action(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
     return False
-
-
-def _generate_action(cookie: Cookie, resource_accessor: ResourceAccessor) -> ActionResult:
-    assert False
 
 
 _priority = Priority.MAX_PRIORITY
 
-_rule = Rule(_matches, _generate_action, _priority)
+_rule = Rule(MagicMock(side_effect=_matches), MagicMock(side_effect=_action), _priority, NAME_MATCH_RULE_ID)
 register(_rule)

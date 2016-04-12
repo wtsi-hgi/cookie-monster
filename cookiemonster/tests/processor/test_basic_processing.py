@@ -46,7 +46,7 @@ class TestBasicProcessor(unittest.TestCase):
     """
     def setUp(self):
         self.cookie_jar = InMemoryCookieJar()
-        self.rules = [Rule(lambda *args: False, MagicMock(return_value=False)) for _ in range(10)]
+        self.rules = [Rule(lambda *args: False, MagicMock()) for _ in range(10)]
         self.cookie = Cookie(COOKIE_IDENTIFIER)
         self.processor = BasicProcessor(self.cookie_jar, [], [])
 
@@ -76,11 +76,12 @@ class TestBasicProcessor(unittest.TestCase):
         self.assertFalse(halt)
 
     def test_evaluate_rules_with_cookie_when_matched_rules_and_termination(self):
+        production_to_be_called = MagicMock(return_value=True)
         extra_rules = [
-            Rule(lambda *args: True, MagicMock(return_value=False), Priority.MIN_PRIORITY),
-            Rule(lambda *args: True, MagicMock(return_value=True),
+            Rule(lambda *args: True, lambda *args: False, Priority.MIN_PRIORITY),
+            Rule(lambda *args: True, production_to_be_called,
                  Priority.get_lower_priority_value(Priority.MAX_PRIORITY)),
-            Rule(lambda *args: False, MagicMock(return_value=True), Priority.MAX_PRIORITY)
+            Rule(lambda *args: False, lambda *args: False, Priority.MAX_PRIORITY)
         ]
         self.processor.rules = self.rules + extra_rules
         halt = self.processor.evaluate_rules_with_cookie(self.cookie)
@@ -88,8 +89,8 @@ class TestBasicProcessor(unittest.TestCase):
         total_call_count = 0
         for rule in self.rules:
             total_call_count += rule._action.call_count
-        self.assertEqual(total_call_count, 1)
-        self.assertEqual(extra_rules[1].call_count, 1)
+        self.assertEqual(total_call_count, 0)
+        self.assertEqual(production_to_be_called.call_count, 1)
         self.assertTrue(halt)
 
     def test_evaluate_rules_with_cookie_does_not_allow_rule_to_change_cookie_for_subsequent_rules(self):
@@ -220,7 +221,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         self.cookie_jar.mark_as_complete.assert_has_calls([call(self.cookie.identifier), call("/other/cookie")])
         assert len(self.rules) == 1
-        self.assertEqual(rule_execute_monitor.call_count, 2)
+        self.assertEqual(rule_execute_monitor.call_count, 1)
 
 
 if __name__ == "__main__":

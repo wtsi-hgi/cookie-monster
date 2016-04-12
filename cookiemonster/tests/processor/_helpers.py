@@ -21,13 +21,11 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import shutil
+from multiprocessing import Semaphore
+from typing import Sequence, List
 from unittest.mock import MagicMock
 
 from hgicommon.data_source import SynchronisedFilesDataSource
-from typing import Sequence
-
-from multiprocessing import Semaphore
-
 from hgicommon.data_source.static_from_file import FileSystemChange
 
 from cookiemonster.cookiejar import CookieJar
@@ -60,6 +58,7 @@ def block_until_processed(cookie_jar: CookieJar, cookie_paths: Sequence[str],
     calls_to_mark_as_complete = 0
     while calls_to_mark_as_complete != expected_number_of_calls_to_mark_as_complete:
         mark_as_complete_semaphore.acquire()
+        assert cookie_jar.mark_as_complete.call_count <= expected_number_of_calls_to_mark_as_complete
         calls_to_mark_as_complete += 1
 
     # Not rebinding `mark_as_complete` and `mark_as_reprocess` back to the originals in case they have been re-binded
@@ -69,7 +68,7 @@ def block_until_processed(cookie_jar: CookieJar, cookie_paths: Sequence[str],
 def add_data_files(source: SynchronisedFilesDataSource, data_files: Sequence[str]):
     """
     Copies the given data files to the folder monitored by the given synchronised files data source. Blocks until
-    all the files have been processed by the data source.
+    all the files have been processed by the data source. Assumes all data files register one item of data.
     :param source: the data source monitoring a folder
     :param data_files: the data files to copy
     """
@@ -90,3 +89,12 @@ def add_data_files(source: SynchronisedFilesDataSource, data_files: Sequence[str
         loaded += 1
 
     source.remove_listener(on_load)
+
+
+def _generate_cookie_ids(number: int) -> List[str]:
+    """
+    Generates the given number of example cookie ids.
+    :param number: the number of example cookie ids to generate
+    :return: the generated cookie ids
+    """
+    return ["/my/cookie/%s" % i for i in range(number)]

@@ -23,8 +23,8 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 from datetime import datetime
 from typing import TypeVar, Generic
 
-from baton import DataObject
 from baton.collections import DataObjectReplicaCollection, IrodsMetadata
+from baton.models import DataObject
 from hgicommon.models import Model
 
 _EntityType = TypeVar("EntityType")

@@ -20,30 +20,28 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from datetime import datetime
+from unittest.mock import MagicMock
 
-from cookiemonster.common.models import Cookie, Enrichment
+from cookiemonster.common.models import Cookie
+from cookiemonster.common.models import Enrichment
 from cookiemonster.common.resource_accessor import ResourceAccessor
-from hgicommon.collections import Metadata
-
-from hgicommon.mixable import Priority
 from hgicommon.data_source import register
+from hgicommon.mixable import Priority
 
 from cookiemonster.processor.models import EnrichmentLoader
 
-SOURCE_NAME = "hash_loader"
-KEY = "hash"
-
+NO_LOADER_ENRICHMENT_LOADER_ID = "no_loader"
 
 def _can_enrich(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
-    return SOURCE_NAME not in [enrichment.source for enrichment in cookie.enrichments]
+    return False
 
 
 def _load_enrichment(cookie: Cookie, resource_accessor: ResourceAccessor) -> Enrichment:
-    return Enrichment(SOURCE_NAME, datetime.min, Metadata({KEY: hash(cookie.identifier)}))
+    assert False
 
 
 _priority = Priority.MAX_PRIORITY
 
-_enrichment_loader = EnrichmentLoader(_can_enrich, _load_enrichment, _priority)
+_enrichment_loader = EnrichmentLoader(MagicMock(side_effect=_can_enrich), MagicMock(side_effect=_load_enrichment),
+                                      _priority, NO_LOADER_ENRICHMENT_LOADER_ID)
 register(_enrichment_loader)

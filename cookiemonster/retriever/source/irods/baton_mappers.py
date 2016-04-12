@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from threading import Semaphore, Thread
 from typing import Dict, List, Optional, Sequence
 
-from baton._baton_mappers import BatonCustomObjectMapper
+from baton._baton.baton_custom_object_mappers import BatonCustomObjectMapper
 from baton.collections import IrodsMetadata
 from baton.models import PreparedSpecificQuery, DataObjectReplica
 from hgicommon.collections import Metadata
