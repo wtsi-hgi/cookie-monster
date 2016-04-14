@@ -22,12 +22,8 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Iterable, Sequence
 
 from cookiemonster.common.models import Cookie
-from cookiemonster.processor.models import RuleAction
-
-ABOUT_NO_RULES_MATCH = "no rules matched"
 
 
 class Processor(metaclass=ABCMeta):
@@ -40,30 +36,20 @@ class Processor(metaclass=ABCMeta):
         :param cookie: the Cookie to process
         """
         # Evaluate rules to get rule actions
-        rule_actions = self.evaluate_rules_with_cookie(cookie)
+        halt = self.evaluate_rules_with_cookie(cookie)
 
-        # Execute rule actions
-        self.execute_rule_actions(rule_actions)
-
-        if True not in [rule_action.terminate_processing for rule_action in rule_actions]:
+        if not halt:
             # Enrich Cookie further
             self.handle_cookie_enrichment(cookie)
 
     @abstractmethod
-    def evaluate_rules_with_cookie(self, cookie: Cookie) -> Sequence[RuleAction]:
+    def evaluate_rules_with_cookie(self, cookie: Cookie) -> bool:
         """
         Evaluates the rules known by this processor with the given Cookie. Rules should be evaluated in order of
-        priority and evaluation should stop if a rule production signals no further processing is required. Rules must
-        not be allowed make changes to the Cookie.
+        priority and evaluation should stop if a rule action signals no further processing is required via a `True`
+        return value. Rules must not be allowed make changes to the Cookie.
         :param cookie: the cookie to evaluate rules against
-        :return: the rule actions produced by rule matches
-        """
-
-    @abstractmethod
-    def execute_rule_actions(self, rule_actions: Iterable[RuleAction]):
-        """
-        Executes the given rule actions produced by matching rules.
-        :param rule_actions: the rule actions to execute
+        :return: whether the system should stop evaluating further rules
         """
 
     @abstractmethod
@@ -85,6 +71,4 @@ class ProcessorManager(metaclass=ABCMeta):
     def process_any_cookies(self):
         """
         Check for Cookies that are to be processed and triggers a `Processor` to process them if required.
-
-        Non-blocking.
         """

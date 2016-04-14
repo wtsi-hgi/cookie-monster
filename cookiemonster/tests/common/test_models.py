@@ -27,7 +27,8 @@ from datetime import datetime
 
 from hgicommon.collections import Metadata
 
-from cookiemonster import Cookie, Enrichment, EnrichmentDiff
+from cookiemonster.common.models import Cookie, EnrichmentDiff
+from cookiemonster.common.models import Enrichment
 
 
 class TestCookie(unittest.TestCase):

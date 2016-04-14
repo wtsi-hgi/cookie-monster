@@ -21,12 +21,10 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from datetime import timedelta
-from typing import Optional, Iterable, Sequence
+from typing import Optional
 
-from cookiemonster import RuleAction, NotificationReceiver
-from cookiemonster.common.models import Notification, Enrichment, Cookie
+from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.cookiejar import CookieJar
-from cookiemonster.notifications.notification_receiver import NotificationReceiver
 from cookiemonster.processor.processing import Processor
 
 
@@ -53,26 +51,12 @@ class StubCookieJar(CookieJar):
         pass
 
 
-class StubNotificationReceiver(NotificationReceiver):
-    """
-    Stub implementation of `NotificationReceiver`.
-    """
-    def __init__(self):
-        super().__init__(lambda notification: None)
-
-    def receive(self, notification: Notification):
-        pass
-
-
 class StubProcessor(Processor):
     """
     Stub implementation of `Processor`.
     """
-    def execute_rule_actions(self, rule_actions: Iterable[RuleAction]):
-        pass
-
-    def evaluate_rules_with_cookie(self, cookie: Cookie) -> Sequence[RuleAction]:
-        pass
-
     def handle_cookie_enrichment(self, cookie: Cookie):
+        pass
+
+    def evaluate_rules_with_cookie(self, cookie: Cookie) -> bool:
         pass

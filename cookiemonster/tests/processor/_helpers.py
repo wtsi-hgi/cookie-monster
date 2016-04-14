@@ -20,17 +20,20 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import logging
 import shutil
+import unittest
+from multiprocessing import Semaphore
+from typing import Dict
+from typing import Sequence, List, Iterable
 from unittest.mock import MagicMock
 
 from hgicommon.data_source import SynchronisedFilesDataSource
-from typing import Sequence
-
-from multiprocessing import Semaphore
-
 from hgicommon.data_source.static_from_file import FileSystemChange
 
 from cookiemonster.cookiejar import CookieJar
+from cookiemonster.processor.models import EnrichmentLoader
+from cookiemonster.processor.models import Rule
 
 
 def block_until_processed(cookie_jar: CookieJar, cookie_paths: Sequence[str],
@@ -60,7 +63,10 @@ def block_until_processed(cookie_jar: CookieJar, cookie_paths: Sequence[str],
     calls_to_mark_as_complete = 0
     while calls_to_mark_as_complete != expected_number_of_calls_to_mark_as_complete:
         mark_as_complete_semaphore.acquire()
+        assert cookie_jar.mark_as_complete.call_count <= expected_number_of_calls_to_mark_as_complete
         calls_to_mark_as_complete += 1
+
+    assert calls_to_mark_as_complete == cookie_jar.mark_as_complete.call_count
 
     # Not rebinding `mark_as_complete` and `mark_as_reprocess` back to the originals in case they have been re-binded
     # again since this method was called.
@@ -69,7 +75,7 @@ def block_until_processed(cookie_jar: CookieJar, cookie_paths: Sequence[str],
 def add_data_files(source: SynchronisedFilesDataSource, data_files: Sequence[str]):
     """
     Copies the given data files to the folder monitored by the given synchronised files data source. Blocks until
-    all the files have been processed by the data source.
+    all the files have been processed by the data source. Assumes all data files register one item of data.
     :param source: the data source monitoring a folder
     :param data_files: the data files to copy
     """
@@ -90,3 +96,86 @@ def add_data_files(source: SynchronisedFilesDataSource, data_files: Sequence[str
         loaded += 1
 
     source.remove_listener(on_load)
+
+
+def _generate_cookie_ids(number: int) -> List[str]:
+    """
+    Generates the given number of example cookie ids.
+    :param number: the number of example cookie ids to generate
+    :return: the generated cookie ids
+    """
+    return ["/my/cookie/%s" % i for i in range(number)]
+
+
+class _Checker:
+    """
+    Base class for checkers that use a test case for making assertions.
+    """
+    def __init__(self, test_case: unittest.TestCase):
+        """
+        Constructor.
+        :param test_case: the test case through which assertions can be made
+        """
+        self._test_case = test_case
+
+
+class RuleChecker(_Checker):
+    """
+    Checks assertions on rules.
+    """
+    def __init__(self, test_case: unittest.TestCase, rules: Iterable[Rule]):
+        """
+        Constructor.
+        :param test_case: the test case through which assertions can be made
+        :param rules: the rules that can be checked. Rules must have their underlying `matches` and `action` methods
+        wrapped in a `MagicMock`, e.g. `MagicMock(side_effct=_action)`
+        """
+        super().__init__(test_case)
+        self._rules = dict()  # type: Dict[str, Rule]
+        for rule in rules:
+            assert rule.name not in self._rules
+            self._rules[rule.name] = rule
+
+    def assert_call_counts(self, name: str, precondition_call_count: int, action_call_count: int):
+        """
+        Assert that the rule with the given name has the given call counts.
+        :param name: the name of the rule
+        :param precondition_call_count: the number of calls that should have been made to the given rule's `matches`
+        method
+        :param action_call_count: the number of calls that should have been made to the given rule's `action` method
+        """
+        rule = self._rules[name]
+        self._test_case.assertEqual(rule._precondition.call_count, precondition_call_count)
+        self._test_case.assertEqual(rule._action.call_count, action_call_count)
+
+
+class EnrichmentLoaderChecker(_Checker):
+    """
+    Checks assertions on enrichment loaders.
+    """
+    def __init__(self, test_case: unittest.TestCase, enrichment_loaders: Iterable[EnrichmentLoader]):
+        """
+        Constructor.
+        :param test_case: the test case through which assertions can be made
+        :param enrichment_loaders: the enrichment loaders that can be checked. Enrichment loaders must have their
+        underlying `can_enrich` and `load_enrichment` methods wrapped in a `MagicMock`, e.g.
+        `MagicMock(side_effct=_can_enrich)`
+        """
+        super().__init__(test_case)
+        self._enrichment_loaders = dict()  # type: Dict[str, EnrichmentLoader]
+        for enrichment_loader in enrichment_loaders:
+            assert enrichment_loader.name not in self._enrichment_loaders
+            self._enrichment_loaders[enrichment_loader.name] = enrichment_loader
+
+    def assert_call_counts(self, name: str, can_enrich_call_count: int, load_enrichment_call_count: int):
+        """
+        Assert that the enrichment loader with the given name has the given call counts.
+        :param name: the name of the enrichment loader
+        :param can_enrich_call_count: the number of calls that should have been made to the given enrichment loader's
+        `can_enrich` method
+        :param load_enrichment_call_count: the number of calls that should have been made to the given enrichment
+        loader's `load_enrichment` method
+        """
+        enrichment_loader = self._enrichment_loaders[name]
+        self._test_case.assertEqual(enrichment_loader._can_enrich.call_count, can_enrich_call_count)
+        self._test_case.assertEqual(enrichment_loader._load_enrichment.call_count, load_enrichment_call_count)

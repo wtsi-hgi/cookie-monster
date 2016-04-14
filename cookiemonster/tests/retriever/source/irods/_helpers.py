@@ -24,7 +24,7 @@ from os.path import dirname, join, normpath
 from os.path import realpath
 from typing import Dict
 
-from testwithbaton import SetupHelper
+from testwithbaton.helpers import SetupHelper
 
 
 def install_queries(required_specific_queries: Dict[str, str], setup_helper: SetupHelper):

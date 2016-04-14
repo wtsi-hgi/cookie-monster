@@ -24,11 +24,9 @@ from unittest.mock import MagicMock
 
 from hgicommon.mixable import Priority
 
-from cookiemonster.common.models import Notification
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
 from cookiemonster.processor.models import Rule
-from cookiemonster.processor.models import RuleAction
 
 
 def create_mock_rule(priority: int=Priority.MIN_PRIORITY) -> Rule:
@@ -39,7 +37,7 @@ def create_mock_rule(priority: int=Priority.MIN_PRIORITY) -> Rule:
     """
     return Rule(
         lambda file_update, data_environment: True,
-        lambda file_update, data_environment: RuleAction([Notification("")], True),
+        lambda file_update, data_environment: True,
         priority
     )
 

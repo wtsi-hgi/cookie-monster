@@ -20,34 +20,42 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import logging
 import shutil
 import unittest
 from os.path import normpath, join, dirname, realpath
 from tempfile import mkdtemp
-from typing import Sequence
-from unittest.mock import MagicMock, call
+from typing import Dict
+from typing import Iterable
+from unittest.mock import MagicMock
 
-from hgicommon.data_source import ListDataSource
-
-from cookiemonster.common.models import Notification
 from cookiemonster.processor._enrichment import EnrichmentLoaderSource
 from cookiemonster.processor._rules import RuleSource
 from cookiemonster.processor.basic_processing import BasicProcessorManager
+from cookiemonster.processor.models import Rule, EnrichmentLoader
 from cookiemonster.tests.common.stubs import StubResourceAccessor
-from cookiemonster.tests.processor._helpers import add_data_files, block_until_processed
+from cookiemonster.tests.processor._enrichment_loaders.hash_loader import HASH_ENRICHMENT_LOADER_ID
+from cookiemonster.tests.processor._enrichment_loaders.name_match_loader import NAME_ENRICHMENT_LOADER_MATCH_COOKIE, \
+    NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID
+from cookiemonster.tests.processor._enrichment_loaders.no_loader import NO_LOADER_ENRICHMENT_LOADER_ID
+from cookiemonster.tests.processor._helpers import add_data_files, block_until_processed, _generate_cookie_ids, \
+    RuleChecker, EnrichmentLoaderChecker
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
-from cookiemonster.tests.processor._stubs import StubNotificationReceiver
-from cookiemonster.tests.processor.example_rule.enrich_match_rule import MATCHES_ENIRCHED_COOKIE_WITH_IDENTIFIER
-from cookiemonster.tests.processor.example_rule.name_match_rule import MATCHES_COOKIES_WITH_IDENTIFIER, NOTIFIES
+from cookiemonster.tests.processor._rules.all_match_rule import ALL_MATCH_RULE_ID
+from cookiemonster.tests.processor._rules.match_if_enriched_rule import HASH_ENRICHED_MATCH_RULE_ID
+from cookiemonster.tests.processor._rules.name_match_rule import NAME_RULE_MATCH_COOKIE, NAME_MATCH_RULE_ID
+from cookiemonster.tests.processor._rules.no_match_rule import NO_MATCH_RULE_ID
 
 _RULE_FILE_LOCATIONS = [
-    normpath(join(dirname(realpath(__file__)), "example_rule/no_match_rule.py")),
-    normpath(join(dirname(realpath(__file__)), "example_rule/name_match_rule.py")),
-    normpath(join(dirname(realpath(__file__)), "example_rule/enrich_match_rule.py"))
+    normpath(join(dirname(realpath(__file__)), "_rules/all_match_rule.py")),
+    normpath(join(dirname(realpath(__file__)), "_rules/no_match_rule.py")),
+    normpath(join(dirname(realpath(__file__)), "_rules/name_match_rule.py")),
+    normpath(join(dirname(realpath(__file__)), "_rules/match_if_enriched_rule.py"))
 ]
 _ENRICHMENT_LOADER_LOCATIONS = [
-    normpath(join(dirname(realpath(__file__)), "example_enrichment_loader/no_loader.py")),
-    normpath(join(dirname(realpath(__file__)), "example_enrichment_loader/hash_loader.py"))
+    normpath(join(dirname(realpath(__file__)), "_enrichment_loaders/name_match_loader.py")),
+    normpath(join(dirname(realpath(__file__)), "_enrichment_loaders/no_loader.py")),
+    normpath(join(dirname(realpath(__file__)), "_enrichment_loaders/hash_loader.py"))
 ]
 
 
@@ -55,9 +63,8 @@ class TestIntegration(unittest.TestCase):
     """
     Integration tests for processor.
     """
-    _NUMBER_OF_COOKIES = 1000
+    _NUMBER_OF_COOKIES = 250
     _NUMBER_OF_PROCESSORS = 10
-    _IDENTIFIER = "/my/cookie"
 
     def setUp(self):
         self.rules_directory = mkdtemp(prefix="rules", suffix=TestIntegration.__name__)
@@ -77,81 +84,104 @@ class TestIntegration(unittest.TestCase):
         self.rules_source = RuleSource(self.rules_directory, self.resource_accessor)
         self.rules_source.start()
 
-        # Setup notifications
-        self.notification_receiver = StubNotificationReceiver()
-        self.notification_receiver.receive = MagicMock()
-
         # Setup the data processor manager
-        self.processor_manager = BasicProcessorManager(self.cookie_jar, self.rules_source, self.enrichment_loader_source,
-                                                       ListDataSource([self.notification_receiver]))
+        self.processor_manager = BasicProcessorManager(
+            self.cookie_jar, self.rules_source, self.enrichment_loader_source)
 
         def cookie_jar_connector(*args):
             self.processor_manager.process_any_cookies()
 
         self.cookie_jar.add_listener(cookie_jar_connector)
 
-        # Hijack notify
-        self.processor_manager._notify_notification_receivers = self.notification_receiver.receive
-
-    def test_with_no_rules_or_enrichments(self):
-        cookie_ids = TestIntegration._generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
-        block_until_processed(self.cookie_jar, cookie_ids, TestIntegration._NUMBER_OF_COOKIES)
-
-        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_ids))
-        self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_ids))
-        self.cookie_jar.mark_as_failed.assert_not_called()
-
-    def test_with_enrichments_no_rules(self):
-        add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
-
-        cookie_ids = TestIntegration._generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
-        expected_number_of_calls_to_mark_as_complete = len(cookie_ids) * len(_ENRICHMENT_LOADER_LOCATIONS)
-        block_until_processed(self.cookie_jar, cookie_ids, expected_number_of_calls_to_mark_as_complete)
-
-        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_calls_to_mark_as_complete)
-        self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_ids))
-        self.cookie_jar.mark_as_failed.assert_not_called()
-
-    def test_with_rules_no_enrichments(self):
-        add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
-
-        cookie_ids = list(TestIntegration._generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES))
-        cookie_ids.append(MATCHES_COOKIES_WITH_IDENTIFIER)
-        block_until_processed(self.cookie_jar, cookie_ids, TestIntegration._NUMBER_OF_COOKIES)
-
-        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_ids))
-        self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_ids))
-        self.cookie_jar.mark_as_failed.assert_not_called()
-        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_IDENTIFIER)),
-                      self.notification_receiver.receive.call_args_list)
-
-    def test_with_rules_and_enrichments(self):
-        add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
-        add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
-
-        cookie_ids = list(TestIntegration._generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES - 1))
-        cookie_ids.append(MATCHES_ENIRCHED_COOKIE_WITH_IDENTIFIER)
-        expected_number_of_calls_to_mark_as_complete = len(cookie_ids) * len(_ENRICHMENT_LOADER_LOCATIONS) - 1
-        block_until_processed(self.cookie_jar, cookie_ids, expected_number_of_calls_to_mark_as_complete)
-
-        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_calls_to_mark_as_complete)
-        self.assertEqual(self.notification_receiver.receive.call_count, len(cookie_ids))
-        self.cookie_jar.mark_as_failed.assert_not_called()
-        self.assertIn(call(Notification(NOTIFIES, MATCHES_COOKIES_WITH_IDENTIFIER)),
-                      self.notification_receiver.receive.call_args_list)
-
     def tearDown(self):
         shutil.rmtree(self.rules_directory)
         shutil.rmtree(self.enrichment_loaders_directory)
 
-    @staticmethod
-    def _generate_cookie_ids(number: int) -> Sequence[str]:
-        """
-        Generates the given number of example cookie ids.
-        :param number: the number of example cookie ids to generate
-        :return: the generated cookie ids
-        """
-        return ["%s/%s" % (TestIntegration._IDENTIFIER, i) for i in range(number)]
+    def test_with_no_rules_or_enrichments(self):
+        cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
+        block_until_processed(self.cookie_jar, cookie_ids, TestIntegration._NUMBER_OF_COOKIES)
+
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_ids))
+        self.cookie_jar.mark_as_failed.assert_not_called()
+
+        # TODO: Call if no rules match and no further enrichments?
+
+    def test_with_no_rules_but_enrichments(self):
+        add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
+
+        TestIntegration._NUMBER_OF_COOKIES = 1
+        cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
+        cookie_ids.append(NAME_ENRICHMENT_LOADER_MATCH_COOKIE)
+        expected_number_of_times_processed = len(cookie_ids) * 2
+        block_until_processed(self.cookie_jar, cookie_ids, expected_number_of_times_processed)
+
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_times_processed)
+        self.cookie_jar.mark_as_failed.assert_not_called()
+
+        enrichment_loader_checker = EnrichmentLoaderChecker(self, self.enrichment_loader_source.get_all())
+        enrichment_loader_checker.assert_call_counts(
+            NO_LOADER_ENRICHMENT_LOADER_ID, expected_number_of_times_processed, 0)
+        enrichment_loader_checker.assert_call_counts(
+            HASH_ENRICHMENT_LOADER_ID, expected_number_of_times_processed - 1, len(cookie_ids))
+        enrichment_loader_checker.assert_call_counts(
+            NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID, expected_number_of_times_processed, 1)
+
+
+        # TODO: Call if no rules match and no further enrichments?
+
+    def test_with_rules_but_no_enrichments(self):
+        add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
+
+        cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
+        cookie_ids.append(NAME_RULE_MATCH_COOKIE)
+        expected_number_of_times_processed = len(cookie_ids)
+        block_until_processed(self.cookie_jar, cookie_ids, expected_number_of_times_processed)
+
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_times_processed)
+        self.cookie_jar.mark_as_failed.assert_not_called()
+
+        rule_checker = RuleChecker(self, self.rules_source.get_all())
+        rule_checker.assert_call_counts(
+            ALL_MATCH_RULE_ID, expected_number_of_times_processed, expected_number_of_times_processed)
+        rule_checker.assert_call_counts(
+            NO_MATCH_RULE_ID, expected_number_of_times_processed, 0)
+        rule_checker.assert_call_counts(
+            NAME_MATCH_RULE_ID, expected_number_of_times_processed, 1)
+        rule_checker.assert_call_counts(
+            HASH_ENRICHED_MATCH_RULE_ID, expected_number_of_times_processed, 0)
+
+    def test_with_rules_and_enrichments(self):
+        add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
+        assert len(self.rules_source.get_all()) == len(_RULE_FILE_LOCATIONS)
+        add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
+        assert len(self.enrichment_loader_source.get_all()) == len(_ENRICHMENT_LOADER_LOCATIONS)
+
+        cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
+        cookie_ids.append(NAME_ENRICHMENT_LOADER_MATCH_COOKIE)
+        cookie_ids.append(NAME_RULE_MATCH_COOKIE)
+        expected_number_of_times_processed = len(cookie_ids) * 2 + 1
+        block_until_processed(self.cookie_jar, cookie_ids, expected_number_of_times_processed)
+
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_times_processed)
+        self.cookie_jar.mark_as_failed.assert_not_called()
+
+        rule_checker = RuleChecker(self, self.rules_source.get_all())
+        rule_checker.assert_call_counts(
+            ALL_MATCH_RULE_ID, expected_number_of_times_processed, expected_number_of_times_processed)
+        rule_checker.assert_call_counts(
+            NO_MATCH_RULE_ID, expected_number_of_times_processed, 0)
+        rule_checker.assert_call_counts(
+            NAME_MATCH_RULE_ID, expected_number_of_times_processed, len(_ENRICHMENT_LOADER_LOCATIONS) - 1)
+        rule_checker.assert_call_counts(
+            HASH_ENRICHED_MATCH_RULE_ID, expected_number_of_times_processed, len(cookie_ids))
+
+        enrichment_loader_checker = EnrichmentLoaderChecker(self, self.enrichment_loader_source.get_all())
+        enrichment_loader_checker.assert_call_counts(
+            NO_LOADER_ENRICHMENT_LOADER_ID, expected_number_of_times_processed, 0)
+        enrichment_loader_checker.assert_call_counts(
+            HASH_ENRICHMENT_LOADER_ID, expected_number_of_times_processed - 1, len(cookie_ids))
+        enrichment_loader_checker.assert_call_counts(
+            NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID, expected_number_of_times_processed, 1)
 
 
 if __name__ == "__main__":

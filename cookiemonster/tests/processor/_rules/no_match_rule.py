@@ -1,7 +1,7 @@
 """
 Legalese
 --------
-Copyright (c) 2016 Genome Research Ltd.
+Copyright (c) 2015, 2016 Genome Research Ltd.
 
 Author: Colin Nolan <cn13@sanger.ac.uk>
 
@@ -20,24 +20,26 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-import unittest
+from unittest.mock import MagicMock
 
-from cookiemonster.notifications.notification_receiver import NotificationReceiverSource
+from cookiemonster.common.models import Cookie
+from cookiemonster.common.resource_accessor import ResourceAccessor
+from hgicommon.data_source import register
+from hgicommon.mixable import Priority
 
+from cookiemonster.processor.models import Rule
 
-class TestNotificationReceiverSource(unittest.TestCase):
-    """
-    Tests for `NotificationReceiverSource`.
-    """
-    def setUp(self):
-        self.source = NotificationReceiverSource("/")
+NO_MATCH_RULE_ID = "no_match_rule"
 
-    def test_is_data_file_when_is(self):
-        self.assertTrue(self.source.is_data_file("/my/file.receiver.py"))
-
-    def test_is_data_file_when_is_not(self):
-        self.assertFalse(self.source.is_data_file("/my/file.py"))
+def _matches(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+    return False
 
 
-if __name__ == "__main__":
-    unittest.main()
+def _action(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+    assert False
+
+
+_priority = Priority.MAX_PRIORITY
+
+_rule = Rule(MagicMock(side_effect=_matches), MagicMock(side_effect=_action), _priority, NO_MATCH_RULE_ID)
+register(_rule)
