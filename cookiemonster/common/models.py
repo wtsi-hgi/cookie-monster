@@ -143,7 +143,8 @@ class Cookie(Model):
                 return enrichment
         return None
 
-    def get_enrichment_changes_from_source(self, source:str, keys:Union[None, str, List[str]] = None, since:Optional[datetime] = None) -> List[EnrichmentDiff]:
+    def get_enrichment_changes_from_source( self, source: str, keys: Union[None, str, List[str]]=None,
+                                            since: Optional[datetime]=None) -> List[EnrichmentDiff]:
         """
         Get the running changes in metadata from an enrichment source
         and, optional, key/list of keys based from the first known

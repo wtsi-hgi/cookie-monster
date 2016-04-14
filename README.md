@@ -2,15 +2,14 @@
 [![codecov.io](https://codecov.io/github/wtsi-hgi/cookie-monster/coverage.svg?branch=develop)](https://codecov.io/github/wtsi-hgi/cookie-monster?branch=develop)
 
 # Cookie Monster
-Simply deciding what Cookies to eat...
+COOKIES! Om nom nom nom...
 
 
 ## Summary
 1. Data retrievers can be setup to pull information into the system.
-2. The information is aggregated in a knowledge base, grouped by its relation to a distinct data object.
-3. When more information becomes known about a data object, a production rule system is ran using rules that may have 
-arbitrarily complex preconditions and have productions that can trigger arbitrarily complex processing, via a 
-notification based system.
+2. The information is aggregated in a knowledge base, grouped by its relation to a distinct entity.
+3. When more information becomes known about an entity, a production rule system is ran using rules that may have 
+arbitrarily complex preconditions that can be used to trigger arbitrarily complex productions.
 4. Information about data objects can be easily enriched if it is determined that not enough information is known about
 the object to process it.
 
@@ -18,8 +17,7 @@ the object to process it.
 ## Key features
 * DSL free.
 * Python 3.5+.
-* Simple to add rules, actions and methods of gathering more information.
-* Decoupling of rule matching and subsequent processing via simple notification based system.
+* Simple to add production rules and methods of gathering more information on-the-fly.
 * [Available as a Docker image](https://github.com/wtsi-hgi/docker-cookie-monster).
 
 
@@ -43,10 +41,9 @@ shovels in all of the cookies but only a few get digested/mashed into the hand p
 ### Cookie storage
 At a minimum, a Cookie Monster installation comprises of a CookieJar that can store Cookies. It is essentially a
 knowledge base that stores unstructured JSON data and a limited amount of associated metadata. Each Cookie in the jar 
-holds an the identifier of the data object to which it relates 
-([beware of naming inconsistency](https://github.com/wtsi-hgi/cookie-monster/issues/16)). A Cookie may also contain a
-number of "enrichments", each of which holds information about the data object, along with details about where and 
-when this information was attained.
+holds an the identifier of the data object to which it relates. A Cookie may also contain a number of "enrichments", 
+each of which holds information about the data object, along with details about where and when this information was 
+attained.
 
 A CookieJar implementation (named `BiscuitTin`), which uses a CouchDB database, is supplied. It can be setup with:
 ```python
@@ -57,17 +54,16 @@ cookie_jar = BiscuitTin(couchdb_host, couchdb_database_name)
 ### Cookie processing
 A Cookie Monster installation can be setup with a Processor Manager, which uses Processors to examine Cookies after they 
 have been enriched. Processors essentially implement a production rule system, where predefined rules are evaluated in 
-order of priority. If a rule's precondition is matched, its action is triggered: this action may specify a set of
-Notifications that are broadcast to any Notification Receivers, in addition to whether any more rules should be 
-evaluated. Notification Receivers can be used to take any action upon been given a notification. In the case where no 
-rules are matched, the Processor will check if the Cookie can be enriched further using an Enrichment Loader and put 
-any extra information into the knowledge base.
+order of priority. If a rule's precondition is matched, its action is triggered, which may be an arbitrary set of 
+command. The action method's return value can be used to indicate whether any further rules should be processed with the
+cookie. In the case where no rules are matched/no rules indicate no further processing is required, the Processor will 
+check if the Cookie can be enriched further using an Enrichment Loader and put any extra information into the knowledge 
+base.
 
 A simple implementation of a Processor Manager (named `BasicProcessorManager`) is supplied. This can be constructed as
 such:
 ```python
-processor_manager = BasicProcessorManager(
-    number_of_processors, cookie_jar, rules_source, enrichment_loader_source, notification_receivers_source)
+processor_manager = BasicProcessorManager(number_of_processors, cookie_jar, rules_source, enrichment_loader_source)
 ```
 Then setup to process Cookies as they are enriched in the CookieJar (see
 [https://github.com/wtsi-hgi/cookie-monster/issues/18](related bug)):
@@ -77,9 +73,9 @@ cookie_jar.add_listener(processor_manager.process_any_cookies)
 
 #### Rules
 Rules have a matching criteria (a precondition) to which Cookies are compared to determine if any action should be
-taken. If matched, the rule specifies an action, which can define a set of notifications that are to be broadcast to 
-all Notification Receivers and to whether further processing of the Cookie is required. The order in which rules are 
-evaluated is determined by their priority.
+taken. If matched, the rule's action is executed, which can be an arbitrary set of commands. The action method then 
+returns whether further processing of the Cookie is required. The order in which rules are evaluated is determined by 
+their priority.
 
 ##### Changing rules on-the-fly
 If ``RuleSource`` is being used by your ``ProcessorManager`` to attain the rules that are evaluated by ``Processor``
@@ -91,19 +87,20 @@ existing rule file. Alternatively, it can be added to a new file in the rules di
 format: ``*.rule.py``. Rule files can be put into subdirectories. If the Python module does not compile (e.g. it 
 contains invalid syntax or uses a Python library that has not been installed), the module will be ignored.
 ```python
-from cookiemonster import Cookie, Notification, Rule, ActionResult
+from cookiemonster.models import Cookie, Rule
 from hgicommon.mixable import Priority
 from hgicommon.data_source import register
 
 def _matches(cookie: Cookie) -> bool:
     return "my_study" in cookie.path
         
-def _generate_action(cookie: Cookie) -> ActionResult:
-    return ActionResult([Notification("everyone", data=cookie.path, sender="this_rule")], True)
+def _action(cookie: Cookie) -> bool:
+    # <Interesting actions>
+    return whether_any_more_rules_should_be_processed
 
 _priority = Priority.MAX_PRIORITY
 
-_rule = Rule(_matches, _generate_action, _priority)
+_rule = Rule(_matches, _generate_action, _priority, "optional_name")
 register(_rule)
 ```
 
@@ -113,31 +110,6 @@ rule, simply change its code and it will be updated in Cookie Monster when it is
 ##### Examples
 Please see the [rules used in the HGI Cookie Monster setup]
 (https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/rules).
-
-
-#### Notification Receivers
-Rules can specify that a notification or set of notifications should be broadcast if a Cookie matches the rule's
-criteria; notification receivers receive these notifications.
-
-##### Changing notification receivers on-the-fly
-Notification receivers can also be changed on the fly in the same way as [rules](#rules) and 
-[cookie enrichments](#cookie-enrichments). Files containing enrichment loaders must have a name matching the format:
-``*.receiver.py``.
-```python
-from cookiemonster import Notification, NotificationReceiver
-from hgicommon.data_source import register
-
-def _receive(notification: Notification):
-    if notification.about == "something_exciting":
-        print(notification)
-    
-_notification_receiver = NotificationReceiver(_receive)
-register(_notification_receiver)
-```
-
-##### Examples
-Please see the [notification receivers used in the HGI Cookie Monster setup]
-(https://github.com/wtsi-hgi/hgi-cookie-monster-setup/tree/master/hgicookiemonster/notification_receivers).
 
 
 #### Cookie Enrichments
@@ -160,7 +132,7 @@ def _load_enrichment(cookie: Cookie) -> Enrichment:
 
 _priority = Priority.MAX_PRIORITY
 
-_enrichment_loader = EnrichmentLoader(_can_enrich, _load_enrichment, _priority)
+_enrichment_loader = EnrichmentLoader(_can_enrich, _load_enrichment, _priority, "optional_name")
 register(_enrichment_loader)
 ```
 
