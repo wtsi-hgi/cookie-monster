@@ -1,5 +1,9 @@
 # Change Log
 ## [Unreleased]
+### Added
+- Enrichment diff convenience method
+- Legalese boilerplate, in line with WTSI policy
+
 ### Removed
 - Notification listeners.
 
