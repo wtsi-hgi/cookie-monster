@@ -32,20 +32,20 @@ from hgicommon.data_source import register
 
 from cookiemonster.processor.models import EnrichmentLoader
 
-HASH_LOADER_ENRICHMENT_LOADER_ID = "hash_loader"
+HASH_ENRICHMENT_LOADER_ID = "hash_loader"
 KEY = "hash"
 
 
 def _can_enrich(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
-    return HASH_LOADER_ENRICHMENT_LOADER_ID not in [enrichment.source for enrichment in cookie.enrichments]
+    return HASH_ENRICHMENT_LOADER_ID not in [enrichment.source for enrichment in cookie.enrichments]
 
 
 def _load_enrichment(cookie: Cookie, resource_accessor: ResourceAccessor) -> Enrichment:
-    return Enrichment(HASH_LOADER_ENRICHMENT_LOADER_ID, datetime.min, Metadata({KEY: hash(cookie.identifier)}))
+    return Enrichment(HASH_ENRICHMENT_LOADER_ID, datetime.min, Metadata({KEY: hash(cookie.identifier)}))
 
 
 _priority = Priority.MIN_PRIORITY
 
 _enrichment_loader = EnrichmentLoader(MagicMock(side_effect=_can_enrich), MagicMock(side_effect=_load_enrichment),
-                                      _priority, HASH_LOADER_ENRICHMENT_LOADER_ID)
+                                      _priority, HASH_ENRICHMENT_LOADER_ID)
 register(_enrichment_loader)

@@ -25,19 +25,24 @@ import shutil
 import unittest
 from os.path import normpath, join, dirname, realpath
 from tempfile import mkdtemp
+from typing import Dict
+from typing import Iterable
+from unittest.mock import MagicMock
 
 from cookiemonster.processor._enrichment import EnrichmentLoaderSource
 from cookiemonster.processor._rules import RuleSource
 from cookiemonster.processor.basic_processing import BasicProcessorManager
+from cookiemonster.processor.models import Rule, EnrichmentLoader
 from cookiemonster.tests.common.stubs import StubResourceAccessor
-from cookiemonster.tests.processor._enrichment_loaders.hash_loader import HASH_LOADER_ENRICHMENT_LOADER_ID
+from cookiemonster.tests.processor._enrichment_loaders.hash_loader import HASH_ENRICHMENT_LOADER_ID
 from cookiemonster.tests.processor._enrichment_loaders.name_match_loader import NAME_ENRICHMENT_LOADER_MATCH_COOKIE, \
     NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID
 from cookiemonster.tests.processor._enrichment_loaders.no_loader import NO_LOADER_ENRICHMENT_LOADER_ID
-from cookiemonster.tests.processor._helpers import add_data_files, block_until_processed, _generate_cookie_ids
+from cookiemonster.tests.processor._helpers import add_data_files, block_until_processed, _generate_cookie_ids, \
+    RuleChecker, EnrichmentLoaderChecker
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
 from cookiemonster.tests.processor._rules.all_match_rule import ALL_MATCH_RULE_ID
-from cookiemonster.tests.processor._rules.match_if_enriched_rule import MATCH_IF_ENRICHED_RULE_ID
+from cookiemonster.tests.processor._rules.match_if_enriched_rule import HASH_ENRICHED_MATCH_RULE_ID
 from cookiemonster.tests.processor._rules.name_match_rule import NAME_RULE_MATCH_COOKIE, NAME_MATCH_RULE_ID
 from cookiemonster.tests.processor._rules.no_match_rule import NO_MATCH_RULE_ID
 
@@ -58,7 +63,7 @@ class TestIntegration(unittest.TestCase):
     """
     Integration tests for processor.
     """
-    _NUMBER_OF_COOKIES = 1000
+    _NUMBER_OF_COOKIES = 250
     _NUMBER_OF_PROCESSORS = 10
 
     def setUp(self):
@@ -91,38 +96,59 @@ class TestIntegration(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.rules_directory)
         shutil.rmtree(self.enrichment_loaders_directory)
-    #
-    # def test_with_no_rules_or_enrichments(self):
-    #     cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
-    #     block_until_processed(self.cookie_jar, cookie_ids, TestIntegration._NUMBER_OF_COOKIES)
-    #
-    #     self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_ids))
-    #     # TODO: Call if no rules match and no further enrichments?
-    #     self.cookie_jar.mark_as_failed.assert_not_called()
-    #
-    # def test_with_no_rules_but_enrichments(self):
-    #     add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
-    #
-    #     cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
-    #     expected_number_of_calls_to_mark_as_complete = expected_number_of_times_processed
-    #     block_until_processed(self.cookie_jar, cookie_ids, expected_number_of_calls_to_mark_as_complete)
-    #
-    #     self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_calls_to_mark_as_complete)
-    #     # TODO: Call if no rules match and no further enrichments?
-    #     self.cookie_jar.mark_as_failed.assert_not_called()
-    #
-    # def test_with_rules_but_no_enrichments(self):
-    #     add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
-    #
-    #     cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
-    #     cookie_ids.append(NAME_RULE_MATCH_COOKIE)
-    #     block_until_processed(self.cookie_jar, cookie_ids, TestIntegration._NUMBER_OF_COOKIES)
-    #
-    #     self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_ids))
-    #     self.cookie_jar.mark_as_failed.assert_not_called()
-    #     for rule in self.rules_source.get_all():
-    #         self.assertEqual(rule._precondition.call_count, 1)
-    #         self.assertEqual(rule._action.call_count, 1)
+
+    def test_with_no_rules_or_enrichments(self):
+        cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
+        block_until_processed(self.cookie_jar, cookie_ids, TestIntegration._NUMBER_OF_COOKIES)
+
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, len(cookie_ids))
+        self.cookie_jar.mark_as_failed.assert_not_called()
+
+        # TODO: Call if no rules match and no further enrichments?
+
+    def test_with_no_rules_but_enrichments(self):
+        add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
+
+        TestIntegration._NUMBER_OF_COOKIES = 1
+        cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
+        cookie_ids.append(NAME_ENRICHMENT_LOADER_MATCH_COOKIE)
+        expected_number_of_times_processed = len(cookie_ids) * 2
+        block_until_processed(self.cookie_jar, cookie_ids, expected_number_of_times_processed)
+
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_times_processed)
+        self.cookie_jar.mark_as_failed.assert_not_called()
+
+        enrichment_loader_checker = EnrichmentLoaderChecker(self, self.enrichment_loader_source.get_all())
+        enrichment_loader_checker.assert_call_counts(
+            NO_LOADER_ENRICHMENT_LOADER_ID, expected_number_of_times_processed, 0)
+        enrichment_loader_checker.assert_call_counts(
+            HASH_ENRICHMENT_LOADER_ID, expected_number_of_times_processed - 1, len(cookie_ids))
+        enrichment_loader_checker.assert_call_counts(
+            NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID, expected_number_of_times_processed, 1)
+
+
+        # TODO: Call if no rules match and no further enrichments?
+
+    def test_with_rules_but_no_enrichments(self):
+        add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
+
+        cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
+        cookie_ids.append(NAME_RULE_MATCH_COOKIE)
+        expected_number_of_times_processed = len(cookie_ids)
+        block_until_processed(self.cookie_jar, cookie_ids, expected_number_of_times_processed)
+
+        self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_times_processed)
+        self.cookie_jar.mark_as_failed.assert_not_called()
+
+        rule_checker = RuleChecker(self, self.rules_source.get_all())
+        rule_checker.assert_call_counts(
+            ALL_MATCH_RULE_ID, expected_number_of_times_processed, expected_number_of_times_processed)
+        rule_checker.assert_call_counts(
+            NO_MATCH_RULE_ID, expected_number_of_times_processed, 0)
+        rule_checker.assert_call_counts(
+            NAME_MATCH_RULE_ID, expected_number_of_times_processed, 1)
+        rule_checker.assert_call_counts(
+            HASH_ENRICHED_MATCH_RULE_ID, expected_number_of_times_processed, 0)
 
     def test_with_rules_and_enrichments(self):
         add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
@@ -130,43 +156,32 @@ class TestIntegration(unittest.TestCase):
         add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
         assert len(self.enrichment_loader_source.get_all()) == len(_ENRICHMENT_LOADER_LOCATIONS)
 
-        # cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES - 1)
-        cookie_ids = _generate_cookie_ids(1)
+        cookie_ids = _generate_cookie_ids(TestIntegration._NUMBER_OF_COOKIES)
         cookie_ids.append(NAME_ENRICHMENT_LOADER_MATCH_COOKIE)
         cookie_ids.append(NAME_RULE_MATCH_COOKIE)
-        expected_number_of_times_processed = len(cookie_ids) * (len(_ENRICHMENT_LOADER_LOCATIONS) - 1)
-        # logging.root.setLevel(logging.DEBUG)
+        expected_number_of_times_processed = len(cookie_ids) * 2 + 1
         block_until_processed(self.cookie_jar, cookie_ids, expected_number_of_times_processed)
 
         self.assertEqual(self.cookie_jar.mark_as_complete.call_count, expected_number_of_times_processed)
         self.cookie_jar.mark_as_failed.assert_not_called()
 
-        rules = self.rules_source.get_all()
-        for rule in rules:
-            if rule.name == ALL_MATCH_RULE_ID:
-                self.assertEqual(rule._precondition.call_count, expected_number_of_times_processed)
-                self.assertEqual(rule._action.call_count, expected_number_of_times_processed)
-            elif rule.name == NO_MATCH_RULE_ID:
-                self.assertEqual(rule._precondition.call_count, expected_number_of_times_processed)
-                self.assertEqual(rule._action.call_count, 0)
-            elif rule.name == NAME_MATCH_RULE_ID:
-                self.assertEqual(rule._precondition.call_count, expected_number_of_times_processed)
-                self.assertEqual(rule._action.call_count, len(_ENRICHMENT_LOADER_LOCATIONS) - 1)
-            elif rule.name == MATCH_IF_ENRICHED_RULE_ID:
-                self.assertEqual(rule._precondition.call_count, expected_number_of_times_processed)
-                self.assertEqual(rule._action.call_count, 1)
+        rule_checker = RuleChecker(self, self.rules_source.get_all())
+        rule_checker.assert_call_counts(
+            ALL_MATCH_RULE_ID, expected_number_of_times_processed, expected_number_of_times_processed)
+        rule_checker.assert_call_counts(
+            NO_MATCH_RULE_ID, expected_number_of_times_processed, 0)
+        rule_checker.assert_call_counts(
+            NAME_MATCH_RULE_ID, expected_number_of_times_processed, len(_ENRICHMENT_LOADER_LOCATIONS) - 1)
+        rule_checker.assert_call_counts(
+            HASH_ENRICHED_MATCH_RULE_ID, expected_number_of_times_processed, len(cookie_ids))
 
-        enrichments = self.enrichment_loader_source.get_all()
-        for enrichment in enrichments:
-            if enrichment.name == NO_LOADER_ENRICHMENT_LOADER_ID:
-                self.assertEqual(enrichment._can_enrich.call_count, len(cookie_ids) * 2)
-                self.assertEqual(enrichment._load_enrichment.call_count, 0)
-            elif enrichment.name == HASH_LOADER_ENRICHMENT_LOADER_ID:
-                self.assertEqual(enrichment._can_enrich.call_count, len(cookie_ids) * 2 - 1)
-                self.assertEqual(enrichment._load_enrichment.call_count, len(cookie_ids))
-            elif enrichment.name == NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID:
-                self.assertEqual(enrichment._can_enrich.call_count, expected_number_of_times_processed)
-                self.assertEqual(enrichment._load_enrichment.call_count, 1)
+        enrichment_loader_checker = EnrichmentLoaderChecker(self, self.enrichment_loader_source.get_all())
+        enrichment_loader_checker.assert_call_counts(
+            NO_LOADER_ENRICHMENT_LOADER_ID, expected_number_of_times_processed, 0)
+        enrichment_loader_checker.assert_call_counts(
+            HASH_ENRICHMENT_LOADER_ID, expected_number_of_times_processed - 1, len(cookie_ids))
+        enrichment_loader_checker.assert_call_counts(
+            NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID, expected_number_of_times_processed, 1)
 
 
 if __name__ == "__main__":
