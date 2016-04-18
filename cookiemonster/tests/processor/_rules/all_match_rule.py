@@ -31,6 +31,7 @@ from cookiemonster.processor.models import Rule
 
 ALL_MATCH_RULE_ID = "all_match_rule"
 
+
 def _matches(cookie: Cookie, context: Context) -> bool:
     return True
 

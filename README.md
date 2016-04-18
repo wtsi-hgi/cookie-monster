@@ -8,8 +8,8 @@ COOKIES! Om nom nom nom...
 ## Summary
 1. Data retrievers can be setup to pull information into the system.
 2. The information is aggregated in a knowledge base, grouped by its relation to a distinct entity.
-3. When more information becomes known about an entity, a production rule system is ran using rules that may have 
-arbitrarily complex preconditions that can be used to trigger arbitrarily complex productions.
+3. When information becomes known about an entity, a production rule system is ran using rules that may have arbitrarily
+complex preconditions that can be used to trigger arbitrarily complex productions.
 4. Information about data objects can be easily enriched if it is determined that not enough information is known about
 the object to process it.
 
@@ -18,7 +18,7 @@ the object to process it.
 * DSL free.
 * Python 3.5+.
 * Simple to add production rules and methods of gathering more information on-the-fly.
-* [Available as a Docker image](https://github.com/wtsi-hgi/docker-cookie-monster).
+* Available as a Docker image.
 
 
 ## Less documentation, more example
@@ -55,10 +55,10 @@ cookie_jar = BiscuitTin(couchdb_host, couchdb_database_name)
 A Cookie Monster installation can be setup with a Processor Manager, which uses Processors to examine Cookies after they 
 have been enriched. Processors essentially implement a production rule system, where predefined rules are evaluated in 
 order of priority. If a rule's precondition is matched, its action is triggered, which may be an arbitrary set of 
-command. The action method's return value can be used to indicate whether any further rules should be processed with the
-cookie. In the case where no rules are matched/no rules indicate no further processing is required, the Processor will 
-check if the Cookie can be enriched further using an Enrichment Loader and put any extra information into the knowledge 
-base.
+instructions. The action method's return value can be used to indicate whether any further rules should be processed 
+with the cookie. In the case where no rules are matched/no rules indicate no further processing is required, the 
+Processor will check if the Cookie can be enriched further using an Enrichment Loader and put any extra information into
+the knowledge base.
 
 A simple implementation of a Processor Manager (named `BasicProcessorManager`) is supplied. This can be constructed as
 such:
@@ -91,10 +91,10 @@ from cookiemonster.models import Cookie, Rule
 from hgicommon.mixable import Priority
 from hgicommon.data_source import register
 
-def _matches(cookie: Cookie) -> bool:
+def _matches(cookie: Cookie, context: Context) -> bool:
     return "my_study" in cookie.path
         
-def _action(cookie: Cookie) -> bool:
+def _action(cookie: Cookie, context: Context) -> bool:
     # <Interesting actions>
     return whether_any_more_rules_should_be_processed
 
@@ -124,10 +124,10 @@ from cookiemonster import EnrichmentLoader, Cookie, Enrichment
 from hgicommon.mixable import Priority
 from hgicommon.data_source import register
 
-def _can_enrich(cookie: Cookie) -> bool:
+def _can_enrich(cookie: Cookie, context: Context) -> bool:
     return "my_data_source" in [enrichment.source for enrichment in cookie.enrichments]
     
-def _load_enrichment(cookie: Cookie) -> Enrichment:
+def _load_enrichment(cookie: Cookie, context: Context) -> Enrichment:
     return my_data_source.load_more_information_about(cookie.path)
 
 _priority = Priority.MAX_PRIORITY
@@ -159,17 +159,17 @@ retrieval_manager = PeriodicRetrievalManager(retrieval_period, update_mapper, re
 ```
 Then linked to a CookieJar by:
 ```python
+executor = ThreadPoolExecutor(max_workers=NUMBER_OF_THREADS)
+
 def put_updates_in_cookie_jar(update_collection: UpdateCollection):
-    with ThreadPoolExecutor(max_workers=number_of_threads) as executor:
-        for update in update_collection:
-            enrichment = Enrichment("irods_update", datetime.now(), update.metadata)
-            executor.submit(timed_enrichment, update.target, enrichment)
+    for update in update_collection:
+        enrichment = Enrichment("irods_update", datetime.now(), update.metadata)
+        executor.submit(timed_enrichment, update.target, enrichment)
 retrieval_manager.add_listener(put_updates_in_cookie_jar)
 ```
 
 
 ### HTTP API
-
 A JSON-based HTTP API is provided to expose certain functionality as an
 outwardly facing interface, on a configurable port. Currently, the
 following endpoints are defined:
