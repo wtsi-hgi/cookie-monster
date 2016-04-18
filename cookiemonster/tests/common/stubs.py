@@ -20,25 +20,24 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from cookiemonster.common.resource_accessor import ResourceAccessorContainerRegisteringDataSource, ResourceAccessor, \
-    ResourceAccessorContainer
+from cookiemonster.common.context import ContextContainerRegisteringDataSource, Context, ContextContainer
 
 
-class StubResourceAccessor(ResourceAccessor):
+class StubContext(Context):
     """
-    Stub `ResourceAccessor`.
-    """
-
-
-class StubResourceAccessorContainer(ResourceAccessorContainer):
-    """
-    Stub `ResourceAccessorContainer`.
+    Stub `Context`.
     """
 
 
-class StubResourceAccessorContainerRegisteringDataSource(ResourceAccessorContainerRegisteringDataSource):
+class StubContextContainer(ContextContainer):
     """
-    Stub `ResourceAccessorContainerRegisteringDataSource`.
+    Stub `ContextContainer`.
+    """
+
+
+class StubContextContainerRegisteringDataSource(ContextContainerRegisteringDataSource):
+    """
+    Stub `ContextContainerRegisteringDataSource`.
     """
     def is_data_file(self, file_path: str) -> bool:
         return True

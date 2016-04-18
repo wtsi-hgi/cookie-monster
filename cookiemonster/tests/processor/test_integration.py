@@ -33,7 +33,7 @@ from cookiemonster.processor._enrichment import EnrichmentLoaderSource
 from cookiemonster.processor._rules import RuleSource
 from cookiemonster.processor.basic_processing import BasicProcessorManager
 from cookiemonster.processor.models import Rule, EnrichmentLoader
-from cookiemonster.tests.common.stubs import StubResourceAccessor
+from cookiemonster.tests.common.stubs import StubContext
 from cookiemonster.tests.processor._enrichment_loaders.hash_loader import HASH_ENRICHMENT_LOADER_ID
 from cookiemonster.tests.processor._enrichment_loaders.name_match_loader import NAME_ENRICHMENT_LOADER_MATCH_COOKIE, \
     NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID
@@ -70,7 +70,7 @@ class TestIntegration(unittest.TestCase):
         self.rules_directory = mkdtemp(prefix="rules", suffix=TestIntegration.__name__)
         self.enrichment_loaders_directory = mkdtemp(prefix="enrichment_loaders", suffix=TestIntegration.__name__)
 
-        self.resource_accessor = StubResourceAccessor()
+        self.resource_accessor = StubContext()
 
         # Setup enrichment
         self.enrichment_loader_source = EnrichmentLoaderSource(

@@ -28,7 +28,7 @@ from typing import Iterable, Optional
 
 from hgicommon.data_source import RegisteringDataSource
 
-from cookiemonster.common.resource_accessor import ResourceAccessorContainerRegisteringDataSource, ResourceAccessor
+from cookiemonster.common.context import ContextContainerRegisteringDataSource, Context
 from cookiemonster.processor.models import Rule
 
 
@@ -109,7 +109,7 @@ class RuleQueue:
                 self._not_applied.put(rule)
 
 
-class RuleSource(ResourceAccessorContainerRegisteringDataSource):
+class RuleSource(ContextContainerRegisteringDataSource):
     """
     Rule source where rules are registered from within Python modules within a given directory. These modules can be
     changed on-the-fly.
@@ -118,13 +118,13 @@ class RuleSource(ResourceAccessorContainerRegisteringDataSource):
     FILE_PATH_MATCH_REGEX = ".*rule\.py"
     _COMPILED_FILE_PATH_MATCH_REGEX = re.compile(FILE_PATH_MATCH_REGEX)
 
-    def __init__(self, directory_location: str, resource_accessor: ResourceAccessor=None):
+    def __init__(self, directory_location: str, context: Context=None):
         """
         Constructor.
         :param directory_location: the directory in which rules can be sourced from
-        :param resource_accessor: resource accessor that rules will be able to use to access resources
+        :param context: the context that rules will be able to access
         """
-        super().__init__(directory_location, Rule, resource_accessor)
+        super().__init__(directory_location, Rule, context)
 
     def is_data_file(self, file_path: str) -> bool:
         return RuleSource._COMPILED_FILE_PATH_MATCH_REGEX.search(file_path)

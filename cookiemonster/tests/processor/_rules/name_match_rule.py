@@ -23,7 +23,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 from unittest.mock import MagicMock
 
 from cookiemonster.common.models import Cookie
-from cookiemonster.common.resource_accessor import ResourceAccessor
+from cookiemonster.common.context import Context
 from hgicommon.data_source import register
 from hgicommon.mixable import Priority
 
@@ -34,11 +34,11 @@ NAME_RULE_MATCH_COOKIE = "/cookie/matches/name/for/rule"
 NOTIFIES = "everyone"
 
 
-def _matches(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+def _matches(cookie: Cookie, context: Context) -> bool:
     return cookie.identifier == NAME_RULE_MATCH_COOKIE
 
 
-def _action(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+def _action(cookie: Cookie, context: Context) -> bool:
     return False
 
 

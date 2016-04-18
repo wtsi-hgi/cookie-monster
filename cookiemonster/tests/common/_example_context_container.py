@@ -22,8 +22,8 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from hgicommon.data_source import register
 
-from cookiemonster.tests.common.stubs import StubResourceAccessorContainer
+from cookiemonster.tests.common.stubs import StubContextContainer
 
-register(StubResourceAccessorContainer())
-register(StubResourceAccessorContainer())
-register(StubResourceAccessorContainer())
+register(StubContextContainer())
+register(StubContextContainer())
+register(StubContextContainer())

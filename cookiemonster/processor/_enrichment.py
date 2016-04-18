@@ -27,7 +27,7 @@ from queue import PriorityQueue
 from typing import Optional, Iterable
 
 from cookiemonster.common.models import Cookie, Enrichment
-from cookiemonster.common.resource_accessor import ResourceAccessorContainerRegisteringDataSource, ResourceAccessor
+from cookiemonster.common.context import ContextContainerRegisteringDataSource, Context
 from cookiemonster.processor.models import EnrichmentLoader
 
 
@@ -74,7 +74,7 @@ class EnrichmentManager:
         return None
 
 
-class EnrichmentLoaderSource(ResourceAccessorContainerRegisteringDataSource):
+class EnrichmentLoaderSource(ContextContainerRegisteringDataSource):
     """
     Enrichment loader source where enrichment loaders are registered from within Python modules within a given
     directory. These modules can be changed on-the-fly.
@@ -83,13 +83,13 @@ class EnrichmentLoaderSource(ResourceAccessorContainerRegisteringDataSource):
     FILE_PATH_MATCH_REGEX = ".*loader\.py"
     _COMPILED_FILE_PATH_MATCH_REGEX = re.compile(FILE_PATH_MATCH_REGEX)
 
-    def __init__(self, directory_location: str, resource_accessor: ResourceAccessor=None):
+    def __init__(self, directory_location: str, context: Context=None):
         """
         Constructor.
         :param directory_location: the directory in which enrichment loaders can be sourced from
-        :param resource_accessor: resource accessor that enrichment loaders will be able to use to access resources
+        :param context: the context that enrichment loaders will have access to
         """
-        super().__init__(directory_location, EnrichmentLoader, resource_accessor)
+        super().__init__(directory_location, EnrichmentLoader, context)
 
     def is_data_file(self, file_path: str) -> bool:
         return EnrichmentLoaderSource._COMPILED_FILE_PATH_MATCH_REGEX.search(file_path)

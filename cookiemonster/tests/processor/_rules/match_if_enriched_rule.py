@@ -26,21 +26,21 @@ from hgicommon.data_source import register
 from hgicommon.mixable import Priority
 
 from cookiemonster.common.models import Cookie
-from cookiemonster.common.resource_accessor import ResourceAccessor
+from cookiemonster.common.context import Context
 from cookiemonster.processor.models import Rule
 from cookiemonster.tests.processor._enrichment_loaders.hash_loader import KEY, HASH_ENRICHMENT_LOADER_ID
 
 HASH_ENRICHED_MATCH_RULE_ID = "match_if_enriched"
 
 
-def _matches(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+def _matches(cookie: Cookie, context: Context) -> bool:
     enrichment_from_source = cookie.get_most_recent_enrichment_from_source(HASH_ENRICHMENT_LOADER_ID)
     if enrichment_from_source is None:
         return False
     return KEY in enrichment_from_source.metadata
 
 
-def _action(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+def _action(cookie: Cookie, context: Context) -> bool:
     return False
 
 

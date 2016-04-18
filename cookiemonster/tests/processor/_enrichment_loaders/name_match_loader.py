@@ -24,7 +24,7 @@ from datetime import datetime
 from unittest.mock import MagicMock
 
 from cookiemonster.common.models import Cookie, Enrichment
-from cookiemonster.common.resource_accessor import ResourceAccessor
+from cookiemonster.common.context import Context
 from hgicommon.collections import Metadata
 
 from hgicommon.mixable import Priority
@@ -36,12 +36,12 @@ NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID = "name_match_loader"
 NAME_ENRICHMENT_LOADER_MATCH_COOKIE = "/cookie/matches/name/for/enrichment"
 
 
-def _can_enrich(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+def _can_enrich(cookie: Cookie, context: Context) -> bool:
     return cookie.identifier == NAME_ENRICHMENT_LOADER_MATCH_COOKIE \
            and NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID not in [enrichment.source for enrichment in cookie.enrichments]
 
 
-def _load_enrichment(cookie: Cookie, resource_accessor: ResourceAccessor) -> Enrichment:
+def _load_enrichment(cookie: Cookie, context: Context) -> Enrichment:
     return Enrichment(NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID, datetime.min, Metadata({"matches": True}))
 
 

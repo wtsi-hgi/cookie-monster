@@ -24,7 +24,7 @@ from unittest.mock import MagicMock
 
 from cookiemonster.common.models import Cookie
 from cookiemonster.common.models import Enrichment
-from cookiemonster.common.resource_accessor import ResourceAccessor
+from cookiemonster.common.context import Context
 from hgicommon.data_source import register
 from hgicommon.mixable import Priority
 
@@ -32,11 +32,11 @@ from cookiemonster.processor.models import EnrichmentLoader
 
 NO_LOADER_ENRICHMENT_LOADER_ID = "no_loader"
 
-def _can_enrich(cookie: Cookie, resource_accessor: ResourceAccessor) -> bool:
+def _can_enrich(cookie: Cookie, context: Context) -> bool:
     return False
 
 
-def _load_enrichment(cookie: Cookie, resource_accessor: ResourceAccessor) -> Enrichment:
+def _load_enrichment(cookie: Cookie, context: Context) -> Enrichment:
     assert False
 
 
