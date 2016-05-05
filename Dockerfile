@@ -1,4 +1,4 @@
-FROM mercury/baton:devel-with-irods-3.3.1
+FROM mercury/baton:0.16.3-pre-with-irods-3.3.1
 MAINTAINER "Human Genetics Informatics" <hgi@sanger.ac.uk>
 
 # We can get Python 3.5 from the Deadsnakes PPA
