@@ -22,4 +22,4 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from testwithbaton.api import BatonSetup
 
-BATON_SETUP = BatonSetup.v0_16_3_PRE_WITH_IRODS_3_3_1
+BATON_SETUP = BatonSetup.v0_16_3_WITH_IRODS_3_3_1
