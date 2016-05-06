@@ -20,15 +20,6 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from testwithbaton.models import BatonDockerBuild
+from testwithbaton.api import BatonSetup
 
-
-BATON_DOCKER_BUILD = BatonDockerBuild(
-    tag="wtsi-hgi/baton:specificquery",
-    path="github.com/wtsi-hgi/docker-baton.git",
-    docker_file="custom/irods-3.3.1/Dockerfile",
-    build_args={
-        "REPOSITORY": "https://github.com/wtsi-hgi/baton.git",
-        "BRANCH": "feature/specificquery"
-    }
-)
+BATON_SETUP = BatonSetup.v0_16_3_PRE_WITH_IRODS_3_3_1

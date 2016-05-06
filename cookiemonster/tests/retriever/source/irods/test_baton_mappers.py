@@ -28,16 +28,15 @@ from os.path import join
 
 from baton.collections import DataObjectReplicaCollection, IrodsMetadata
 from baton.models import DataObjectReplica
-from hgicommon.collections import Metadata
-from testwithbaton.api import TestWithBatonSetup
-from testwithbaton.helpers import SetupHelper
-
 from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_QUERY_ALIAS
 from cookiemonster.retriever.source.irods.baton_mappers import BatonUpdateMapper, MODIFIED_DATA_QUERY_ALIAS
 from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder
-from cookiemonster.retriever.source.irods.models import DataObjectUpdate, DataObjectModification
+from cookiemonster.retriever.source.irods.models import DataObjectModification
 from cookiemonster.tests.retriever.source.irods._helpers import install_queries
-from cookiemonster.tests.retriever.source.irods._settings import BATON_DOCKER_BUILD
+from cookiemonster.tests.retriever.source.irods._settings import BATON_SETUP
+from hgicommon.collections import Metadata
+from testwithbaton.api import TestWithBaton
+from testwithbaton.helpers import SetupHelper
 
 REQUIRED_SPECIFIC_QUERIES = {
     MODIFIED_DATA_QUERY_ALIAS: join("resources", "specific-queries", "data-modified-partial.sql"),
@@ -56,13 +55,13 @@ class TestBatonUpdateMapper(unittest.TestCase):
     Tests for `BatonUpdateMapper`.
     """
     def setUp(self):
-        self.test_with_baton = TestWithBatonSetup(baton_docker_build=BATON_DOCKER_BUILD)
+        self.test_with_baton = TestWithBaton(baton_setup=BATON_SETUP)
         self.test_with_baton.setup()
         self.setup_helper = SetupHelper(self.test_with_baton.icommands_location)
         install_queries(REQUIRED_SPECIFIC_QUERIES, self.setup_helper)
 
-        self.mapper = BatonUpdateMapper(
-                self.test_with_baton.baton_location, self.test_with_baton.irods_server.users[0])
+        zone = self.test_with_baton.irods_server.users[0].zone
+        self.mapper = BatonUpdateMapper(self.test_with_baton.baton_location, zone)
 
     def test_get_all_since_with_date_in_future(self):
         updates = self.mapper.get_all_since(datetime.fromtimestamp(_MAX_IRODS_TIMESTAMP))

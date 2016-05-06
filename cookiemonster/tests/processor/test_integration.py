@@ -126,7 +126,6 @@ class TestIntegration(unittest.TestCase):
         enrichment_loader_checker.assert_call_counts(
             NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID, expected_number_of_times_processed, 1)
 
-
         # TODO: Call if no rules match and no further enrichments?
 
     def test_with_rules_but_no_enrichments(self):

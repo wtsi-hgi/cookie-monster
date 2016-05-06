@@ -40,4 +40,4 @@ def install_queries(required_specific_queries: Dict[str, str], setup_helper: Set
         with open(query_location) as file:
             query = file.read().replace('\n', ' ')
 
-        setup_helper.run_icommand(["iadmin", "asq", "\"%s\"" % query, alias])
+        setup_helper.run_icommand(["iadmin", "asq", "%s" % query, alias])
