@@ -78,7 +78,7 @@ class InfluxDBLogger(Logger):
         influxdb_log = InfluxDBLog.value_of(log)    # type: InfluxDBLog
         # InfluxDB does not handle microseconds - round to the nearest second
         if influxdb_log.timestamp.microsecond >= 500000:
-            influxdb_log.timestamp = influxdb_log.timestamp.replace(second=influxdb_log.timestamp.second + 1)
+            influxdb_log.timestamp = influxdb_log.timestamp + timedelta(seconds=1)
         influxdb_log.timestamp = influxdb_log.timestamp.replace(microsecond=0)
 
         influxdb_log_as_json = InfluxDBLogger._INFLUXDB_LOG_JSON_ENCODER.default(influxdb_log)
