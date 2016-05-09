@@ -471,7 +471,11 @@ class BiscuitTin(CookieJar):
         """
         self.notify_listeners()
 
-    def fetch_cookie(self, identifier: str) -> Optional[Cookie]:
+    def _get_cookie(self, identifier: str) -> Optional[Cookie]:
+        """
+        This method *actually* fetches the Cookie, but is not targeted
+        by the rate limiter
+        """
         _, doc = self._queue.get_by_identifier(identifier) or (None, None)
 
         if doc is None:
@@ -481,6 +485,9 @@ class BiscuitTin(CookieJar):
         cookie.enrichments = self._metadata.get_metadata(identifier)
 
         return cookie
+
+    def fetch_cookie(self, identifier: str) -> Optional[Cookie]:
+        return self._get_cookie(identifier)
 
     def delete_cookie(self, identifier: str):
         self._metadata.delete_metadata(identifier)
@@ -492,7 +499,7 @@ class BiscuitTin(CookieJar):
 
         # Block until the cookie has been pushed to the database
         # FIXME This is horrible
-        while not self.fetch_cookie(identifier):
+        while not self._get_cookie(identifier):
             sleep(self._latency)
         self._broadcast()
 
@@ -514,7 +521,7 @@ class BiscuitTin(CookieJar):
 
         # Block until the cookie has been pushed to the database
         # FIXME This is horrible
-        while not self.fetch_cookie(identifier):
+        while not self._get_cookie(identifier):
             sleep(self._latency)
         self._broadcast()
 
@@ -525,7 +532,7 @@ class BiscuitTin(CookieJar):
         if to_process is None:
             return None
 
-        return self.fetch_cookie(to_process)
+        return self._get_cookie(to_process)
 
     def queue_length(self) -> int:
         return self._queue.queue_length()
