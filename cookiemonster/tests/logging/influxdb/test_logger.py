@@ -70,7 +70,7 @@ class TestInfluxDBLoggger(unittest.TestCase):
         return list(retrieved.get_points())
 
     def test_record_value(self):
-        log = Log("measured", 123, {"host": "1"}, datetime(2015, 3, 2, tzinfo=timezone.utc))
+        log = Log("measured", 123, {"host": "1"}, datetime(2015, 3, 2, 23, 59, 59, 500001, tzinfo=timezone.utc))
         self._logger.record(log.measured, log.value, log.metadata, log.timestamp)
         self._logger.record(log.measured, 456)
 
@@ -79,7 +79,8 @@ class TestInfluxDBLoggger(unittest.TestCase):
         retrieved_point = list(retrieved.get_points())[0]
 
         self.assertEqual(retrieved_point["host"], log.metadata["host"])
-        self.assertEqual(json.loads(retrieved_point["time"], cls=DatetimeISOFormatJSONDecoder), log.timestamp)
+        # Note: InfluxDB does not like milliseconds - ensure that they've been rounded
+        self.assertEqual(json.loads(retrieved_point["time"], cls=DatetimeISOFormatJSONDecoder), datetime(2015, 3, 3, tzinfo=timezone.utc))
         self.assertEqual(retrieved_point["value"], log.value)
 
     def test_record_named_values(self):
