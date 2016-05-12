@@ -72,9 +72,9 @@ from pycouchdb.exceptions import NotFound
 
 # We get the CouchDB hammering configuration from the environment, as we
 # don't want to have to explicitly set every last little thing.
-_COUCHDB_TIMEOUT = timedelta(milliseconds=environ.get('COOKIEMONSTER_COUCHDB_TIMEOUT', 1500)).total_seconds()
-_COUCHDB_GRACE   = timedelta(milliseconds=environ.get('COOKIEMONSTER_COUCHDB_GRACE', 3000)).total_seconds()
-_COUCHDB_RETRIES = environ.get('COOKIEMONSTER_COUCHDB_RETRIES', 10)
+_COUCHDB_TIMEOUT = timedelta(milliseconds=int(environ.get('COOKIEMONSTER_COUCHDB_TIMEOUT', 1500))).total_seconds()
+_COUCHDB_GRACE   = timedelta(milliseconds=int(environ.get('COOKIEMONSTER_COUCHDB_GRACE', 3000))).total_seconds()
+_COUCHDB_RETRIES = int(environ.get('COOKIEMONSTER_COUCHDB_RETRIES', 10))
 
 
 class UnresponsiveCouchDB(Exception):
