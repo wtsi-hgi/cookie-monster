@@ -497,10 +497,6 @@ class BiscuitTin(CookieJar):
         self._metadata.enrich(identifier, enrichment)
         self._queue.mark_dirty(identifier)
 
-        # Block until the cookie has been pushed to the database
-        # FIXME This is horrible
-        while not self._get_cookie(identifier):
-            sleep(self._latency)
         self._broadcast()
 
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
@@ -519,10 +515,6 @@ class BiscuitTin(CookieJar):
     def mark_for_processing(self, identifier: str):
         self._queue.mark_dirty(identifier)
 
-        # Block until the cookie has been pushed to the database
-        # FIXME This is horrible
-        while not self._get_cookie(identifier):
-            sleep(self._latency)
         self._broadcast()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
