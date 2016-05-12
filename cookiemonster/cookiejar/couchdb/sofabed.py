@@ -82,8 +82,10 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from collections import defaultdict
 from copy import deepcopy
 from datetime import timedelta
+from threading import Lock
 from typing import Any, Callable, Generator, List, Optional
 from uuid import uuid4
 
@@ -91,6 +93,15 @@ from pycouchdb.exceptions import Conflict, NotFound
 
 from cookiemonster.cookiejar.couchdb.softer import SofterCouchDB, UnresponsiveCouchDB, InvalidCouchDBKey
 from cookiemonster.cookiejar.couchdb.dream_catcher import Buffer, Actions, BatchListenerT
+
+
+_global_lock = Lock()
+
+def _safe_lock_factory() -> Lock:
+    """ Create a lock thread-safely """
+    global _global_lock
+    with _global_lock:
+        return Lock()
 
 
 class _DesignDocument(object):
@@ -186,6 +197,9 @@ class Sofabed(object):
         self._buffer = Buffer(max_buffer_size, buffer_latency)
         self._buffer.add_listener(self._batch)
 
+        # Setup document locks
+        self._doc_locks = defaultdict(_safe_lock_factory)
+
     def _batch(self, broadcast:BatchListenerT):
         """
         Perform a batch action against the database
@@ -211,6 +225,10 @@ class Sofabed(object):
 
         try:
             _ = self._batch_methods[action](to_batch, transaction=True)
+
+            # Release locks on batched documents
+            for doc in to_batch:
+                self._doc_locks[doc['_id']].release()
 
         except (UnresponsiveCouchDB, Conflict):
             self._buffer.requeue(action, docs)
@@ -258,7 +276,17 @@ class Sofabed(object):
         if any(key.startswith('_') for key in data.keys() if key != '_id'):
             raise InvalidCouchDBKey
 
-        self._buffer.append({'_id':key or uuid4().hex, **data})
+        # Document ID to upsert and lock
+        doc_id = data.get('_id', key or uuid4().hex)
+
+        lock = self._doc_locks[doc_id]
+        lock.acquire()
+        self._buffer.append({'_id': doc_id, **data})
+
+        # Block until upsertion, then clean up
+        lock.acquire()
+        lock.release()
+        del self._doc_locks[doc_id]
 
     def delete(self, key:str):
         """
@@ -276,7 +304,17 @@ class Sofabed(object):
                 if  key == '_id'
                 or  not key.startswith('_')
             }
+
+            doc_id = to_delete['_id']
+
+            lock = self._doc_locks[doc_id]
+            lock.acquire()
             self._buffer.remove(to_delete)
+
+            # Block until deletion, then clean up
+            lock.acquire()
+            lock.release()
+            del self._doc_locks[doc_id]
 
     def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Generator:
         """
