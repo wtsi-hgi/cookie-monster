@@ -24,7 +24,7 @@ import logging
 from abc import abstractmethod, ABCMeta
 from copy import copy
 from datetime import datetime, timedelta
-from threading import Lock, Timer
+from threading import Lock, Timer, Thread
 from typing import Dict, Union, Optional, Iterable
 from typing import List
 
@@ -38,6 +38,13 @@ class Logger(metaclass=ABCMeta):
     """
     Records logs.
     """
+    @abstractmethod
+    def _write_logs(self, logs: Iterable[Log]):
+        """
+        Writes the given logs.
+        :param logs: the logs to write
+        """
+
     def __init__(self, buffer_latency: Optional[timedelta]=None):
         self.buffer_latency_in_seconds = buffer_latency.total_seconds() if buffer_latency is not None else 0
         self._buffer = []    # type: List[Log]
@@ -51,25 +58,21 @@ class Logger(metaclass=ABCMeta):
                timestamp: datetime=None):
         """
         Records the given dated measurement value(s) and any metadata.
+
+        Non-blocking, thread-safe.
         :param measured: the name of the variable that has been measured
         :param values: a value or dictionary of named values that describe the measured variable
         :param metadata: any metadata associated to the measurement
-        :param timestamp: when the measurement was taken
+        :param timestamp: when the measurement was taken. Defaults to current time
         """
         log = Log(measured, values, metadata, timestamp)
-
-        with self._buffer_lock:
-            self._buffer.append(log)
-            if self._buffer_timer is None and self.buffer_latency_in_seconds > 0:
-                self._buffer_timer = Timer(self.buffer_latency_in_seconds, self.flush)
-                self._buffer_timer.start()
-
-        if self.buffer_latency_in_seconds == 0:
-            self.flush()
+        Thread(target=self._blocking_record(log)).start()
 
     def flush(self):
         """
         Flush any logs from the buffer.
+
+        Thread-safe.
         """
         with self._buffer_lock:
             logs = copy(self._buffer)
@@ -82,12 +85,19 @@ class Logger(metaclass=ABCMeta):
         if len(logs) > 0:
             self._write_logs(logs)
 
-    @abstractmethod
-    def _write_logs(self, logs: Iterable[Log]):
+    def _blocking_record(self, log: Log):
         """
-        Writes the given logs.
-        :param logs: the logs to write
+        Records the given log.
+        :param log: the log to record
         """
+        with self._buffer_lock:
+            self._buffer.append(log)
+            if self._buffer_timer is None and self.buffer_latency_in_seconds > 0:
+                self._buffer_timer = Timer(self.buffer_latency_in_seconds, self.flush)
+                self._buffer_timer.start()
+
+        if self.buffer_latency_in_seconds == 0:
+            self.flush()
 
 
 class PythonLoggingLogger(Logger):
