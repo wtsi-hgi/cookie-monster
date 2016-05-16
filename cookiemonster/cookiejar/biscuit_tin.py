@@ -153,6 +153,8 @@ class _Bert(object):
             'queue_from': None
         }
 
+        self._queue_lock = Lock()
+
         # If there are any files marked as currently processing, this
         # must be due to a previous failure. Reset all of these for
         # immediate reprocessing
@@ -249,12 +251,16 @@ class _Bert(object):
 
         @return File identifier (None, if empty queue)
         """
-        results = self._db.query('queue', 'to_process', endkey       = _now(),
-                                                        include_docs = True,
-                                                        reduce       = False,
-                                                        limit        = 1)
-        try:
-            latest = next(results)
+        with self._queue_lock:
+            results = self._db.query('queue', 'to_process', endkey       = _now(),
+                                                            include_docs = True,
+                                                            reduce       = False,
+                                                            limit        = 1)
+            try:
+                latest = next(results)
+            except StopIteration:
+                return None
+
             identifier, current_doc = latest['value'], latest['doc']
 
             processing_doc = {
@@ -265,10 +271,8 @@ class _Bert(object):
             }
 
             self._db.upsert(processing_doc)
-            return identifier
 
-        except StopIteration:
-            return None
+        return identifier
 
     def mark_finished(self, identifier:str):
         """
@@ -460,8 +464,6 @@ class BiscuitTin(CookieJar):
         self._queue = _Bert(self._sofa)
         self._metadata = _Ernie(self._sofa)
 
-        self._queue_lock = Lock()
-
         self._latency = buffer_latency.total_seconds()
 
     def _broadcast(self):
@@ -518,8 +520,7 @@ class BiscuitTin(CookieJar):
         self._broadcast()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
-        with self._queue_lock:
-            to_process = self._queue.dequeue()
+        to_process = self._queue.dequeue()
 
         if to_process is None:
             return None
