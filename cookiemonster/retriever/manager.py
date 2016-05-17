@@ -49,6 +49,22 @@ class RetrievalManager(Listenable[UpdateCollection]):
     """
     Manages the retrieval of updates.
     """
+    @staticmethod
+    def _get_monotonic_time() -> TimeDeltaInSecondsT:
+        """
+        Gets the time in seconds according to a monotonic time source.
+        :return: the monotonic time
+        """
+        return time.monotonic()
+
+    @staticmethod
+    def _get_clock_time() -> datetime:
+        """
+        Gets the current clock time.
+        :return: the clock time
+        """
+        return datetime.now()
+
     def __init__(self, update_mapper: UpdateMapper, logger: Logger=PythonLoggingLogger()):
         """
         Default constructor.
@@ -106,22 +122,6 @@ class RetrievalManager(Listenable[UpdateCollection]):
 
         return updates
 
-    @staticmethod
-    def _get_monotonic_time() -> TimeDeltaInSecondsT:
-        """
-        Gets the time in seconds according to a monotonic time source.
-        :return: the monotonic time
-        """
-        return time.monotonic()
-
-    @staticmethod
-    def _get_clock_time() -> datetime:
-        """
-        Gets the current clock time.
-        :return: the clock time
-        """
-        return datetime.now()
-
 
 class PeriodicRetrievalManager(RetrievalManager):
     """
@@ -131,8 +131,8 @@ class PeriodicRetrievalManager(RetrievalManager):
                  logger: Logger=PythonLoggingLogger()):
         """
         Constructor.
-        :param retrieval_period: the period that dictates the frequency at which data is retrieved
-        :param update_mapper: the object through which updates can be retrieved from the source
+        :param retrieval_get_all_since
+        per: the object through which updates can be retrieved from the source
         :param logger: log recorder
         """
         super().__init__(update_mapper, logger)

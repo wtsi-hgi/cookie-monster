@@ -95,7 +95,6 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         # Assert that retrieval is logged
         self._assert_logged_updated(self.updates)
 
-
     def test_run_without_updates(self):
         # Setup
         listener = MagicMock()
@@ -118,7 +117,6 @@ class TestRetrievalManager(_BaseRetrievalManagerTest):
         """
         TODO
         :param updates:
-        :return:
         """
         self.assertEqual(self.logger.record.call_count, 1)
         args = self.logger.record.call_args[0]
@@ -147,7 +145,6 @@ class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
         # Create retrieval manager
         self.retrieval_manager = PeriodicRetrievalManager(RETRIEVAL_PERIOD, self.update_mapper, self.logger)
 
-    @unittest.skip("Flaky test")
     def test_run(self):
         cycles = 10
         listener = MagicMock()
@@ -174,30 +171,37 @@ class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
         Sets up the test so that the retriever will only do n cycles.
         :param number_of_cycles: the number of cycles to do
         """
+        # XXX: the logic here only works if the new listener is called after the one added initially
         if updates_each_cycle is None:
             updates_each_cycle = UpdateCollection([])
 
-        semaphore = Semaphore(0)
-        lock_until_counted = Lock()
-        lock_until_counted.acquire()
+        stop_lock = Lock()
+        stop_lock.acquire()
+        wait_for_retrieval_lock = Lock()
+        counter = 0
 
-        def increase_counter(*args) -> UpdateCollection:
-            semaphore.release()
-            lock_until_counted.acquire()
+        def on_retrieval(*args, **kwargs):
+            nonlocal counter
+            counter += 1
+            if counter == number_of_cycles:
+                stop_lock.release()
+            wait_for_retrieval_lock.release()
+
+        def mock_update_getter(*args, **kwargs) -> UpdateCollection:
+            wait_for_retrieval_lock.acquire()
+            if counter == number_of_cycles - 1:
+                # Stop after this retrieval has completed
+                self.retrieval_manager.stop()
             return updates_each_cycle
 
-        self.retrieval_manager.update_mapper.get_all_since.side_effect = increase_counter
+        self.retrieval_manager.add_listener(on_retrieval)
+        self.retrieval_manager.update_mapper.get_all_since.side_effect = mock_update_getter
+
         self.retrieval_manager.start()
 
-        run_counter = 0
-        while run_counter < number_of_cycles:
-            semaphore.acquire()
-            run_counter += 1
-            lock_until_counted.release()
-            if run_counter == number_of_cycles:
-                self.retrieval_manager.stop()
-
+        stop_lock.acquire()
         self.retrieval_manager.update_mapper.get_all_since.side_effect = None
+
 
     def tearDown(self):
         self.retrieval_manager.stop()
