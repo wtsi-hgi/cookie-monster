@@ -82,7 +82,6 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from collections import defaultdict
 from copy import deepcopy
 from datetime import timedelta
 from threading import Lock
@@ -91,17 +90,10 @@ from uuid import uuid4
 
 from pycouchdb.exceptions import Conflict, NotFound
 
+from hgicommon.collections import ThreadSafeDefaultdict
+
 from cookiemonster.cookiejar.couchdb.softer import SofterCouchDB, UnresponsiveCouchDB, InvalidCouchDBKey
 from cookiemonster.cookiejar.couchdb.dream_catcher import Buffer, Actions, BatchListenerT
-
-
-_global_lock = Lock()
-
-def _safe_lock_factory() -> Lock:
-    """ Create a lock thread-safely """
-    global _global_lock
-    with _global_lock:
-        return Lock()
 
 
 class _DesignDocument(object):
@@ -198,7 +190,7 @@ class Sofabed(object):
         self._buffer.add_listener(self._batch)
 
         # Setup document locks
-        self._doc_locks = defaultdict(_safe_lock_factory)
+        self._doc_locks = ThreadSafeDefaultdict(Lock)
 
     def _batch(self, broadcast:BatchListenerT):
         """
