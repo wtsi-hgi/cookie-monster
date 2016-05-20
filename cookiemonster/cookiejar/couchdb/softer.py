@@ -114,14 +114,14 @@ class SofterCouchDB(object):
 
         # Monkey-patch the available database methods, decorated with
         # initial connection checking and graceful retrying
-        db_methods = [
+        self._db_methods = [
             method
             for method in dir(self._db)
             if  callable(getattr(self._db, method))
             and not method.startswith('_')
         ]
 
-        for method in db_methods:
+        for method in self._db_methods:
             setattr(self.__class__, method, self._lightly_hammer(getattr(self._db, method)))
 
     def _connect(self, database:str) -> Database:
