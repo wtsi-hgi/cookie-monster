@@ -4,9 +4,8 @@ Generic Dependency Injector for Loggers
 Provides a generic method to inject logging into instantiated objects or
 augment classes with the same logging
 
-Exportable classes: `FunctionContext` (for typing),
-                    `LoggingFunction`, `RuntimeLogging`,
-                    `LoggingMapper`
+Exportable types:   `FunctionContext`, `LoggingFunctionClass`
+Exportable classes: `LoggingFunction`, `RuntimeLogging`, `LoggingMapper`
 
 LoggingFunction
 ---------------
@@ -129,37 +128,39 @@ class RuntimeLogging(LoggingFunction, metaclass=ABCMeta):
         self.log(context, duration)
 
 
+LoggingFunctionClass = type
+
 class LoggingMapper(object):
     """ TODO """
     def __init__(self, logger:Logger) -> None:
         pass
 
-    def add_logging_to_method(self, method:str, logging:LoggingFunction):
+    def add_logging_to_method(self, method:str, logging:LoggingFunctionClass):
         """
         Associate logging function with named method
 
         @param   method   Method name
-        @param   logging  Logging function
+        @param   logging  Logging function class
         """
         pass
 
-    def add_logging_to_abstract_methods(self, abc:ABCMeta, logging:LoggingFunction):
+    def add_logging_to_abstract_methods(self, abc:ABCMeta, logging:LoggingFunctionClass):
         """
         Associate logging function with all abstract methods of an
         abstract base class
 
         @param   abc      Abstract base class to derive abstract methods
-        @param   logging  Logging function
+        @param   logging  Logging function class
         """
         for method in abc.__abstractmethods__:
             self.add_logging_to_method(method, logging)
 
-    def add_logging_to_public_methods(self, cls:type, logging:LoggingFunction):
+    def add_logging_to_public_methods(self, cls:type, logging:LoggingFunctionClass):
         """
         Associate logging function with all public class methods
 
         @param   cls      Class to derive public methods
-        @param   logging  Logging function
+        @param   logging  Logging function class
         """
         for method in dir(cls):
             if callable(getattr(cls, method)) and not method.startswith('_'):
