@@ -134,7 +134,7 @@ class LoggingFunction(metaclass=ABCMeta):
         """
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            context = FunctionContext(fn, args, kwargs)
+            context = LoggingContext(fn, args, kwargs)
             context.preexec = self.preexec(context)
             context.output = fn(*args, **kwargs)
             self.postexec(context)
