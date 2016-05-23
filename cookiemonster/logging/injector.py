@@ -72,6 +72,32 @@ following methods:
 * `inject_logging` Injects the logging methods into an instantiated
   object or, if used as a class decorator, the decorated class
 
+Example
+-------
+Hopefully the following will illustrate usage:
+
+    my_logger = SomeLoggerImplementation()
+
+    class MyRuntimeLogging(RuntimeLogging):
+        def get_measure(self, ctx):
+            fn_name = ctx.fn.__name__
+            return '{}_runtime'.format(fn_name)
+
+        def get_metadata(self, ctx):
+            return None
+
+    my_logging_map = LoggingMapper(my_logger)
+
+    my_logging_map.map_logging_to_public_methods(MyRuntimeLogging)
+
+    # Inject into an already instantiated object
+    my_logging_map.inject_logging(some_object)
+
+    # ...or decorate a class with the logging
+    @my_logging_map.inject_logging
+    class SomeNewClass(Foo, Bar, Quux):
+        # etc., etc.
+
 Legalese
 --------
 Copyright (c) 2016 Genome Research Ltd.
@@ -224,4 +250,14 @@ class LoggingMapper(object):
                 self.map_logging_to_method(method, logging)
 
     def inject_logging(self, target:Union[object, type]) -> Optional[type]:
-        pass
+        """
+        Inject logging functions defined by the mapping into the given
+        object or class. When used on an instantiated object, that
+        object will be monkey-patched with said logging; when used
+        against a class, as a class decorator, a new class will be
+        generated.
+
+        @param   target  Object or class into which to inject logging
+        @return  Decorated class, if injecting into a class
+                 None, if injecting into an instantiated object
+        """
