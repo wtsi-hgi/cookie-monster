@@ -94,6 +94,7 @@ Hopefully the following will illustrate usage:
     my_logging_map.inject_logging(some_object)
 
     # ...or decorate a class with the logging
+    # Will be of type SomeNewClassInjectedWithSomeLoggerImplementation
     @my_logging_map.inject_logging
     class SomeNewClass(Foo, Bar, Quux):
         # etc., etc.
