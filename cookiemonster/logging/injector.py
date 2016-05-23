@@ -260,4 +260,30 @@ class LoggingMapper(object):
         @param   target  Object or class into which to inject logging
         @return  Decorated class, if injecting into a class
                  None, if injecting into an instantiated object
+
+        Note: When decorating a class, the decorated class name will be
+        `XInjectedWithY`, where X is the original class name and Y is
+        the logger class name.
         """
+        decorating = False
+        if inspect.isclass(target):
+            decorating = True
+            decorated_methods = {}  # type: Dict[str, Callable[..., Any]]
+
+        for method, loggings in self.mapping.items():
+            logged_fn = getattr(target, method)
+            if not callable(logged_fn):
+                raise TypeError('Cannot decorate uncallable attribute "{}"'.format(method))
+
+            for logging_fn in loggings:
+                logging_wrapper = logging_fn(self.logger)
+                logged_fn = logging_wrapper(logged_fn)
+
+            if decorating:
+                decorated_methods[method] = logged_fn
+            else:
+                setattr(target, method, logged_fn)
+
+        if decorating:
+            class_name = '{}InjectedWith{}'.format(target.__name__, self.logger.__class__.__name__)
+            return type(class_name, (target,), decorated_methods)
