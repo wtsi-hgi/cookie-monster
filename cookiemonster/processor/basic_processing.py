@@ -37,7 +37,8 @@ from cookiemonster.processor._rules import RuleQueue
 from cookiemonster.processor.models import Rule, EnrichmentLoader
 from cookiemonster.processor.processing import ProcessorManager, Processor
 
-_MEASUREMENT_CURRENTLY_PROCESSING = "processing"
+_MEASUREMENT_PROCESSING_COUNT = "processing"
+_MEASUREMENT_GET_NEXT_COUNT = "get_next_for_processing"
 _MEASUREMENT_TIME_TO_PROCESS = "time_to_process"
 
 
@@ -111,7 +112,8 @@ class BasicProcessorManager(ProcessorManager):
         self._rules_source = rules_source
         self._enrichment_loaders_source = enrichment_loaders_source
         self._cookie_processing_thread_pool = ThreadPoolExecutor(max_workers=number_of_threads)
-        self._currently_processing_count = 0
+        self._processing_count = 0
+        self._get_next_count = 0
         self._logger = logger
 
     def process_any_cookies(self):
@@ -123,7 +125,11 @@ class BasicProcessorManager(ProcessorManager):
         Processes any cookies, blocking whilst the Cookie is processed.
         """
         # Claim cookie
+        self._get_next_count += 1
+        self._logger.record(_MEASUREMENT_GET_NEXT_COUNT, self._get_next_count)
         cookie = self._cookie_jar.get_next_for_processing()
+        self._get_next_count -= 1
+        self._logger.record(_MEASUREMENT_GET_NEXT_COUNT, self._get_next_count)
 
         if cookie is None:
             logging.info("Triggered to process cookies but none need processing.")
@@ -138,8 +144,8 @@ class BasicProcessorManager(ProcessorManager):
                                        self._enrichment_loaders_source.get_all())
             try:
                 # Process Cookie
-                self._currently_processing_count += 1
-                self._logger.record(_MEASUREMENT_CURRENTLY_PROCESSING, self._currently_processing_count)
+                self._processing_count += 1
+                self._logger.record(_MEASUREMENT_PROCESSING_COUNT, self._processing_count)
                 processor.process_cookie(cookie)
 
                 # Relinquish claim on Cookie
@@ -156,5 +162,5 @@ class BasicProcessorManager(ProcessorManager):
                 # Relinquish claim on Cookie but state processing as failed
                 self._cookie_jar.mark_as_failed(cookie.identifier)
             finally:
-                self._currently_processing_count -= 1
-                self._logger.record(_MEASUREMENT_CURRENTLY_PROCESSING, self._currently_processing_count)
+                self._processing_count -= 1
+                self._logger.record(_MEASUREMENT_PROCESSING_COUNT, self._processing_count)
