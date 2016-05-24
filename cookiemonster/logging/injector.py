@@ -21,7 +21,9 @@ following members that *must* not be mutated:
 
 The purpose of these values is to provide context to the logging,
 specifically for determining the logging measure, value and any
-associated metadata.
+associated metadata. You should never have to instantiate this class,
+but the details of its members are necessary for any non-trivial
+derivation (see below), plus the class can be used as a type hint.
 
 LoggingFunction
 ---------------
@@ -47,6 +49,14 @@ methods that need to be implemented:
 A convenience member function, `log`, can be used in `preexec` or
 `postexec` to write to the log. This will automatically call the
 `get_measure` and `get_metadata` functions with the provided context.
+
+IMPORTANT: In implementations of the above functions in a multithreaded
+context, it is up to you to maintain thread safety. The easiest thing to
+do -- and this applies in general -- would be to avoid the problem by
+not relying on stored state and instead using the function's arguments
+and return values productively. In short: If you treat these as pure
+functions (modulo any I/O done by the actual logging, of course), then
+you'll be fine.
 
 RuntimeLogging
 --------------
