@@ -22,7 +22,7 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.logging.logger import Logger
@@ -41,7 +41,7 @@ MEASUREMENT_QUERY_TIME = {
 }
 
 
-class CookieJarTimingLogging(RuntimeLogging):
+class _CookieJarRuntimeLogging(RuntimeLogging):
     def get_measure(self, context:LoggingContext) -> str:
         fn_name = context.fn.__name__
         return MEASUREMENT_QUERY_TIME[fn_name]
@@ -50,37 +50,43 @@ class CookieJarTimingLogging(RuntimeLogging):
         return None
 
 
+def _create_mapping(logger:Logger) -> LoggingMapper:
+    """
+    Create the logging mapping from CookieJar abstract methods to the
+    Cookie Jar runtime logging function
+
+    @param   logger  Where to log query times to
+    @return  Logging mapping
+    """
+    mapping = LoggingMapper(logger)
+    mapping.map_logging_to_abstract_methods(CookieJar, _CookieJarRuntimeLogging)
+    return mapping
+
+
 def add_cookie_jar_logging(cookie_jar: CookieJar, logger: Logger):
     """
-    Modifies the given `CookieJar` instance so that the time taken to complete calls to its functions is logged.
+    Modifies the given `CookieJar` instance so that the time taken to
+    complete calls to its functions is logged
+
     :param cookie_jar: the `CookieJar` to add logging to
     :param logger: where to log query times to
     """
-    mapping = LoggingMapper(logger)
-    mapping.map_logging_to_abstract_methods(CookieJar, CookieJarTimingLogging)
+    mapping = _create_mapping(logger)
     mapping.inject_logging(cookie_jar)
 
 
-# class LoggingCookieJar(CookieJar):
-#     """
-#     `CookieJar` implementation that logs the amount of time taken to complete `CookieJar` function calls.
-#     """
-# 
-# 
-# def logging_cookie_jar(cookie_jar_cls: type) -> type:
-#     """
-#     Creates a decorate that uses an instances of the given `CookieJar` class as the decorated component.
-#     :param cookie_jar_cls: the class to decorate
-#     :return: the decorated class
-#     """
-#     def decorator_init(cookie_jar: CookieJar, logger: Logger, *args, **kwargs):
-#         super(type(cookie_jar), cookie_jar).__init__(*args, **kwargs)
-#         add_cookie_jar_logging(cookie_jar, logger)
-# 
-#     return type(
-#         "%sLoggingCookieJar" % cookie_jar_cls,
-#         (cookie_jar_cls, LoggingCookieJar),
-#         {
-#             "__init__": decorator_init
-#         }
-#     )
+def logging_cookie_jar(logger:Logger) -> Callable[[type], type]:
+    """
+    Parametrised class decorator that applies the runtime logging
+    mapping to the class' abstract methods
+
+    @param   logger  Where to log query times to
+    @return  Class decorator
+    """
+    mapping = _create_mapping(logger)
+
+    def decorator(cookie_jar_cls:type) -> type:
+        """ Class decorator """
+        return mapping.inject_logging(cookie_jar_cls)
+
+    return decorator
