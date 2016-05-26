@@ -98,10 +98,11 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import json
+from collections import deque
 from datetime import timedelta
 from threading import Lock, Timer
 from time import sleep, time
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 from hgicommon.collections import Metadata
 
@@ -116,6 +117,42 @@ from cookiemonster.cookiejar._rate_limiter import rate_limited
 def _now() -> int:
     """ @return The current Unix time """
     return int(time())
+
+
+class _CountingLock(object):
+    """ Lock that keeps count of threads waiting to acquire itself """
+    def __init__(self, *args, **kwargs):
+        """ Wraps Lock constructor """
+        self._lock = Lock(*args, **kwargs)
+
+        self._wait_lock = Lock()
+        self._waiting = 0
+
+    def acquire(self, *args, **kwargs):
+        """ Wraps Lock.acquire """
+        with self._wait_lock:
+            self._waiting += 1
+
+        self._lock.acquire(*args, **kwargs)
+
+        with self._wait_lock:
+            self._waiting -= 1
+
+    def release(self):
+        """ Wraps Lock.release """
+        self._lock.release()
+
+    def waiting_to_acquire(self) -> int:
+        """ Return the number of threads waiting to acquire the lock """
+        with self._wait_lock:
+            waiting = self._waiting
+        return waiting
+
+    def __enter__(self):
+        self.acquire()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.release()
 
 
 class _Bert(object):
@@ -152,8 +189,6 @@ class _Bert(object):
             'deleted':    False,
             'queue_from': None
         }
-
-        self._queue_lock = Lock()
 
         # If there are any files marked as currently processing, this
         # must be due to a previous failure. Reset all of these for
@@ -245,34 +280,34 @@ class _Bert(object):
 
         self._db.upsert(dirty_doc)
 
-    def dequeue(self) -> Optional[str]:
+    def dequeue(self, count:int) -> List[str]:
         """
-        Get the next document on the queue and mark it as processing
+        Fetch up to count documents (IDs) off the queue and mark them
+        as being processed
 
-        @return File identifier (None, if empty queue)
+        @param   count  The maximum number of documents to dequeue
+        @return  List (potentially empty) of dequeued document IDs
         """
-        with self._queue_lock:
-            results = self._db.query('queue', 'to_process', endkey       = _now(),
-                                                            include_docs = True,
-                                                            reduce       = False,
-                                                            limit        = 1)
-            try:
-                latest = next(results)
-            except StopIteration:
-                return None
+        results = self._db.query('queue', 'to_process', endkey       = _now(),
+                                                        include_docs = True,
+                                                        reduce       = False,
+                                                        limit        = count)
+        output = []
 
-            identifier, current_doc = latest['value'], latest['doc']
+        for found in results:
+            identifier, doc_data = found['value'], found['doc']
 
             processing_doc = {
-                **current_doc,
+                **doc_data,
                 'dirty':      False,
                 'processing': True,
                 'queue_from': None
             }
 
             self._db.upsert(processing_doc)
+            output.append(identifier)
 
-        return identifier
+        return output
 
     def mark_finished(self, identifier:str):
         """
@@ -464,6 +499,9 @@ class BiscuitTin(CookieJar):
         self._queue = _Bert(self._sofa)
         self._metadata = _Ernie(self._sofa)
 
+        self._queue_lock = _CountingLock()
+        self._pending_cache = deque()
+
         self._latency = buffer_latency.total_seconds()
 
     def _broadcast(self):
@@ -520,12 +558,22 @@ class BiscuitTin(CookieJar):
         self._broadcast()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
-        to_process = self._queue.dequeue()
+        with self._queue_lock:
+            if not self._pending_cache:
+                # Dequeue up to as many Cookies (IDs) as there are
+                # waiting threads, plus one for the current thread
+                waiting = self._queue_lock.waiting_to_acquire()
+                to_process = self._queue.dequeue(waiting + 1)
 
-        if to_process is None:
-            return None
+                if not to_process:
+                    return None
 
-        return self._get_cookie(to_process)
+                self._pending_cache.extend([
+                    self._get_cookie(doc_id)
+                    for doc_id in to_process
+                ])
+
+            return self._pending_cache.popleft()
 
     def queue_length(self) -> int:
         return self._queue.queue_length()
