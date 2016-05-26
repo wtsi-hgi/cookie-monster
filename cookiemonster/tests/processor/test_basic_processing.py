@@ -148,7 +148,16 @@ class TestBasicProcessorManager(unittest.TestCase):
             ValueError, BasicProcessorManager, self.cookie_jar, ListDataSource(self.rules), self.enrichment_loaders, 0)
 
     def test_process_any_cookies_when_no_jobs(self):
+        complete = Lock()
+        complete.acquire()
+
+        def on_get_next_for_processing(*args):
+            complete.release()
+
+        self.cookie_jar.get_next_for_processing = MagicMock(side_effect=on_get_next_for_processing)
+
         self.processor_manager.process_any_cookies()
+        complete.acquire()
 
         self.cookie_jar.get_next_for_processing.assert_called_once_with()
         self.cookie_jar.mark_as_complete.assert_not_called()
