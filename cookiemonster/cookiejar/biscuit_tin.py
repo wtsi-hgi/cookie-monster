@@ -98,10 +98,11 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import json
+from collections import deque
 from datetime import timedelta
 from threading import Lock, Timer
 from time import sleep, time
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 from hgicommon.collections import Metadata
 
@@ -279,32 +280,34 @@ class _Bert(object):
 
         self._db.upsert(dirty_doc)
 
-    def dequeue(self) -> Optional[str]:
+    def dequeue(self, count:int) -> List[str]:
         """
-        Get the next document on the queue and mark it as processing
+        Fetch up to count documents (IDs) off the queue and mark them
+        as being processed
 
-        @return File identifier (None, if empty queue)
+        @param   count  The maximum number of documents to dequeue
+        @return  List (potentially empty) of dequeued document IDs
         """
         results = self._db.query('queue', 'to_process', endkey       = _now(),
                                                         include_docs = True,
                                                         reduce       = False,
-                                                        limit        = 1)
-        try:
-            latest = next(results)
-        except StopIteration:
-            return None
+                                                        limit        = count)
+        output = []
 
-        identifier, current_doc = latest['value'], latest['doc']
+        for found in results:
+            identifier, doc_data = found['value'], found['doc']
 
-        processing_doc = {
-            **current_doc,
-            'dirty':      False,
-            'processing': True,
-            'queue_from': None
-        }
+            processing_doc = {
+                **doc_data,
+                'dirty':      False,
+                'processing': True,
+                'queue_from': None
+            }
 
-        self._db.upsert(processing_doc)
-        return identifier
+            self._db.upsert(processing_doc)
+            output.append(identifier)
+
+        return output
 
     def mark_finished(self, identifier:str):
         """
@@ -497,6 +500,7 @@ class BiscuitTin(CookieJar):
         self._metadata = _Ernie(self._sofa)
 
         self._queue_lock = _CountingLock()
+        self._pending_cache = deque()
 
         self._latency = buffer_latency.total_seconds()
 
@@ -555,12 +559,21 @@ class BiscuitTin(CookieJar):
 
     def get_next_for_processing(self) -> Optional[Cookie]:
         with self._queue_lock:
-            to_process = self._queue.dequeue()
+            if not self._pending_cache:
+                # Dequeue up to as many Cookies (IDs) as there are
+                # waiting threads, plus one for the current thread
+                waiting = self._queue_lock.waiting_to_acquire()
+                to_process = self._queue.dequeue(waiting + 1)
 
-        if to_process is None:
-            return None
+                if not to_process:
+                    return None
 
-        return self._get_cookie(to_process)
+                self._pending_cache.extend([
+                    self._get_cookie(doc_id)
+                    for doc_id in to_process
+                ])
+
+            return self._pending_cache.popleft()
 
     def queue_length(self) -> int:
         return self._queue.queue_length()
