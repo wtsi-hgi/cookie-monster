@@ -105,6 +105,7 @@ from time import sleep, time
 from typing import Iterable, List, Optional, Tuple
 
 from hgicommon.collections import Metadata
+from hgicommon.threading import CountingLock
 
 from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.common.helpers import EnrichmentJSONEncoder, EnrichmentJSONDecoder
@@ -117,42 +118,6 @@ from cookiemonster.cookiejar._rate_limiter import rate_limited
 def _now() -> int:
     """ @return The current Unix time """
     return int(time())
-
-
-class _CountingLock(object):
-    """ Lock that keeps count of threads waiting to acquire itself """
-    def __init__(self, *args, **kwargs):
-        """ Wraps Lock constructor """
-        self._lock = Lock(*args, **kwargs)
-
-        self._wait_lock = Lock()
-        self._waiting = 0
-
-    def acquire(self, *args, **kwargs):
-        """ Wraps Lock.acquire """
-        with self._wait_lock:
-            self._waiting += 1
-
-        self._lock.acquire(*args, **kwargs)
-
-        with self._wait_lock:
-            self._waiting -= 1
-
-    def release(self):
-        """ Wraps Lock.release """
-        self._lock.release()
-
-    def waiting_to_acquire(self) -> int:
-        """ Return the number of threads waiting to acquire the lock """
-        with self._wait_lock:
-            waiting = self._waiting
-        return waiting
-
-    def __enter__(self):
-        self.acquire()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.release()
 
 
 class _Bert(object):
@@ -499,7 +464,7 @@ class BiscuitTin(CookieJar):
         self._queue = _Bert(self._sofa)
         self._metadata = _Ernie(self._sofa)
 
-        self._queue_lock = _CountingLock()
+        self._queue_lock = CountingLock()
         self._pending_cache = deque()
 
         self._latency = buffer_latency.total_seconds()
