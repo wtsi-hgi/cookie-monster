@@ -162,7 +162,7 @@ class BatonUpdateMapper(BatonCustomObjectMapper[DataObjectUpdate], UpdateMapper)
 
                 if len(update.modification.modified_replicas) == 1:
                     # Merge modification replica
-                    updated_replica = update.modification.modified_replicas.get_all()[0]
+                    updated_replica = list(update.modification.modified_replicas)[0]
                     existing_update.modification.modified_replicas.add(updated_replica)
 
                 if len(update.modification.modified_metadata) == 1:
