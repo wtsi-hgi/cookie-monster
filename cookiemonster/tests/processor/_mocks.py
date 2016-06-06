@@ -38,7 +38,8 @@ def create_mock_rule(priority: int=Priority.MIN_PRIORITY) -> Rule:
     return Rule(
         lambda file_update, data_environment: True,
         lambda file_update, data_environment: True,
-        priority
+        "my_rule",
+        priority=priority
     )
 
 

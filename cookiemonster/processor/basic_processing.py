@@ -79,7 +79,7 @@ class BasicProcessor(Processor):
                     RULE_ID_KEY: rule.id,
                     RULE_TERMINATED_KEY: terminate
                 }))
-                self.cookie_jar.enrich_cookie(cookie.identifier, enrichment)
+                self.cookie_jar.enrich_cookie(cookie.identifier, enrichment, mark_for_processing=False)
                 # Update in-memory copy of cookie
                 cookie.enrichments.append(enrichment)
             rule_queue.mark_as_applied(rule)
