@@ -166,6 +166,13 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(self.eg_listener.call_count, 1)
 
+    def test_single_enrichment_with_no_processing(self):
+        """
+        CookieJar Sequence: Enrich -> Get Next
+        """
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0], False)
+        self.assertEqual(self.jar.queue_length(), 0)
+
     def test03_multiple_enrichment(self):
         """
         CookieJar Sequence: Enrich -> Enrich Again -> Get Next

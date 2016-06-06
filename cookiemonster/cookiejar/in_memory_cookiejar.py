@@ -71,13 +71,14 @@ class InMemoryCookieJar(CookieJar):
                 else:
                     self._cleanup(identifier)
 
-    def enrich_cookie(self, identifier: str, enrichment: Enrichment):
+    def enrich_cookie(self, identifier: str, enrichment: Enrichment, mark_for_processing: bool=True):
         with self._lists_lock:
             if identifier not in self._known_data:
                 self._known_data[identifier] = Cookie(identifier)
 
         self._known_data[identifier].enrichments.append(enrichment)
-        self.mark_for_processing(identifier)
+        if mark_for_processing:
+            self.mark_for_processing(identifier)
 
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
         if identifier not in self._known_data:

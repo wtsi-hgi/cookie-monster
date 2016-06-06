@@ -498,11 +498,11 @@ class BiscuitTin(CookieJar):
         self._metadata.delete_metadata(identifier)
         self._queue.delete(identifier)
 
-    def enrich_cookie(self, identifier: str, enrichment: Enrichment):
+    def enrich_cookie(self, identifier: str, enrichment: Enrichment, mark_for_processing: bool=True):
         self._metadata.enrich(identifier, enrichment)
-        self._queue.mark_dirty(identifier)
-
-        self._broadcast()
+        if mark_for_processing:
+            self._queue.mark_dirty(identifier)
+            self._broadcast()
 
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
         self._queue.mark_finished(identifier)
