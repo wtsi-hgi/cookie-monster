@@ -82,8 +82,7 @@ class CookieJarHandlers(DependencyInjectionHandler):
         if not cookie:
             raise NotFound
 
-        # FIXME? Back-and-forward JSON decoding :P
-        enrichments = json.loads(json.dumps(cookie.enrichments, cls=EnrichmentJSONEncoder))
+        enrichments = EnrichmentJSONEncoder().default(cookie.enrichments)
         return {'identifier':cookie.identifier, 'enrichments':enrichments}
 
     def DELETE_cookie(self, **kwargs):
