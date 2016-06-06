@@ -26,7 +26,7 @@ import unittest
 from baton.collections import DataObjectReplicaCollection, IrodsMetadata
 from baton.models import DataObjectReplica
 
-from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder, \
+from cookiemonster.retriever.source.irods.json_convert import DataObjectModificationJSONEncoder, \
     DataObjectModificationJSONDecoder
 from cookiemonster.retriever.source.irods.models import DataObjectModification
 

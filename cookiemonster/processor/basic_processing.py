@@ -33,9 +33,9 @@ from cookiemonster.cookiejar import CookieJar
 from cookiemonster.logging.logger import PythonLoggingLogger, Logger
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._rules import RuleQueue
-from cookiemonster.processor.models import Rule, EnrichmentLoader
-from cookiemonster.processor.processing import ProcessorManager, Processor, RULE_MATCHED, RULE_ID_KEY, \
-    RULE_TERMINATED_KEY
+from cookiemonster.processor.json_convert import RuleApplicationLogJSONEncoder
+from cookiemonster.processor.models import Rule, EnrichmentLoader, RuleApplicationLog
+from cookiemonster.processor.processing import ProcessorManager, Processor, RULE_APPLICATION
 from hgicommon.collections import Metadata
 from hgicommon.data_source import DataSource
 
@@ -48,6 +48,8 @@ class BasicProcessor(Processor):
     """
     Simple processor for a single Cookie.
     """
+    _RULE_APPLICATION_LOG_JSON_ENCODER = RuleApplicationLogJSONEncoder()
+
     def __init__(self, cookie_jar: CookieJar, rules: Sequence[Rule], enrichment_loaders: Sequence[EnrichmentLoader]):
         """
         Constructor.
@@ -75,10 +77,9 @@ class BasicProcessor(Processor):
                 logging.error("Error applying rule; Rule: %s; Error: %s" % (rule, traceback.format_exc()))
 
             if matches:
-                enrichment = Enrichment(RULE_MATCHED, datetime.now(), Metadata({
-                    RULE_ID_KEY: rule.id,
-                    RULE_TERMINATED_KEY: terminate
-                }))
+                log = RuleApplicationLog(rule.id, terminate)
+                log_as_dict = BasicProcessor._RULE_APPLICATION_LOG_JSON_ENCODER.default(log)
+                enrichment = Enrichment(RULE_APPLICATION, datetime.now(), Metadata(log_as_dict))
                 self.cookie_jar.enrich_cookie(cookie.identifier, enrichment, mark_for_processing=False)
                 # Update in-memory copy of cookie
                 cookie.enrichments.append(enrichment)

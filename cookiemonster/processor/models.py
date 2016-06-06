@@ -111,3 +111,12 @@ class EnrichmentLoader(ContextContainer, Priority):
         :return: the loaded data
         """
         return self._load_enrichment(cookie, self.context)
+
+
+class RuleApplicationLog():
+    """
+    Log of the application of a rule.
+    """
+    def __init__(self, rule_id: str, terminated_processing: bool):
+        self.rule_id = rule_id
+        self.terminated_processing = terminated_processing

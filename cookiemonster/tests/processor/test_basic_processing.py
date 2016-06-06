@@ -25,6 +25,11 @@ from datetime import datetime
 from threading import Semaphore, Thread, Lock
 from unittest.mock import MagicMock, call
 
+from _regex_core import R
+
+from cookiemonster.processor.json_convert import RuleApplicationLogJSONDecoder
+from cookiemonster.processor.models import RuleApplicationLog
+from cookiemonster.processor.processing import RULE_APPLICATION
 from hgicommon.collections import Metadata
 from hgicommon.data_source import ListDataSource
 from hgicommon.mixable import Priority
@@ -48,7 +53,8 @@ class TestBasicProcessor(unittest.TestCase):
     def setUp(self):
         self.cookie_jar = InMemoryCookieJar()
         self.rules = [Rule(lambda *args: False, MagicMock(), RULE_IDENTIFIER) for _ in range(10)]
-        self.cookie = Cookie(COOKIE_IDENTIFIER)
+        self.cookie_jar.enrich_cookie(COOKIE_IDENTIFIER, Metadata())
+        self.cookie = self.cookie_jar.fetch_cookie(COOKIE_IDENTIFIER)
         self.processor = BasicProcessor(self.cookie_jar, [], [])
 
     def test_evaluate_rules_with_cookie_when_no_rules(self):
@@ -118,6 +124,28 @@ class TestBasicProcessor(unittest.TestCase):
         self.processor.process_cookie(self.cookie)
 
         self.assertFalse(change_detected_in_next_rule)
+
+    def test_evaluate_rules_with_cookie_when_no_matched__does_not_enrich_with_rule_application_log(self):
+        self.processor.rules = self.rules
+        _ = self.processor.evaluate_rules_with_cookie(self.cookie)
+
+        cookie = self.cookie_jar.fetch_cookie(self.cookie.identifier)
+        self.assertEqual(len(cookie.enrichments), 1)
+
+    def test_evaluate_rules_with_cookie_when_matched_enriches_with_rule_application_log(self):
+        matched_rule_identifier = "matched_rule"
+        terminates = False
+        self.processor.rules = self.rules \
+                               + [Rule(lambda *args: True, MagicMock(return_value=terminates), matched_rule_identifier)]
+        _ = self.processor.evaluate_rules_with_cookie(self.cookie)
+
+        cookie = self.cookie_jar.fetch_cookie(self.cookie.identifier)
+        self.assertGreater(len(cookie.enrichments), 1)
+        last_enrichment = cookie.enrichments[-1]
+        self.assertEqual(last_enrichment.source, RULE_APPLICATION)
+        rule_application_log = RuleApplicationLogJSONDecoder().decode_parsed(last_enrichment.metadata)  # type: RuleApplicationLog
+        self.assertEqual(rule_application_log.rule_id, matched_rule_identifier)
+        self.assertEqual(rule_application_log.terminated_processing, terminates)
 
     def test_handle_cookie_enrichment_when_matching_enrichments(self):
         self.processor.notification_receivers = [MagicMock()]
