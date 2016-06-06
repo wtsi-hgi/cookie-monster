@@ -37,6 +37,7 @@ from cookiemonster.processor.models import Rule, EnrichmentLoader
 from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
 
 COOKIE_IDENTIFIER = "/my/cookie"
+RULE_IDENTIFIER = "my_rule"
 SAMPLE_ENRICHMENT = Enrichment("sample", datetime(year=2000, month=1, day=1), Metadata())
 
 
@@ -46,7 +47,7 @@ class TestBasicProcessor(unittest.TestCase):
     """
     def setUp(self):
         self.cookie_jar = InMemoryCookieJar()
-        self.rules = [Rule(lambda *args: False, MagicMock()) for _ in range(10)]
+        self.rules = [Rule(lambda *args: False, MagicMock(), RULE_IDENTIFIER) for _ in range(10)]
         self.cookie = Cookie(COOKIE_IDENTIFIER)
         self.processor = BasicProcessor(self.cookie_jar, [], [])
 
@@ -65,8 +66,8 @@ class TestBasicProcessor(unittest.TestCase):
 
     def test_evaluate_rules_with_cookie_when_matched_rules_and_no_termination(self):
         extra_rules = [
-            Rule(lambda *args: True, MagicMock(return_value=False)),
-            Rule(lambda *args: True, MagicMock(return_value=False))
+            Rule(lambda *args: True, MagicMock(return_value=False), RULE_IDENTIFIER),
+            Rule(lambda *args: True, MagicMock(return_value=False), RULE_IDENTIFIER)
         ]
         self.processor.rules = self.rules + extra_rules
         halt = self.processor.evaluate_rules_with_cookie(self.cookie)
@@ -108,8 +109,8 @@ class TestBasicProcessor(unittest.TestCase):
                 change_detected_in_next_rule = True
 
         self.processor.rules = [
-            Rule(cookie_changer, self.rules[0]._action, priority=Priority.MAX_PRIORITY),
-            Rule(record_fail_if_changed, self.rules[0]._action, priority=Priority.MIN_PRIORITY)
+            Rule(cookie_changer, self.rules[0]._action, RULE_IDENTIFIER, priority=Priority.MAX_PRIORITY),
+            Rule(record_fail_if_changed, self.rules[0]._action, RULE_IDENTIFIER, priority=Priority.MIN_PRIORITY)
         ]
         self.processor.process_cookie(self.cookie)
 
@@ -117,7 +118,8 @@ class TestBasicProcessor(unittest.TestCase):
 
     def test_handle_cookie_enrichment_when_matching_enrichments(self):
         self.processor.notification_receivers = [MagicMock()]
-        self.processor.enrichment_loaders = [EnrichmentLoader(lambda *args: True, lambda *args: SAMPLE_ENRICHMENT)]
+        self.processor.enrichment_loaders = [EnrichmentLoader(
+            lambda *args: True, lambda *args: SAMPLE_ENRICHMENT, RULE_IDENTIFIER)]
 
         self.processor.handle_cookie_enrichment(self.cookie)
 
@@ -170,7 +172,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         self.cookie_jar.mark_as_complete = MagicMock(side_effect=on_complete)
 
-        self.rules.append(Rule(lambda *args: True, lambda *args: True))
+        self.rules.append(Rule(lambda *args: True, lambda *args: True, RULE_IDENTIFIER))
 
         number_to_process = 100
         for i in range(number_to_process):
@@ -202,7 +204,7 @@ class TestBasicProcessorManager(unittest.TestCase):
             rule_lock.acquire()
             return True
 
-        self.rules.append(Rule(matching_criteria, lambda *args: True))
+        self.rules.append(Rule(matching_criteria, lambda *args: True, RULE_IDENTIFIER))
 
         self.cookie_jar.mark_for_processing(self.cookie.identifier)
         processor_manager.process_any_cookies()
@@ -216,7 +218,7 @@ class TestBasicProcessorManager(unittest.TestCase):
         # Change the rules for the next cookie to be processed
         self.rules.pop()
         rule_execute_monitor = MagicMock()
-        self.rules.append(Rule(lambda *args: True, rule_execute_monitor))
+        self.rules.append(Rule(lambda *args: True, rule_execute_monitor, RULE_IDENTIFIER))
 
         # Free the processor to complete the first cookie
         rule_lock.release()

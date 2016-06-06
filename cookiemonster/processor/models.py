@@ -35,19 +35,19 @@ class Rule(ContextContainer, Priority):
     """
     def __init__(self, precondition: Callable[[Cookie, Context], bool],
                  action: Callable[[Cookie, Context], Optional[bool]],
-                 priority: int = Priority.MIN_PRIORITY, name=None):
+                 id: str, priority: int = Priority.MIN_PRIORITY):
         """
         Constructor.
         :param precondition: the precondition that should return `True` if the action is to be executed
         :param action: the action to be executed if the production rule is triggered. May return whether the system
         should not process any further rules (`True` halts, defaults to `False`)
         :param priority: the priority of the rule (defaults to the minimum priority)
-        :param name: optional human readable name to allow identification of the enrichment loader
+        :param id: identifier
         """
         super().__init__(priority)
         self._precondition = precondition
         self._action = action
-        self.name = name
+        self.id = id
 
     def matches(self, cookie: Cookie) -> bool:
         """
@@ -83,18 +83,18 @@ class EnrichmentLoader(ContextContainer, Priority):
     """
     def __init__(self, can_enrich: Callable[[Cookie, Context], bool],
                  load_enrichment: Callable[[Cookie, Context], Enrichment],
-                 priority: int=Priority.MIN_PRIORITY, name=None):
+                 id: str, priority: int=Priority.MIN_PRIORITY):
         """
         Constructor.
         :param can_enrich: see `EnrichmentLoader.can_enrich`
         :param load_enrichment: see `EnrichmentLoader.load_enrichment`
         :param priority: the priority used to decide when the enrichment loader should be used
-        :param name: optional human readable name to allow identification of the enrichment loader
+        :param id: identifier
         """
         super().__init__(priority)
         self._can_enrich = can_enrich
         self._load_enrichment = load_enrichment
-        self.name = name
+        self.id = id
 
     def can_enrich(self, cookie: Cookie) -> bool:
         """

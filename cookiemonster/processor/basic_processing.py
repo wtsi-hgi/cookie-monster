@@ -67,6 +67,7 @@ class BasicProcessor(Processor):
             try:
                 if rule.matches(isolated_cookie):
                     terminate = rule.execute_action(isolated_cookie)
+
             except Exception:
                 logging.error("Error applying rule; Rule: %s; Error: %s" % (rule, traceback.format_exc()))
             rule_queue.mark_as_applied(rule)

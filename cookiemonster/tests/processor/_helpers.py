@@ -133,8 +133,8 @@ class RuleChecker(_Checker):
         super().__init__(test_case)
         self._rules = dict()  # type: Dict[str, Rule]
         for rule in rules:
-            assert rule.name not in self._rules
-            self._rules[rule.name] = rule
+            assert rule.id not in self._rules
+            self._rules[rule.id] = rule
 
     def assert_call_counts(self, name: str, precondition_call_count: int, action_call_count: int):
         """
@@ -164,8 +164,8 @@ class EnrichmentLoaderChecker(_Checker):
         super().__init__(test_case)
         self._enrichment_loaders = dict()  # type: Dict[str, EnrichmentLoader]
         for enrichment_loader in enrichment_loaders:
-            assert enrichment_loader.name not in self._enrichment_loaders
-            self._enrichment_loaders[enrichment_loader.name] = enrichment_loader
+            assert enrichment_loader.id not in self._enrichment_loaders
+            self._enrichment_loaders[enrichment_loader.id] = enrichment_loader
 
     def assert_call_counts(self, name: str, can_enrich_call_count: int, load_enrichment_call_count: int):
         """
