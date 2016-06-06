@@ -25,6 +25,10 @@ from abc import abstractmethod
 
 from cookiemonster.common.models import Cookie
 
+RULE_MATCHED = "rule_matched"
+RULE_ID_KEY = "rule_id"
+RULE_TERMINATED_KEY = "rule_terminated"
+
 
 class Processor(metaclass=ABCMeta):
     """
@@ -47,7 +51,9 @@ class Processor(metaclass=ABCMeta):
         """
         Evaluates the rules known by this processor with the given Cookie. Rules should be evaluated in order of
         priority and evaluation should stop if a rule action signals no further processing is required via a `True`
-        return value. Rules must not be allowed make changes to the Cookie.
+        return value. If a rule matches, the cookie should be given a `RULE_MATCHED` enrichment with metadata
+        indicating the rule matched with `RULE_ID_KEY` and whether the rule indicated that no further processing of the
+        cookie should be done with `RULE_TERMINATES_KEY`. Rules must not be allowed make changes to the Cookie.
         :param cookie: the cookie to evaluate rules against
         :return: whether the system should stop evaluating further rules
         """

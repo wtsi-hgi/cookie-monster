@@ -74,6 +74,9 @@ class TestBasicProcessor(unittest.TestCase):
 
         for rule in self.rules:
             rule._action.assert_not_called()
+        for rule in extra_rules:
+            self.assertEqual(rule._action.call_count, 1)
+            self.assertEqual(rule._action.call_args[0][0].identifier, self.cookie.identifier)
         self.assertFalse(halt)
 
     def test_evaluate_rules_with_cookie_when_matched_rules_and_termination(self):

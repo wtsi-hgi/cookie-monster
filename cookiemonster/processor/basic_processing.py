@@ -25,17 +25,19 @@ import logging
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Sequence
 
-from hgicommon.data_source import DataSource
-
-from cookiemonster.common.models import Cookie
+from cookiemonster.common.models import Cookie, Enrichment
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.logging.logger import PythonLoggingLogger, Logger
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._rules import RuleQueue
 from cookiemonster.processor.models import Rule, EnrichmentLoader
-from cookiemonster.processor.processing import ProcessorManager, Processor
+from cookiemonster.processor.processing import ProcessorManager, Processor, RULE_MATCHED, RULE_ID_KEY, \
+    RULE_TERMINATED_KEY
+from hgicommon.collections import Metadata
+from hgicommon.data_source import DataSource
 
 _MEASUREMENT_PROCESSING_COUNT = "processing"
 _MEASUREMENT_GET_NEXT_COUNT = "get_next_for_processing"
@@ -65,11 +67,21 @@ class BasicProcessor(Processor):
             rule = rule_queue.get_next()
             isolated_cookie = copy.deepcopy(cookie)
             try:
-                if rule.matches(isolated_cookie):
+                matches = rule.matches(isolated_cookie)
+                if matches:
                     terminate = rule.execute_action(isolated_cookie)
-
-            except Exception:
+            except:
+                matches = False
                 logging.error("Error applying rule; Rule: %s; Error: %s" % (rule, traceback.format_exc()))
+
+            if matches:
+                enrichment = Enrichment(RULE_MATCHED, datetime.now(), Metadata({
+                    RULE_ID_KEY: rule.id,
+                    RULE_TERMINATED_KEY: terminate
+                }))
+                self.cookie_jar.enrich_cookie(cookie.identifier, enrichment)
+                # Update in-memory copy of cookie
+                cookie.enrichments.append(enrichment)
             rule_queue.mark_as_applied(rule)
 
         return terminate
@@ -81,9 +93,7 @@ class BasicProcessor(Processor):
         enrichment = enrichment_manager.next_enrichment(cookie)
 
         if enrichment is None:
-            logging.info("Cannot enrich cookie with identifier \"%s\" any further - notifying listeners"
-                         % cookie.identifier)
-            # TODO: Should anything else be done here?
+            logging.info("Cannot enrich cookie with identifier \"%s\" any further" % cookie.identifier)
         else:
             logging.info("Applying enrichment from source \"%s\" to cookie with identifier \"%s\""
                          % (enrichment.source, cookie.identifier))
