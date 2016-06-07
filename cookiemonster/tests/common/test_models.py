@@ -25,10 +25,8 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 import unittest
 from datetime import datetime
 
+from cookiemonster.common.models import Cookie, Enrichment
 from hgicommon.collections import Metadata
-
-from cookiemonster.common.models import Cookie, EnrichmentDiff
-from cookiemonster.common.models import Enrichment
 
 
 class TestCookie(unittest.TestCase):
@@ -39,6 +37,11 @@ class TestCookie(unittest.TestCase):
 
     def setUp(self):
         self._cookie = Cookie(TestCookie._IDENTIFIER)
+
+    def test_enrich(self):
+        enrichment = Enrichment("source", datetime(1, 1, 1), Metadata())
+        self._cookie.enrich(enrichment)
+        self.assertCountEqual(self._cookie.enrichments, [enrichment])
 
 
 if __name__ == "__main__":
