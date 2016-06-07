@@ -25,21 +25,18 @@ from datetime import datetime
 from threading import Semaphore, Thread, Lock
 from unittest.mock import MagicMock, call
 
-from _regex_core import R
-
+from cookiemonster.common.context import Context
+from cookiemonster.common.models import Cookie, Notification, Enrichment
+from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
+from cookiemonster.processor.basic_processing import BasicProcessor, BasicProcessorManager
 from cookiemonster.processor.json_convert import RuleApplicationLogJSONDecoder
+from cookiemonster.processor.models import Rule, EnrichmentLoader
 from cookiemonster.processor.models import RuleApplicationLog
 from cookiemonster.processor.processing import RULE_APPLICATION
+from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
 from hgicommon.collections import Metadata
 from hgicommon.data_source import ListDataSource
 from hgicommon.mixable import Priority
-
-from cookiemonster.common.models import Cookie, Notification, Enrichment
-from cookiemonster.common.context import Context
-from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
-from cookiemonster.processor.basic_processing import BasicProcessor, BasicProcessorManager
-from cookiemonster.processor.models import Rule, EnrichmentLoader
-from cookiemonster.tests.processor._mocks import create_magic_mock_cookie_jar
 
 COOKIE_IDENTIFIER = "/my/cookie"
 RULE_IDENTIFIER = "my_rule"
