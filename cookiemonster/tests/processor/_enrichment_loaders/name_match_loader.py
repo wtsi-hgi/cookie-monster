@@ -48,5 +48,5 @@ def _load_enrichment(cookie: Cookie, context: Context) -> Enrichment:
 _priority = Priority.get_lower_priority_value(Priority.MAX_PRIORITY)
 
 _enrichment_loader = EnrichmentLoader(MagicMock(side_effect=_can_enrich), MagicMock(side_effect=_load_enrichment),
-                                      _priority, NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID)
+                                      NAME_MATCH_LOADER_ENRICHMENT_LOADER_ID, _priority)
 register(_enrichment_loader)

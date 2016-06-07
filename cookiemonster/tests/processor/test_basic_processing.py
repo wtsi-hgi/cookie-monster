@@ -245,7 +245,7 @@ class TestBasicProcessorManager(unittest.TestCase):
 
         # Change the rules for the next cookie to be processed
         self.rules.pop()
-        rule_execute_monitor = MagicMock()
+        rule_execute_monitor = MagicMock(return_value=False)
         self.rules.append(Rule(lambda *args: True, rule_execute_monitor, RULE_IDENTIFIER))
 
         # Free the processor to complete the first cookie
