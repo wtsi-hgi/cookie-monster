@@ -65,8 +65,7 @@ such:
 ```python
 processor_manager = BasicProcessorManager(number_of_processors, cookie_jar, rules_source, enrichment_loader_source)
 ```
-Then setup to process Cookies as they are enriched in the CookieJar (see
-[https://github.com/wtsi-hgi/cookie-monster/issues/18](related bug)):
+It can then be setup to process Cookies as they are enriched in the CookieJar:
 ```python
 cookie_jar.add_listener(processor_manager.process_any_cookies)
 ```
@@ -84,7 +83,7 @@ running will continue to use the set of rules that they had when they were start
 
 The following example illustrates how a rule is defined and registered. If appropriate, the code can be inserted into an 
 existing rule file. Alternatively, it can be added to a new file in the rules directory, with a name matching the
-format: ``*.rule.py``. Rule files can be put into subdirectories. If the Python module does not compile (e.g. it 
+format: ``*rule.py``. Rule files can be put into subdirectories. If the Python module does not compile (e.g. it
 contains invalid syntax or uses a Python library that has not been installed), the module will be ignored.
 ```python
 from cookiemonster.models import Cookie, Rule
@@ -118,7 +117,7 @@ is required, cookie "enrichment loaders" can be used to load more information ab
 
 ##### Changing enrichment loaders on-the-fly
 Similarly to [rules](#rules), the enrichment loaders can be changed during execution. Files containing enrichment
-loaders must have a name matching the format: ``*.loader.py``.
+loaders must have a name matching the format: ``*loader.py``.
 ```python
 from cookiemonster import EnrichmentLoader, Cookie, Enrichment
 from hgicommon.mixable import Priority
@@ -146,10 +145,9 @@ A Cookie Monster installation may use data retrievers, which get updates about d
 (which will create if no previous information is known) related Cookies in the CookieJar.
  
 A retriever that periodically gets information about updates made to entities in an [iRODS database](https://irods.org)
-is shipped with the system. In order to use it, specific queries defined in 
+is shipped with the system. In order to use it, the specific queries defined in
 [resources/specific-queries](resources/specific-queries) must be installed on your iRODS server and a version of 
-[baton](https://github.com/wtsi-npg/baton) that supports specific queries 
-([such as that by wtsi-hgi](https://github.com/wtsi-hgi/baton/tree/feature/specificquery)) must be installed. It can be 
+[baton](https://github.com/wtsi-npg/baton) above 0.16.3 must be installed. It can be
 setup as such:
 ```python
 update_mapper = BatonUpdateMapper(baton_binaries_location)
