@@ -30,7 +30,7 @@ from baton.collections import DataObjectReplicaCollection, IrodsMetadata
 from baton.models import DataObjectReplica
 from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_QUERY_ALIAS
 from cookiemonster.retriever.source.irods.baton_mappers import BatonUpdateMapper, MODIFIED_DATA_QUERY_ALIAS
-from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder
+from cookiemonster.retriever.source.irods.json_convert import DataObjectModificationJSONEncoder
 from cookiemonster.retriever.source.irods.models import DataObjectModification
 from cookiemonster.tests.retriever.source.irods._helpers import install_queries
 from cookiemonster.tests.retriever.source.irods._settings import BATON_SETUP

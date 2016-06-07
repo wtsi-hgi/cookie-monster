@@ -104,14 +104,16 @@ class CookieJar(Listenable[None], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def enrich_cookie(self, identifier: str, enrichment: Enrichment):
+    def enrich_cookie(self, identifier: str, enrichment: Enrichment, mark_for_processing: bool=True):
         """
         Append/update metadata for a given file, thus changing its state
-        and putting it back on the queue (or adding it, if its new),
+        and (optionally) putting it back on the queue (or adding it, if its new),
         with the supplied enrichment
 
         @param  identifier  Cookie identifier
         @param  enrichment  Enrichment
+        @param  mark_for_processing whether the cookie should be put on the back of the queue for processing following
+        this enrichment
         """
 
     @abstractmethod

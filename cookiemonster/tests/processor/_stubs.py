@@ -38,7 +38,7 @@ class StubCookieJar(CookieJar):
     def mark_as_complete(self, path: str):
         pass
 
-    def enrich_cookie(self, path: str, enrichment: Enrichment):
+    def enrich_cookie(self, identifier: str, enrichment: Enrichment, mark_for_processing: bool=True):
         pass
 
     def mark_for_processing(self, path: str):

@@ -34,16 +34,23 @@ from cookiemonster.processor._enrichment import EnrichmentManager, EnrichmentLoa
 from cookiemonster.processor.models import EnrichmentLoader
 
 
+_ENRICHMENT_IDENTIFIER = "my_enrichment"
+
+
 class TestEnrichmentManager(unittest.TestCase):
     """
     Tests for `EnrichmentManager`.
     """
     def setUp(self):
         self.enrichment_loaders = [
-            EnrichmentLoader(lambda *args: False, lambda *args: Enrichment("source_1", datetime.min, Metadata()), 10),
-            EnrichmentLoader(lambda *args: True, lambda *args: Enrichment("source_2", datetime.min, Metadata()), 5),
-            EnrichmentLoader(lambda *args: True, lambda *args: Enrichment("source_3", datetime.min, Metadata()), 2),
-            EnrichmentLoader(lambda *args: False, lambda *args: Enrichment("source_4", datetime.min, Metadata()), 1)
+            EnrichmentLoader(lambda *args: False, lambda *args: Enrichment(
+                "source_1", datetime.min, Metadata()), _ENRICHMENT_IDENTIFIER, 10),
+            EnrichmentLoader(lambda *args: True, lambda *args: Enrichment(
+                "source_2", datetime.min, Metadata()), _ENRICHMENT_IDENTIFIER, 5),
+            EnrichmentLoader(lambda *args: True, lambda *args: Enrichment(
+                "source_3", datetime.min, Metadata()), _ENRICHMENT_IDENTIFIER, 2),
+            EnrichmentLoader(lambda *args: False, lambda *args: Enrichment(
+                "source_4", datetime.min, Metadata()), _ENRICHMENT_IDENTIFIER, 1)
         ]
 
     def test_next_enrichment(self):
@@ -59,9 +66,9 @@ class TestEnrichmentManager(unittest.TestCase):
 
         additional_enrichment_loaders = [
             EnrichmentLoader(lambda *args: True, lambda *args: faulty_load_enrichment(1), 0),
-            EnrichmentLoader(
-                    lambda *args: faulty_can_enrich(1), lambda *args: Enrichment("", datetime.min, Metadata()), 5),
-            EnrichmentLoader(lambda *args: True, lambda *args: faulty_load_enrichment(2), 15)
+            EnrichmentLoader(lambda *args: faulty_can_enrich(1), lambda *args: Enrichment(
+                "", datetime.min, Metadata()), _ENRICHMENT_IDENTIFIER, 5),
+            EnrichmentLoader(lambda *args: True, lambda *args: faulty_load_enrichment(2), _ENRICHMENT_IDENTIFIER, 15)
         ]
         enrichment_manager = EnrichmentManager(additional_enrichment_loaders + self.enrichment_loaders)
 

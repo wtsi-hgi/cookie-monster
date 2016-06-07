@@ -90,6 +90,8 @@ from cookiemonster.models import Cookie, Rule
 from hgicommon.mixable import Priority
 from hgicommon.data_source import register
 
+MY_RULE_IDENTIFIER = "my_rule"
+
 def _matches(cookie: Cookie, context: Context) -> bool:
     return "my_study" in cookie.path
         
@@ -99,7 +101,7 @@ def _action(cookie: Cookie, context: Context) -> bool:
 
 _priority = Priority.MAX_PRIORITY
 
-_rule = Rule(_matches, _generate_action, _priority, "optional_name")
+_rule = Rule(_matches, _generate_action, MY_RULE_IDENTIFIER, _priority)
 register(_rule)
 ```
 
@@ -123,6 +125,8 @@ from cookiemonster import EnrichmentLoader, Cookie, Enrichment
 from hgicommon.mixable import Priority
 from hgicommon.data_source import register
 
+MY_ENRICHMENT_IDENTIFIER = "my_enrichment"
+
 def _can_enrich(cookie: Cookie, context: Context) -> bool:
     return "my_data_source" in [enrichment.source for enrichment in cookie.enrichments]
     
@@ -131,7 +135,7 @@ def _load_enrichment(cookie: Cookie, context: Context) -> Enrichment:
 
 _priority = Priority.MAX_PRIORITY
 
-_enrichment_loader = EnrichmentLoader(_can_enrich, _load_enrichment, _priority, "optional_name")
+_enrichment_loader = EnrichmentLoader(_can_enrich, _load_enrichment, MY_ENRICHMENT_IDENTIFIER, _priority)
 register(_enrichment_loader)
 ```
 
@@ -194,6 +198,7 @@ following endpoints are defined:
 
 Note that *all* requests must include `application/json` in their
 `Accept` header.
+
 
 ## How to develop
 ### Testing

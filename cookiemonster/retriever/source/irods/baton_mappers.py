@@ -41,7 +41,7 @@ from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_AT
     MODIFIED_DATA_TIMESTAMP_PROPERTY, MODIFIED_METADATA_TIMESTAMP_PROPERTY, MODIFIED_DATA_QUERY_ALIAS, \
     MODIFIED_METADATA_ATTRIBUTE_VALUE_PROPERTY, MODIFIED_METADATA_QUERY_ALIAS, MODIFIED_DATA_REPLICA_NUMBER_PROPERTY, \
     MODIFIED_DATA_REPLICA_STATUS_PROPERTY
-from cookiemonster.retriever.source.irods.json import DataObjectModificationJSONEncoder
+from cookiemonster.retriever.source.irods.json_convert import DataObjectModificationJSONEncoder
 from cookiemonster.retriever.source.irods.models import DataObjectUpdate
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)

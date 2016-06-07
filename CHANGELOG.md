@@ -3,6 +3,11 @@
 ### Added
 - Logging of number of threads waiting to a get a Cookie to process.
 - Ability to get more than one cookie for processing at a time.
+- After a rule is matched and its production is executed, the corresponding cookie is enriched with a
+`RuleApplicationLog` from the `RULE_APPLICATION` source ([42](https://github.com/wtsi-hgi/python-baton-wrapper)).
+
+### Changed
+- Identifiers for rules and enrichment loaders are no mandatory.
 
 ## 1.0.0 (Benevolent Bourbon) - 2016-05-16
 ### Added
