@@ -29,6 +29,7 @@ from multiprocessing import Lock
 from threading import Timer
 from typing import Any, Optional, List, Dict
 
+from cookiemonster.common.collections import EnrichmentCollection
 from cookiemonster.common.models import Cookie, Enrichment
 from cookiemonster.cookiejar import CookieJar
 
@@ -66,7 +67,7 @@ class InMemoryCookieJar(CookieJar):
         with self._lists_lock:
             if identifier in self._known_data:
                 if identifier in self._processing:
-                    self._known_data[identifier].enrichments[:] = []
+                    self._known_data[identifier].enrichments = EnrichmentCollection()
                     self._delete_on_complete.append(identifier)
                 else:
                     self._cleanup(identifier)
@@ -76,7 +77,7 @@ class InMemoryCookieJar(CookieJar):
             if identifier not in self._known_data:
                 self._known_data[identifier] = Cookie(identifier)
 
-        self._known_data[identifier].enrichments.append(enrichment)
+        self._known_data[identifier].enrichments.add(enrichment)
         if mark_for_processing:
             self.mark_for_processing(identifier)
 

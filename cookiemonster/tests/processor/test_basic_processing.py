@@ -50,7 +50,7 @@ class TestBasicProcessor(unittest.TestCase):
     def setUp(self):
         self.cookie_jar = InMemoryCookieJar()
         self.rules = [Rule(lambda *args: False, MagicMock(), RULE_IDENTIFIER) for _ in range(10)]
-        self.cookie_jar.enrich_cookie(COOKIE_IDENTIFIER, Metadata())
+        self.cookie_jar.enrich_cookie(COOKIE_IDENTIFIER, Enrichment("first", datetime(year=1, month=1, day=1), Metadata()))
         self.cookie = self.cookie_jar.fetch_cookie(COOKIE_IDENTIFIER)
         self.processor = BasicProcessor(self.cookie_jar, [], [])
 

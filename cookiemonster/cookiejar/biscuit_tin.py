@@ -100,19 +100,16 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 import json
 from collections import deque
 from datetime import timedelta
-from threading import Lock, Timer
-from time import sleep, time
+from threading import Timer
+from time import time
 from typing import Iterable, List, Optional, Tuple
 
-from hgicommon.collections import Metadata
-from hgicommon.threading import CountingLock
-
-from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.common.helpers import EnrichmentJSONEncoder, EnrichmentJSONDecoder
-
+from cookiemonster.common.models import Enrichment, Cookie
+from cookiemonster.cookiejar._rate_limiter import rate_limited
 from cookiemonster.cookiejar.cookiejar import CookieJar
 from cookiemonster.cookiejar.couchdb import Sofabed
-from cookiemonster.cookiejar._rate_limiter import rate_limited
+from hgicommon.threading import CountingLock
 
 
 def _now() -> int:
