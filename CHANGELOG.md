@@ -7,7 +7,9 @@
 `RuleApplicationLog` from the `RULE_APPLICATION` source ([42](https://github.com/wtsi-hgi/python-baton-wrapper)).
 
 ### Changed
-- Identifiers for rules and enrichment loaders are no mandatory.
+- Identifiers for rules and enrichment loaders are now mandatory.
+- Cookie enrichments are now stored in an `EnrichmentCollection`. Helper methods for searching enrichments have been
+removed from the `Cookie` class and moved to the collection ([43](https://github.com/wtsi-hgi/cookie-monster/issues/43)).
 
 ## 1.0.0 (Benevolent Bourbon) - 2016-05-16
 ### Added

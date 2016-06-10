@@ -82,7 +82,7 @@ class BasicProcessor(Processor):
                 enrichment = Enrichment(RULE_APPLICATION, datetime.now(), Metadata(log_as_dict))
                 self.cookie_jar.enrich_cookie(cookie.identifier, enrichment, mark_for_processing=False)
                 # Update in-memory copy of cookie
-                cookie.enrichments.append(enrichment)
+                cookie.enrichments.add(enrichment)
             rule_queue.mark_as_applied(rule)
 
         return terminate

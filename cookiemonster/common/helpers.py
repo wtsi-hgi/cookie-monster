@@ -22,17 +22,15 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-import datetime
+from datetime import datetime
+from typing import List, Optional, Union, Sequence
 
 import pytz
 
+from cookiemonster.common.models import EnrichmentDiff, Enrichment
 from hgicommon.collections import Metadata
-
-from cookiemonster.common.models import Enrichment
-
-from hgijson.json.models import JsonPropertyMapping
-from hgijson.json.primitive import DatetimeEpochJSONEncoder, DatetimeEpochJSONDecoder
-from hgijson.json.builders import MappingJSONEncoderClassBuilder, MappingJSONDecoderClassBuilder
+from hgijson import DatetimeEpochJSONEncoder, DatetimeEpochJSONDecoder, JsonPropertyMapping, \
+    MappingJSONEncoderClassBuilder, MappingJSONDecoderClassBuilder
 
 
 def localise_to_utc(timestamp: datetime) -> datetime:
@@ -45,6 +43,49 @@ def localise_to_utc(timestamp: datetime) -> datetime:
         return pytz.utc.localize(timestamp)
     else:
         return timestamp.astimezone(pytz.utc)
+
+
+def get_enrichment_changes_from_source(enrichments: Sequence[Enrichment], source: str,
+                                       keys: Union[None, str, List[str]]=None,
+                                       since: Optional[datetime]=None) -> List[EnrichmentDiff]:
+    """
+    Get the running changes in metadata from an enrichment source
+    and, optional, key/list of keys based from the first known
+    enrichment
+
+    @param   enrichments    Enrichments ordered by timestamp (most recent last)
+    @param   source  Enrichment source
+    @param   keys    Metadata key(s) to check (optional; check all if omitted)
+    @param   since   Time from which to check for changes (optional; check all if omitted)
+    @return  List of differences
+
+    TODO? Do we need a `before` parameter, as well...
+    """
+    first_comparator_index = 1
+    output = []
+
+    if since:
+        for enrichment in enrichments[1:]:
+            if enrichment.timestamp < since:
+                first_comparator_index += 1
+            else:
+                # Enrichment list should be ordered by timestamp
+                break
+
+    total = len(enrichments)
+    if total <= first_comparator_index:
+        return output
+
+    # Normalise single key
+    if isinstance(keys, str):
+        keys = [keys]
+
+    for i in range(first_comparator_index, total):
+        diff = EnrichmentDiff(enrichments[i - 1], enrichments[i], keys)
+        if diff.is_different():
+            output.append(diff)
+
+    return output
 
 
 _ENRICHMENT_JSON_MAPPING = [
