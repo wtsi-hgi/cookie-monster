@@ -1,9 +1,9 @@
 pycouchdb==1.14
-requests==2.8.1
-Flask==0.10.1
-pytz==2015.7
-APScheduler==3.0.4
+requests==2.10.0
+Flask==0.11.1
+pytz==2016.4
+APScheduler==3.1.0
 influxdb==2.12.0
 hgijson==1.3.1
-git+https://github.com/wtsi-hgi/python-common.git@116b21ed1d9f328442cc76d0cbcf151d79871f60#egg=hgicommon
-git+https://github.com/wtsi-hgi/python-baton-wrapper.git@5197522430f83799f16a488341ba81d832c359ee#egg=baton
+git+https://github.com/wtsi-hgi/python-baton-wrapper.git@fb35815209f560f9d587cebb5adb482e28df3803#egg=baton
+git+https://github.com/wtsi-hgi/python-common.git@fad374bace2cb50712b61ed9a909cd5b6081bd1e#egg=hgicommon
