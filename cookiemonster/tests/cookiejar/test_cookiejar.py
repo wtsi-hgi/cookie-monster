@@ -74,6 +74,7 @@ from threading import Timer
 from typing import Any, Callable
 from numbers import Real
 
+from cookiemonster.common.collections import EnrichmentCollection
 from cookiemonster.cookiejar import CookieJar, BiscuitTin, RateLimitedBiscuitTin
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
 from cookiemonster.common.models import Enrichment, Cookie
@@ -101,10 +102,10 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
             Metadata({'xyzzy': 123}),
             Metadata({'quux': 'snuffleupagus'})
         ]
-        self.eg_enrichments = [
+        self.eg_enrichments = EnrichmentCollection([
             Enrichment('random', datetime(1981, 9, 25, 5, 55, tzinfo=timezone.utc), self.eg_metadata[0]),
             Enrichment('irods', datetime.now(tz=timezone.utc).replace(microsecond=0), self.eg_metadata[1])
-        ]
+        ])
         self.eg_listener = MagicMock()
 
         self.jar = self._create_cookie_jar()

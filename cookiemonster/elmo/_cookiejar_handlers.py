@@ -82,7 +82,8 @@ class CookieJarHandlers(DependencyInjectionHandler):
         if not cookie:
             raise NotFound
 
-        enrichments = EnrichmentJSONEncoder().default(cookie.enrichments)
+        # TODO: This defines a JSON representation of a Cookie that could be encapsulated in a JSONEncoder
+        enrichments = EnrichmentJSONEncoder().default(list(cookie.enrichments))
         return {'identifier':cookie.identifier, 'enrichments':enrichments}
 
     def DELETE_cookie(self, **kwargs):

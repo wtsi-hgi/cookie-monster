@@ -21,6 +21,7 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import unittest
+from copy import deepcopy
 from datetime import datetime, timedelta
 
 from cookiemonster.common.collections import UpdateCollection, EnrichmentCollection
@@ -95,6 +96,21 @@ class TestEnrichmentCollection(unittest.TestCase):
 
     def setUp(self):
         self.enrichments = EnrichmentCollection()
+
+    def test_eq_with_none(self):
+        self.assertNotEqual(_ENRICHMENT_1, None)
+
+    def test_eq_with_other_object_type(self):
+        self.assertNotEqual(_ENRICHMENT_1, object())
+
+    def test_eq_with_different_enrichment(self):
+        self.assertNotEqual(_ENRICHMENT_1, _ENRICHMENT_2)
+
+    def test_eq_with_same_enrichment(self):
+        self.assertEqual(_ENRICHMENT_1, deepcopy(_ENRICHMENT_1))
+
+    def test_eq_with_self(self):
+        self.assertEqual(_ENRICHMENT_1, _ENRICHMENT_1)
 
     def test_init_with_enrichments(self):
         enrichments = EnrichmentCollection([_ENRICHMENT_2, _ENRICHMENT_3, _ENRICHMENT_1])

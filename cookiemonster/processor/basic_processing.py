@@ -25,7 +25,7 @@ import logging
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Sequence
 
 from cookiemonster.common.models import Cookie, Enrichment
@@ -79,7 +79,7 @@ class BasicProcessor(Processor):
             if matches:
                 log = RuleApplicationLog(rule.id, terminate)
                 log_as_dict = BasicProcessor._RULE_APPLICATION_LOG_JSON_ENCODER.default(log)
-                enrichment = Enrichment(RULE_APPLICATION, datetime.now(), Metadata(log_as_dict))
+                enrichment = Enrichment(RULE_APPLICATION, datetime.now(tz=timezone.utc), Metadata(log_as_dict))
                 self.cookie_jar.enrich_cookie(cookie.identifier, enrichment, mark_for_processing=False)
                 # Update in-memory copy of cookie
                 cookie.enrichments.add(enrichment)

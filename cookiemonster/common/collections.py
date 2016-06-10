@@ -89,6 +89,11 @@ class EnrichmentCollection(Sequence):
     def __getitem__(self, index: int) -> Enrichment:
         return self._data[index]
 
+    def __eq__(self, other: Any) -> bool:
+        if type(self) != type(other):
+            return False
+        return list(self) == list(other)
+
     def add(self, enrichment: Union[Enrichment, Iterable[Enrichment]]):
         """
         Adds an enrichment to this collection.
