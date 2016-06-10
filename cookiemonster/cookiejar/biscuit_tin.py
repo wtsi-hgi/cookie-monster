@@ -104,6 +104,7 @@ from threading import Timer
 from time import time
 from typing import Iterable, List, Optional, Tuple
 
+from cookiemonster.common.collections import EnrichmentCollection
 from cookiemonster.common.helpers import EnrichmentJSONEncoder, EnrichmentJSONDecoder
 from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.cookiejar._rate_limiter import rate_limited
@@ -484,7 +485,7 @@ class BiscuitTin(CookieJar):
             return None
 
         cookie = Cookie(identifier)
-        cookie.enrichments = self._metadata.get_metadata(identifier)
+        cookie.enrichments = EnrichmentCollection(self._metadata.get_metadata(identifier))
 
         return cookie
 
