@@ -79,6 +79,7 @@ class TestElmo(unittest.TestCase):
 
         self.api = HTTP_API()
         self.api.inject(APIDependency.CookieJar, self.jar)
+        self.api.inject(APIDependency.System, None)
         self.api.listen(self.API_PORT)
 
         self.http = HTTPConnection('localhost', self.API_PORT)
@@ -237,6 +238,20 @@ class TestElmo(unittest.TestCase):
         HTTP API: DELETE /cookiejar/<identifier>
         """
         self._delete_test('foo_bar')
+
+    def test_thread_dump(self):
+        """
+        HTTP API: GET /debug/threads
+
+        Note: This test only proves that the endpoint returns an OK
+        response and JSON data.
+        TODO At least validate the returned data's schema
+        """
+        self.http.request('GET', '/debug/threads', headers=self.REQ_HEADER)
+        r = self.http.getresponse()
+
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.headers.get_content_type(), 'application/json')
 
 if __name__ == '__main__':
     unittest.main()
