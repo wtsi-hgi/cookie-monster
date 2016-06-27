@@ -196,6 +196,10 @@ following endpoints are defined:
   percent encoded. If it begins with a slash, then the query string form
   of this endpoint *must* be used.)
 
+**`/debug/threads`**
+* `GET` Retrieve runtime state of all the current threads, for
+  debugging.
+
 Note that *all* requests must include `application/json` in their
 `Accept` header.
 

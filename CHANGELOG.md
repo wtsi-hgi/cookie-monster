@@ -5,6 +5,7 @@
 - Ability to get more than one cookie for processing at a time.
 - After a rule is matched and its production is executed, the corresponding cookie is enriched with a
 `RuleApplicationLog` from the `RULE_APPLICATION` source ([42](https://github.com/wtsi-hgi/python-baton-wrapper)).
+- Thread debug dump HTTP API endpoint.
 
 ### Changed
 - Identifiers for rules and enrichment loaders are now mandatory.
