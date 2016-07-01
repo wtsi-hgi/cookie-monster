@@ -4,6 +4,7 @@ Cookie Jar
 An implementation of `CookieJar` using CouchDB as its database
 
 Exportable classes: `BiscuitTin`, `RateLimitedBiscuitTin`
+Exportable functions: `add_couchdb_logging`
 
 BiscuitTin
 ----------
@@ -20,6 +21,10 @@ queue change to all downstream listeners.
 `RateLimitedBiscuitTin` is a rate-limited version of `BiscuitTin` which
 takes an additional argument, at initial position, in its constructor:
 `max_requests_per_second`.
+
+add_couchdb_logging
+-------------------
+Inject CouchDB response time logging into an instantiated `BiscuitTin`
 
 Bert and Ernie
 --------------
@@ -107,9 +112,10 @@ from typing import Iterable, List, Optional, Tuple
 from cookiemonster.common.collections import EnrichmentCollection
 from cookiemonster.common.helpers import EnrichmentJSONEncoder, EnrichmentJSONDecoder
 from cookiemonster.common.models import Enrichment, Cookie
+from cookiemonster.logging.logger import Logger
 from cookiemonster.cookiejar._rate_limiter import rate_limited
 from cookiemonster.cookiejar.cookiejar import CookieJar
-from cookiemonster.cookiejar.couchdb import Sofabed
+from cookiemonster.cookiejar.couchdb import Sofabed, inject_logging
 from hgicommon.threading import CountingLock
 
 
@@ -545,3 +551,13 @@ class BiscuitTin(CookieJar):
 @rate_limited
 class RateLimitedBiscuitTin(BiscuitTin):
     pass
+
+
+def add_couchdb_logging(biscuit_tin:BiscuitTin, logger:Logger):
+    """
+    Inject CouchDB response time logging into an instantiated BiscuitTin
+
+    @param   biscuit_tin  Instantiated BiscuitTin to inject into
+    @param   logger       Where to log response times to
+    """
+    inject_logging(biscuit_tin._sofa._db, logger)
