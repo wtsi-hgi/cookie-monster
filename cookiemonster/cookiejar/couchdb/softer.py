@@ -150,7 +150,7 @@ class SofterCouchDB(object):
         @param   fn  Function to decorate
         @return  Decorated function
         """
-        def wrapper(obj, *args, **kwargs):
+        def wrappery(obj, *args, **kwargs):
             good_connection = False
             attempts = 0
 
@@ -172,4 +172,4 @@ class SofterCouchDB(object):
 
             return fn(*args, **kwargs)
 
-        return wrapper
+        return wrappery

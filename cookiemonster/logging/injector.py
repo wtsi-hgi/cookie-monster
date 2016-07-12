@@ -170,14 +170,14 @@ class LoggingFunction(metaclass=ABCMeta):
         @return  Function with logging function applied
         """
         @wraps(fn)
-        def wrapper(*args, **kwargs):
+        def wrapperx(*args, **kwargs):
             context = LoggingContext(fn, args, kwargs)
             context.preexec = self.preexec(context)
             context.output = fn(*args, **kwargs)
             self.postexec(context)
             return context.output
 
-        return wrapper
+        return wrapperx
 
     def log(self, context:LoggingContext, values:Union[RecordableValue, Dict[str, RecordableValue]]):
         """ Convenience wrapper to self.logger.record """

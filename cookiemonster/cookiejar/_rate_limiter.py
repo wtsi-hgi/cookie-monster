@@ -84,10 +84,10 @@ def rate_limited(cookiejar:CookieJar) -> CookieJar:
             @param   fn  Function to decorate
             @return  Rate-limited function
             """
-            def wrapper(cls, *args, **kwargs):
+            def wrapperz(cls, *args, **kwargs):
                 with self._request_semaphore:
                     return fn(cls, *args, **kwargs)
 
-            return wrapper
+            return wrapperz
 
     return _rate_limited
