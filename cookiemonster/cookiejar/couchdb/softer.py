@@ -60,6 +60,7 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from datetime import timedelta
+from functools import wraps
 from os import environ
 from time import sleep
 from typing import Any, Callable
@@ -150,7 +151,8 @@ class SofterCouchDB(object):
         @param   fn  Function to decorate
         @return  Decorated function
         """
-        def wrappery(obj, *args, **kwargs):
+        @wraps(fn)
+        def wrapper(obj, *args, **kwargs):
             good_connection = False
             attempts = 0
 
@@ -172,4 +174,4 @@ class SofterCouchDB(object):
 
             return fn(*args, **kwargs)
 
-        return wrappery
+        return wrapper

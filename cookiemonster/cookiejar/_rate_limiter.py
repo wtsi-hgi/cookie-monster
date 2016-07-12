@@ -49,6 +49,7 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from functools import wraps
 from threading import Semaphore, Timer
 from typing import Any, Callable
 
@@ -84,10 +85,11 @@ def rate_limited(cookiejar:CookieJar) -> CookieJar:
             @param   fn  Function to decorate
             @return  Rate-limited function
             """
-            def wrapperz(cls, *args, **kwargs):
+            @wraps(fn)
+            def wrapper(cls, *args, **kwargs):
                 with self._request_semaphore:
                     return fn(cls, *args, **kwargs)
 
-            return wrapperz
+            return wrapper
 
     return _rate_limited
