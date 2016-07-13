@@ -103,6 +103,7 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import json
+import logging
 from collections import deque
 from datetime import timedelta
 from threading import Timer
@@ -147,6 +148,7 @@ class _Bert(object):
         @param   sofa  Sofabed object
         """
         self._db = sofa
+        logging.debug('Initialising CouchDB queue management schema')
         self._define_schema()
 
         # Document schema, with defaults
@@ -165,7 +167,9 @@ class _Bert(object):
         in_progress = self._db.query('queue', 'in_progress', wrapper      = _Bert._reset_processing,
                                                              include_docs = True,
                                                              reduce       = False)
+        unclean_restart = False
         for doc in in_progress:
+            unclean_restart = True
             self._db.upsert(doc)
 
         # If there are any files marked as deleted, they can be cleaned
@@ -173,7 +177,11 @@ class _Bert(object):
         to_delete = self._db.query('queue', 'to_clean', flat='value', reduce=False)
 
         for doc_id in to_delete:
+            unclean_restart = True
             self._db.delete(doc_id)
+
+        if unclean_restart:
+            logging.info('Queue state sanitised after unclean restart')
 
     def get_by_identifier(self, identifier:str) -> Optional[Tuple[str, dict]]:
         """
@@ -378,6 +386,7 @@ class _Ernie(object):
         @param   sofa  Sofabed object
         """
         self._db = sofa
+        logging.debug('Initialising CouchDB metadata repository schema')
         self._define_schema()
 
         # Document schema, with defaults
@@ -511,6 +520,7 @@ class BiscuitTin(CookieJar):
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
         self._queue.mark_finished(identifier)
         self._queue.mark_dirty(identifier, requeue_delay)
+        logging.debug('{} has been marked as failed'.format(identifier))
 
         # Broadcast the change after the requeue delay
         # FIXME? Timer's interval may not be 100% accurate and may also
@@ -520,6 +530,7 @@ class BiscuitTin(CookieJar):
 
     def mark_as_complete(self, identifier: str):
         self._queue.mark_finished(identifier)
+        logging.debug('{} has been marked as complete'.format(identifier))
 
     def mark_for_processing(self, identifier: str):
         self._queue.mark_dirty(identifier)
@@ -532,6 +543,7 @@ class BiscuitTin(CookieJar):
                 # Dequeue up to as many Cookies (IDs) as there are
                 # waiting threads, plus one for the current thread
                 waiting = self._queue_lock.waiting_to_acquire()
+                logging.debug('Fetching up to {} cookies for processing...'.format(waiting + 1))
                 to_process = self._queue.dequeue(waiting + 1)
 
                 if not to_process:

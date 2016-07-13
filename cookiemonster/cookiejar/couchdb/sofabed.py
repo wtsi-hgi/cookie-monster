@@ -82,6 +82,7 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import logging
 from copy import deepcopy
 from datetime import timedelta
 from threading import Lock
@@ -134,6 +135,7 @@ class _DesignDocument(object):
                     del self._design['_rev']
 
             if do_update:
+                logging.debug('Updating design document: {}'.format(self.design_id))
                 self._db.save(self._design)
 
             self._design_dirty = False
@@ -216,13 +218,17 @@ class Sofabed(object):
                 doc['_rev'] = revision_ids[doc_id]
 
         try:
+            logging.debug('Performing batch update: {} {}'.format(action.name, document_ids))
             _ = self._batch_methods[action](to_batch, transaction=True)
 
             # Release locks on batched documents
             for doc in to_batch:
                 self._doc_locks[doc['_id']].release()
 
+            logging.debug('Batch update completed')
+
         except (UnresponsiveCouchDB, Conflict):
+            logging.info('Couldn\'t perform batch update; requeueing')
             self._buffer.requeue(action, docs)
 
     def fetch(self, key:str, revision:Optional[str] = None) -> Optional[dict]:
