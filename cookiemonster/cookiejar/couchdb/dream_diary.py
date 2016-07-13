@@ -64,6 +64,5 @@ def inject_logging(db:SofterCouchDB, logger:Logger):
     @param   logger  The logger to write to
     """
     mapping = LoggingMapper(logger)
-    for method in db._db_methods:
-        mapping.map_logging_to_method(method, _CouchDBResponseTimeLogging)
+    mapping.map_logging_to_public_methods(db, _CouchDBResponseTimeLogging)
     mapping.inject_logging(db)

@@ -44,10 +44,10 @@ class TestDreamDiary(unittest.TestCase):
         self._logger = MagicMock()
 
         self._db = MagicMock()
-        self._db._db_methods = ['foo', 'bar', 'quux']
+        self._methods = ['foo', 'bar', 'quux']
 
         # Fake methods
-        for method in self._db._db_methods:
+        for method in self._methods:
             setattr(self._db, method, MagicMock())
             setattr(getattr(self._db, method), '__name__', method)
 
@@ -55,10 +55,8 @@ class TestDreamDiary(unittest.TestCase):
         setattr(_dd._CouchDBResponseTimeLogging, 'postexec', _mock_postexec)
 
     def test_inject_logging(self):
-        methods = self._db._db_methods
-
         # First check our functions aren't doing any logging...
-        for method in methods:
+        for method in self._methods:
             logged_fn = getattr(self._db, method)
             logged_fn()
 
@@ -68,7 +66,7 @@ class TestDreamDiary(unittest.TestCase):
         inject_logging(self._db, self._logger)
 
         # ...Now check that the logging is there
-        for method in methods:
+        for method in self._methods:
             logged_fn = getattr(self._db, method)
             logged_fn()
 

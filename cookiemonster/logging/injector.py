@@ -74,10 +74,10 @@ following methods:
 * `map_logging_to_method` Adds a logging function to a specific method
 
 * `map_logging_to_abstract_methods` Adds a logging function to a given
-  class' abstract methods
+  base class' abstract methods
 
 * `map_logging_to_public_methods` Adds a logging function to a given
-  class' "public" methods
+  class or object's "public" methods
 
 * `inject_logging` Injects the logging methods into an instantiated
   object or, if used as a class decorator, the decorated class
@@ -246,18 +246,15 @@ class LoggingMapper(object):
         for method in abc.__abstractmethods__:
             self.map_logging_to_method(method, logging)
 
-    def map_logging_to_public_methods(self, cls:type, logging:LoggingFunctionClass):
+    def map_logging_to_public_methods(self, target:Union[object, type], logging:LoggingFunctionClass):
         """
-        Associate logging function with all public class methods
+        Associate logging function with all public class/object methods
 
-        @param   cls      Class to derive public methods
+        @param   target   Class or object to derive public methods
         @param   logging  Logging function class
         """
-        if not inspect.isclass(cls):
-            raise TypeError('Class expected')
-
-        for method in dir(cls):
-            if callable(getattr(cls, method)) and not method.startswith('_'):
+        for method in dir(target):
+            if callable(getattr(target, method)) and not method.startswith('_'):
                 self.map_logging_to_method(method, logging)
 
     def inject_logging(self, target:Union[object, type]) -> Optional[type]:
