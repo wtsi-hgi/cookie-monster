@@ -202,6 +202,7 @@ class Sofabed(object):
         """
         action, docs = broadcast
         to_batch = deepcopy(docs)
+        to_log = {}
 
         # To avoid conflicts, we must merge in the revision IDs of
         # existing documents
@@ -217,9 +218,10 @@ class Sofabed(object):
             if doc_id in revision_ids:
                 doc['_rev'] = revision_ids[doc_id]
 
+            to_log[doc_id] = doc['identifier']
+
         try:
-            # TODO Log document identifiers, rather than CouchDB _ids
-            logging.debug('Performing batch update: {} {}'.format(action.name, document_ids))
+            logging.debug('Performing batch update: {} {}'.format(action.name, to_log))
             _ = self._batch_methods[action](to_batch, transaction=True)
 
             # Release locks on batched documents
