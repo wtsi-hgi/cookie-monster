@@ -218,12 +218,20 @@ class Sofabed(object):
                 doc['_rev'] = revision_ids[doc_id]
 
         try:
+            # TODO Log document identifiers, rather than CouchDB _ids
             logging.debug('Performing batch update: {} {}'.format(action.name, document_ids))
             _ = self._batch_methods[action](to_batch, transaction=True)
 
             # Release locks on batched documents
             for doc in to_batch:
-                self._doc_locks[doc['_id']].release()
+                doc_lock = self._doc_locks[doc['_id']]
+                
+                # FIXME This should vacuously pass, but in practice it
+                # occasionally fails and jams up the whole system (see
+                # issue #45)... Need to know why this happens, rather
+                # than hacking around the problem!
+                if doc_lock.locked():
+                    doc_lock.release()
 
             logging.debug('Batch update completed')
 
