@@ -135,7 +135,7 @@ class _DesignDocument(object):
                     del self._design['_rev']
 
             if do_update:
-                logging.debug('Updating design document: {}'.format(self.design_id))
+                logging.debug('Updating design document: %s', self.design_id)
                 self._db.save(self._design)
 
             self._design_dirty = False
@@ -221,19 +221,21 @@ class Sofabed(object):
             to_log[doc_id] = doc['identifier']
 
         try:
-            logging.debug('Performing batch update: {} {}'.format(action.name, to_log))
+            logging.debug('Performing batch update: %s %s', action.name, to_log)
             _ = self._batch_methods[action](to_batch, transaction=True)
 
             # Release locks on batched documents
             for doc in to_batch:
                 doc_lock = self._doc_locks[doc['_id']]
                 
-                # FIXME This should vacuously pass, but in practice it
-                # occasionally fails and jams up the whole system (see
-                # issue #45)... Need to know why this happens, rather
-                # than hacking around the problem!
-                if doc_lock.locked():
+                # FIXME This should never fail, but in practice it does
+                # occasionally and jams up the whole system (see issue
+                # #45)... Need to know why this happens, rather than
+                # hacking around the problem!
+                try:
                     doc_lock.release()
+                except:
+                    logging.warning('This should never happen! Lock for %s ("%s") already released (?)', doc['_id'], doc['identifier'])
 
             logging.debug('Batch update completed')
 

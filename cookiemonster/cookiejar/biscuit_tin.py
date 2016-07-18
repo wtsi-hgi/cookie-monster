@@ -520,7 +520,7 @@ class BiscuitTin(CookieJar):
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
         self._queue.mark_finished(identifier)
         self._queue.mark_dirty(identifier, requeue_delay)
-        logging.debug('{} has been marked as failed'.format(identifier))
+        logging.debug('%s has been marked as failed', identifier)
 
         # Broadcast the change after the requeue delay
         # FIXME? Timer's interval may not be 100% accurate and may also
@@ -530,7 +530,7 @@ class BiscuitTin(CookieJar):
 
     def mark_as_complete(self, identifier: str):
         self._queue.mark_finished(identifier)
-        logging.debug('{} has been marked as complete'.format(identifier))
+        logging.debug('%s has been marked as complete', identifier)
 
     def mark_for_processing(self, identifier: str):
         self._queue.mark_dirty(identifier)
@@ -543,7 +543,7 @@ class BiscuitTin(CookieJar):
                 # Dequeue up to as many Cookies (IDs) as there are
                 # waiting threads, plus one for the current thread
                 waiting = self._queue_lock.waiting_to_acquire()
-                logging.debug('Fetching up to {} cookies for processing...'.format(waiting + 1))
+                logging.debug('Fetching up to %d cookies for processing...', waiting + 1)
                 to_process = self._queue.dequeue(waiting + 1)
 
                 if not to_process:
