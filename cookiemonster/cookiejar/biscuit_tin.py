@@ -116,7 +116,7 @@ from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.logging.logger import Logger
 from cookiemonster.cookiejar._rate_limiter import rate_limited
 from cookiemonster.cookiejar.cookiejar import CookieJar
-from cookiemonster.cookiejar.couchdb import Sofabed, inject_logging
+from cookiemonster.cookiejar.couchdb import Sofabed, UnresponsiveCouchDB, inject_logging
 from hgicommon.threading import CountingLock
 
 
@@ -168,6 +168,10 @@ class _Bert(object):
                                                              include_docs = True,
                                                              reduce       = False)
         unclean_restart = False
+        # FIXME? Iterating through query results *could* raise an
+        # exception, in the case that the DB is unavailable, as the
+        # returned generator uses the base library's getter (which isn't
+        # monkey-patched with preflight checking)
         for doc in in_progress:
             unclean_restart = True
             self._db.upsert(doc)
@@ -176,6 +180,10 @@ class _Bert(object):
         # up without consequence
         to_delete = self._db.query('queue', 'to_clean', flat='value', reduce=False)
 
+        # FIXME? Iterating through query results *could* raise an
+        # exception, in the case that the DB is unavailable, as the
+        # returned generator uses the base library's getter (which isn't
+        # monkey-patched with preflight checking)
         for doc_id in to_delete:
             unclean_restart = True
             self._db.delete(doc_id)
@@ -199,6 +207,10 @@ class _Bert(object):
 
         except StopIteration:
             return None
+
+        except:
+            # Any other exceptions will be those from the underlying DB
+            raise UnresponsiveCouchDB
 
     def delete(self, identifier:str):
         """
@@ -231,6 +243,10 @@ class _Bert(object):
 
         except StopIteration:
             return 0
+
+        except:
+            # Any other exceptions will be those from the underlying DB
+            raise UnresponsiveCouchDB
 
     def mark_dirty(self, identifier:str, latency:Optional[timedelta] = None):
         """
@@ -271,6 +287,10 @@ class _Bert(object):
                                                         limit        = count)
         output = []
 
+        # FIXME? Iterating through query results *could* raise an
+        # exception, in the case that the DB is unavailable, as the
+        # returned generator uses the base library's getter (which isn't
+        # monkey-patched with preflight checking)
         for found in results:
             identifier, doc_data = found['value'], found['doc']
 
@@ -427,6 +447,11 @@ class _Ernie(object):
                                                         key          = identifier,
                                                         include_docs = True,
                                                         reduce       = False)
+        
+        # FIXME? Iterating through query results *could* raise an
+        # exception, in the case that the DB is unavailable, as the
+        # returned generator uses the base library's getter (which isn't
+        # monkey-patched with preflight checking)
         return sorted(results)
 
     def delete_metadata(self, identifier:str):
@@ -438,6 +463,11 @@ class _Ernie(object):
         to_delete = self._db.query('metadata', 'collate', flat   = 'value',
                                                           key    = identifier,
                                                           reduce = False)
+
+        # FIXME? Iterating through query results *could* raise an
+        # exception, in the case that the DB is unavailable, as the
+        # returned generator uses the base library's getter (which isn't
+        # monkey-patched with preflight checking)
         for doc_id in to_delete:
             self._db.delete(doc_id)
 
