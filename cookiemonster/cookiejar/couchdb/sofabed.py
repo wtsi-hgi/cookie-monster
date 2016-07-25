@@ -293,10 +293,11 @@ class Sofabed(object):
         lock.acquire()
         self._buffer.append({'_id': doc_id, **data})
 
-        # Block until upsertion, then clean up
+        # Block until upsertion
         lock.acquire()
         lock.release()
-        del self._doc_locks[doc_id]
+        # FIXME We need to clean-up the dictionary periodically, or
+        # we'll exhaust our memory sooner-or-later!...
 
     def delete(self, key:str):
         """
@@ -321,10 +322,11 @@ class Sofabed(object):
             lock.acquire()
             self._buffer.remove(to_delete)
 
-            # Block until deletion, then clean up
+            # Block until deletion
             lock.acquire()
             lock.release()
-            del self._doc_locks[doc_id]
+            # FIXME We need to clean-up the dictionary periodically, or
+            # we'll exhaust our memory sooner-or-later!...
 
     def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Generator:
         """
