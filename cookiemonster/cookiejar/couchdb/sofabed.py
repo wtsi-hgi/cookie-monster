@@ -85,13 +85,13 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 import logging
 from copy import deepcopy
 from datetime import timedelta
-from threading import Lock
-from typing import Any, Callable, Generator, List, Optional
+from typing import Any, Callable, Generator, Optional
 from uuid import uuid4
 
 from pycouchdb.exceptions import Conflict, NotFound
 
 from hgicommon.collections import ThreadSafeDefaultdict
+from hgicommon.threading import CountingLock
 
 from cookiemonster.cookiejar.couchdb.softer import SofterCouchDB, UnresponsiveCouchDB, InvalidCouchDBKey
 from cookiemonster.cookiejar.couchdb.dream_catcher import Buffer, Actions, BatchListenerT
@@ -100,13 +100,13 @@ from cookiemonster.cookiejar.couchdb.dream_catcher import Buffer, Actions, Batch
 class _LockPool(object):
     """ Managed pool of named locks """
     def __init__(self):
-        pass
+        self._locks = ThreadSafeDefaultdict(CountingLock)
 
     def acquire(self, name:str):
-        pass
+        self._locks[name].acquire()
 
     def release(self, name:str):
-        pass
+        self._locks[name].release()
 
     def cleanup(self, name:str):
         pass
