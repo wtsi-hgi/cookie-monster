@@ -101,25 +101,3 @@ class CookieJarHandlers(DependencyInjectionHandler):
 
         cookiejar.delete_cookie(identifier)
         return {'deleted':identifier}
-
-    def POST_unjam(self, data:Any, **kwargs):
-        """
-        Forcibly unlock the CouchDB batching locks in an attempt to
-        recover from a jam.
-
-        *** THIS IS FOR DEBUGGING ONLY!! ***
-        """
-        cookiejar = self._dependency
-
-        if not isinstance(cookiejar, BiscuitTin):
-            return ValueError()
-
-        db_locks = cookiejar._sofa._doc_locks
-        output = []
-
-        for doc_id, lock in db_locks:
-            if lock.locked:
-                lock.release()
-                output.append(doc_id)
-
-        return {'unlocked': len(output), 'doc_ids': output}

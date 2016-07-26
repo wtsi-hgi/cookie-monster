@@ -239,21 +239,6 @@ class TestElmo(unittest.TestCase):
         """
         self._delete_test('foo_bar')
 
-    def test_unjam(self):
-        """
-        HTTP API: POST /cookiejar/unjam
-        """
-        self.http.request('POST', '/cookiejar/unjam', body='{}', headers=self.REQ_HEADER)
-        r = self.http.getresponse()
-        
-        self.assertEqual(r.status, 200)
-        self.assertEqual(r.headers.get_content_type(), 'application/json')
-
-        data = _decode_json_response(r)
-        self.assertEqual(data, {'unlocked': 0, 'doc_ids': []})
-
-        self.http.close()
-
     def test_thread_dump(self):
         """
         HTTP API: GET /debug/threads
