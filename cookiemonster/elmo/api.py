@@ -40,9 +40,6 @@ The following routes have been specified:
       n.b. The query string version of this route is to accommodate
       identifiers that start with a leading slash
 
-    /cookiejar/unjam - NOT FOR GENERAL USE!!
-      POST    Forcibly unlock CouchDB jammed batching threads
-
     /debug/threads
       GET     Dump thread debugging data
 
@@ -134,9 +131,6 @@ class HTTP_API(object):
         api.create_route('/cookiejar/<path:identifier>') \
             .set_method_handler(HTTPMethod.GET, dep[APIDependency.CookieJar].GET_cookie) \
             .set_method_handler(HTTPMethod.DELETE, dep[APIDependency.CookieJar].DELETE_cookie)
-
-        api.create_route('/cookiejar/unjam') \
-            .set_method_handler(HTTPMethod.POST, dep[APIDependency.CookieJar].POST_unjam)
 
         api.create_route('/debug/threads') \
             .set_method_handler(HTTPMethod.GET, dep[APIDependency.System].GET_thread_dump)
