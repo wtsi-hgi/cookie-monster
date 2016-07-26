@@ -97,6 +97,21 @@ from cookiemonster.cookiejar.couchdb.softer import SofterCouchDB, UnresponsiveCo
 from cookiemonster.cookiejar.couchdb.dream_catcher import Buffer, Actions, BatchListenerT
 
 
+class _LockPool(object):
+    """ Managed pool of named locks """
+    def __init__(self):
+        pass
+
+    def acquire(self, name:str):
+        pass
+
+    def release(self, name:str):
+        pass
+
+    def cleanup(self, name:str):
+        pass
+
+
 class _DesignDocument(object):
     """ Design document model """
     def __init__(self, db:SofterCouchDB, name:str, language='javascript'):
@@ -192,7 +207,7 @@ class Sofabed(object):
         self._buffer.add_listener(self._batch)
 
         # Setup document locks
-        self._doc_locks = ThreadSafeDefaultdict(Lock)
+        self._doc_locks = _LockPool()
 
     def _batch(self, broadcast:BatchListenerT):
         """
@@ -226,16 +241,13 @@ class Sofabed(object):
 
             # Release locks on batched documents
             for doc in to_batch:
-                doc_lock = self._doc_locks[doc['_id']]
-                
-                # FIXME This should never fail, but in practice it does
-                # occasionally and jams up the whole system (see issue
-                # #45)... Need to know why this happens, rather than
-                # hacking around the problem!
                 try:
-                    doc_lock.release()
+                    self._doc_locks.release(doc['_id'])
                 except:
-                    logging.warning('This should never happen! Lock for %s ("%s") already released (?)', doc['_id'], doc['identifier'])
+                    # This should never fail, but it did in the past
+                    # (before we, presumably/hopefully, fixed it), so
+                    # let's just hedge our bets!...
+                    logging.warning('Lock for %s ("%s") already released!!', doc['_id'], doc['identifier'])
 
             logging.debug('Batch update completed')
 
@@ -289,15 +301,13 @@ class Sofabed(object):
         # Document ID to upsert and lock
         doc_id = data.get('_id', key or uuid4().hex)
 
-        lock = self._doc_locks[doc_id]
-        lock.acquire()
+        self._doc_locks.acquire(doc_id)
         self._buffer.append({'_id': doc_id, **data})
 
-        # Block until upsertion
-        lock.acquire()
-        lock.release()
-        # FIXME We need to clean-up the dictionary periodically, or
-        # we'll exhaust our memory sooner-or-later!...
+        # Block until upsertion, then cleanup (if possible)
+        self._doc_locks.acquire(doc_id)
+        self._doc_locks.release(doc_id)
+        self._doc_locks.cleanup(doc_id)
 
     def delete(self, key:str):
         """
@@ -318,15 +328,13 @@ class Sofabed(object):
 
             doc_id = to_delete['_id']
 
-            lock = self._doc_locks[doc_id]
-            lock.acquire()
+            self._doc_locks.acquire(doc_id)
             self._buffer.remove(to_delete)
 
-            # Block until deletion
-            lock.acquire()
-            lock.release()
-            # FIXME We need to clean-up the dictionary periodically, or
-            # we'll exhaust our memory sooner-or-later!...
+            # Block until deletion, then cleanup (if possible)
+            self._doc_locks.acquire(doc_id)
+            self._doc_locks.release(doc_id)
+            self._doc_locks.cleanup(doc_id)
 
     def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Generator:
         """
