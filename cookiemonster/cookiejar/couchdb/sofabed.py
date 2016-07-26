@@ -85,6 +85,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 import logging
 from copy import deepcopy
 from datetime import timedelta
+from threading import Event
 from typing import Any, Callable, Generator, Optional
 from uuid import uuid4
 
@@ -102,14 +103,23 @@ class _LockPool(object):
     def __init__(self):
         self._locks = ThreadSafeDefaultdict(CountingLock)
 
+        self._purge = Event()
+        self._purge.set()
+
     def acquire(self, name:str):
+        self._purge.wait()
         self._locks[name].acquire()
 
     def release(self, name:str):
+        self._purge.wait()
         self._locks[name].release()
 
     def cleanup(self, name:str):
-        pass
+        self._purge.clear()
+        lock = self._locks[name]
+        if not lock.is_locked() and not lock.waiting_to_acquire():
+            del self._locks[name]
+        self._purge.set()
 
 
 class _DesignDocument(object):
