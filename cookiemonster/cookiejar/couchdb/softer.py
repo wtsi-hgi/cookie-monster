@@ -27,7 +27,9 @@ parametrised through the following environment variables:
 Environment Variable          | Description                    | Default
 ------------------------------+--------------------------------+--------
 COOKIEMONSTER_COUCHDB_GRACE   | Grace time before retry (ms)   |    1000
-COOKIEMONSTER_COUCHDB_RETRIES | Maximum retries before failure |      10
+COOKIEMONSTER_COUCHDB_RETRIES | Maximum retries before failure |       0
+
+n.b., Zero retries means never give up.
 
 Dependencies
 ------------
@@ -100,7 +102,7 @@ import pycouchdb
 # We get the CouchDB hammering configuration from the environment, as we
 # don't want to have to explicitly set every last little thing.
 _COUCHDB_GRACE   = timedelta(milliseconds=int(environ.get('COOKIEMONSTER_COUCHDB_GRACE', 1000))).total_seconds()
-_COUCHDB_RETRIES = int(environ.get('COOKIEMONSTER_COUCHDB_RETRIES', 10))
+_COUCHDB_RETRIES = int(environ.get('COOKIEMONSTER_COUCHDB_RETRIES', 0))
 
 
 class UnresponsiveCouchDB(Exception):
@@ -123,7 +125,7 @@ class _SofterResource(pycouchdb.resource.Resource):
         good_response = False
         attempts = 0
 
-        while not good_response and attempts < _COUCHDB_RETRIES:
+        while not good_response and (_COUCHDB_RETRIES == 0 or attempts < _COUCHDB_RETRIES):
             try:
                 response = self.request(method, path, **kwargs)
                 good_response = True

@@ -17,8 +17,8 @@
   class and moved to the collection
   ([43](https://github.com/wtsi-hgi/cookie-monster/issues/43)).
 - All CouchDB requests are now subject to graceful retrying in the event
-  of an unknown (e.g., server/network) failure
-  ([47](https://github.com/wtsi-hgi/cookie-monster/issues/47)).
+  of an unknown (e.g., server/network) failure; by default, it won't
+  give up ([47](https://github.com/wtsi-hgi/cookie-monster/issues/47)).
 
 ### Fixed
 - Document locks in CouchDB batching interface was not thread-safe
