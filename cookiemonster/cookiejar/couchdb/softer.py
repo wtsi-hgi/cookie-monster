@@ -87,8 +87,11 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
+import logging
 from datetime import timedelta
 from os import environ
+from time import sleep
+from typing import Optional
 
 # NOTE We rely on undocumented APIs within the base library, hence this
 # is fragile wrt version changes...
@@ -115,15 +118,75 @@ class _SofterResource(pycouchdb.resource.Resource):
     Reimplementation of pycouchdb.resource.Resource such that requests
     are gracefully retried up until some limit
     """
-    # TODO
-    pass
+    def _keep_trying(self, method:str, path:Optional[str]=None, **kwargs):
+        """ Keep requesting in the event of an unknown failure """
+        good_response = False
+        attempts = 0
+
+        while not good_response and attempts < _COUCHDB_RETRIES:
+            try:
+                response = self.request(method, path, **kwargs)
+                good_response = True
+
+            except (pycouchdb.exceptions.NotFound, pycouchdb.exceptions.BadRequest):
+                # This is a genuine problem, so just reraise
+                raise
+
+            except pycouchdb.exceptions.GenericError:
+                # This could be due to some kind of transient
+                # server/network failure, so retry
+                logging.exception('%s request to %s failed!! Retrying...', method, path)
+
+                attempts += 1
+                sleep(_COUCHDB_GRACE)
+
+        if not good_response:
+            logging.error('Could not make %s request to %s!!', method, path)
+            raise UnresponsiveCouchDB
+
+        return response
+
+    def get(self, path:Optional[str] = None, **kwargs):
+        """
+        Override GET function to keep trying the request
+        Modified from pycouchdb.resource.Resource.get
+        """
+        return self._keep_trying('GET', path, **kwargs)
+
+    def put(self, path:Optional[str] = None, **kwargs):
+        """
+        Override PUT function to keep trying the request
+        Modified from pycouchdb.resource.Resource.put
+        """
+        return self._keep_trying('PUT', path, **kwargs)
+
+    def post(self, path:Optional[str] = None, **kwargs):
+        """
+        Override POST function to keep trying the request
+        Modified from pycouchdb.resource.Resource.post
+        """
+        return self._keep_trying('POST', path, **kwargs)
+
+    def delete(self, path:Optional[str] = None, **kwargs):
+        """
+        Override DELETE function to keep trying the request
+        Modified from pycouchdb.resource.Resource.delete
+        """
+        return self._keep_trying('DELETE', path, **kwargs)
+
+    def head(self, path:Optional[str] = None, **kwargs):
+        """
+        Override HEAD function to keep trying the request
+        Modified from pycouchdb.resource.Resource.head
+        """
+        return self._keep_trying('HEAD', path, **kwargs)
 
 
 class _SofterServer(pycouchdb.client.Server):
     """
     Reimplementation of pycouchdb.client.Server using _SofterResource
     """
-    def __init__(self, base_url, full_commit=True, authmethod="basic", verify=False):
+    def __init__(self, base_url, full_commit=True, authmethod='basic', verify=False):
         """
         Override constructor to use _SofterResource
         Modified from pycouchdb.client.Server.__init__
