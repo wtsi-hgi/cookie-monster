@@ -46,6 +46,7 @@ from typing import Any
 from werkzeug.exceptions import NotFound
 
 from cookiemonster.common.helpers import EnrichmentJSONEncoder
+from cookiemonster.cookiejar import BiscuitTin
 from cookiemonster.elmo._handler_injection import DependencyInjectionHandler
 
 
