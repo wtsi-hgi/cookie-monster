@@ -135,7 +135,7 @@ import inspect
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from functools import wraps
-from types import MappingProxyType
+from types import MappingProxyType, MethodType
 from typing import Any, Callable, Dict, Optional, Sequence, Union
 
 from hgicommon.models import Model
@@ -170,7 +170,7 @@ class LoggingFunction(metaclass=ABCMeta):
         @return  Function with logging function applied
         """
         @wraps(fn)
-        def wrapper(*args, **kwargs):
+        def wrapper(_cls, *args, **kwargs):
             context = LoggingContext(fn, args, kwargs)
             context.preexec = self.preexec(context)
             context.output = fn(*args, **kwargs)
@@ -290,7 +290,7 @@ class LoggingMapper(object):
             if decorating:
                 decorated_methods[method] = logged_fn
             else:
-                setattr(target, method, logged_fn)
+                setattr(target, method, MethodType(logged_fn, target))
 
         if decorating:
             class_name = '{}InjectedWith{}'.format(target.__name__, self.logger.__class__.__name__)
