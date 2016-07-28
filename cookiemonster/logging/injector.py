@@ -136,7 +136,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from functools import wraps
-from types import MappingProxyType, MethodType
+from types import MappingProxyType
 from typing import Any, Callable, Dict, Optional, Sequence, Union
 
 from hgicommon.models import Model
@@ -171,7 +171,7 @@ class LoggingFunction(metaclass=ABCMeta):
         @return  Function with logging function applied
         """
         @wraps(fn)
-        def wrapper(_cls, *args, **kwargs):
+        def wrapper(*args, **kwargs):
             context = LoggingContext(fn, args, kwargs)
             context.preexec = self.preexec(context)
             context.output = fn(*args, **kwargs)
@@ -292,7 +292,11 @@ class LoggingMapper(object):
             if decorating:
                 decorated_methods[method] = logged_fn
             else:
-                setattr(target, method, MethodType(logged_fn, target))
+                # FIXME? Does it matter that this is not a bound method?
+                # It seems to work fine, but it feels wrong. Commit
+                # a457ba3 correctly bound the methods, but then the
+                # logging context function was incorrectly bound...
+                setattr(target, method, logged_fn)
 
         if decorating:
             class_name = '{}InjectedWith{}'.format(target.__name__, self.logger.__class__.__name__)
