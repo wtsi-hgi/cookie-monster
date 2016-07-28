@@ -43,7 +43,7 @@ MEASUREMENT_QUERY_TIME = {
 
 class _CookieJarRuntimeLogging(RuntimeLogging):
     def get_measure(self, context:LoggingContext) -> str:
-        fn_name = context.fn.__name__
+        fn_name = context.name
         return MEASUREMENT_QUERY_TIME[fn_name]
 
     def get_metadata(self, context:LoggingContext) -> Optional[Dict]:
