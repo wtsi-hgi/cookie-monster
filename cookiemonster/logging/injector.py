@@ -132,6 +132,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import time
 import inspect
+import logging
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from functools import wraps
@@ -284,6 +285,7 @@ class LoggingMapper(object):
                 raise TypeError('Cannot decorate uncallable attribute "{}"'.format(method))
 
             for logging_fn in loggings:
+                logging.debug('Decorating %s with %s', method, logging_fn.__name__)
                 logging_wrapper = logging_fn(self.logger)
                 logged_fn = logging_wrapper(logged_fn)
 
