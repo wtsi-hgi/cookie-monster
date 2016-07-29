@@ -116,7 +116,7 @@ from cookiemonster.common.models import Enrichment, Cookie
 from cookiemonster.logging.logger import Logger
 from cookiemonster.cookiejar._rate_limiter import rate_limited
 from cookiemonster.cookiejar.cookiejar import CookieJar
-from cookiemonster.cookiejar.couchdb import Sofabed, inject_logging
+from cookiemonster.cookiejar.couchdb import Actions, Sofabed, inject_logging
 from hgicommon.threading import CountingLock
 
 
@@ -575,3 +575,9 @@ def add_couchdb_logging(biscuit_tin:BiscuitTin, logger:Logger):
     @param   logger       Where to log response times to
     """
     inject_logging(biscuit_tin._sofa._db, logger)
+
+    # Patch in updated decorated function references
+    biscuit_tin._sofa._batch_methods = {
+        Actions.Upsert: biscuit_tin._sofa._db.save_bulk,
+        Actions.Delete: biscuit_tin._sofa._db.delete_bulk
+    }
