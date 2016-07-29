@@ -1,5 +1,5 @@
 # Change Log
-## [Unreleased]
+## 1.1.0 (Cognizant Custard Cream) - 2016-07-29
 ### Added
 - Logging of number of threads waiting to a get a Cookie to process.
 - More detailed logging of database operations and CouchDB response times.
