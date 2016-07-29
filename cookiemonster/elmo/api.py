@@ -40,6 +40,9 @@ The following routes have been specified:
       n.b. The query string version of this route is to accommodate
       identifiers that start with a leading slash
 
+    /debug/threads
+      GET     Dump thread debugging data
+
 NOTE This is not True RESTfulness, as we have no hypermedia; but this is
 from lack of a sufficiently non-trivial graph to model
 
@@ -72,11 +75,13 @@ from cookiemonster.elmo._framework import API, HTTPMethod
 
 # Data source handlers
 from cookiemonster.elmo._cookiejar_handlers import CookieJarHandlers
+from cookiemonster.elmo._system_handlers import SystemHandlers
 
 
 class APIDependency(Enum):
     """ Dependency injection enumeration and mapping """
     CookieJar = CookieJarHandlers
+    System = SystemHandlers
 
 
 class HTTP_API(object):
@@ -126,6 +131,9 @@ class HTTP_API(object):
         api.create_route('/cookiejar/<path:identifier>') \
             .set_method_handler(HTTPMethod.GET, dep[APIDependency.CookieJar].GET_cookie) \
             .set_method_handler(HTTPMethod.DELETE, dep[APIDependency.CookieJar].DELETE_cookie)
+
+        api.create_route('/debug/threads') \
+            .set_method_handler(HTTPMethod.GET, dep[APIDependency.System].GET_thread_dump)
 
         # Start service
         self._service = Thread(target=api.listen, args=(port,), daemon=True)

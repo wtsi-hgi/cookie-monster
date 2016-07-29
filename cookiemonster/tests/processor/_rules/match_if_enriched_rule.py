@@ -46,5 +46,5 @@ def _action(cookie: Cookie, context: Context) -> bool:
 
 _priority = Priority.MAX_PRIORITY
 
-_rule = Rule(MagicMock(side_effect=_matches), MagicMock(side_effect=_action), _priority, HASH_ENRICHED_MATCH_RULE_ID)
+_rule = Rule(MagicMock(side_effect=_matches), MagicMock(side_effect=_action), HASH_ENRICHED_MATCH_RULE_ID, _priority)
 register(_rule)

@@ -41,12 +41,12 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import json
 from typing import Any
 
 from werkzeug.exceptions import NotFound
 
 from cookiemonster.common.helpers import EnrichmentJSONEncoder
+from cookiemonster.cookiejar import BiscuitTin
 from cookiemonster.elmo._handler_injection import DependencyInjectionHandler
 
 
@@ -82,8 +82,8 @@ class CookieJarHandlers(DependencyInjectionHandler):
         if not cookie:
             raise NotFound
 
-        # FIXME? Back-and-forward JSON decoding :P
-        enrichments = json.loads(json.dumps(cookie.enrichments, cls=EnrichmentJSONEncoder))
+        # TODO: This defines a JSON representation of a Cookie that could be encapsulated in a JSONEncoder
+        enrichments = EnrichmentJSONEncoder().default(list(cookie.enrichments))
         return {'identifier':cookie.identifier, 'enrichments':enrichments}
 
     def DELETE_cookie(self, **kwargs):

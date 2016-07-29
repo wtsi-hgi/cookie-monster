@@ -4,6 +4,7 @@ Cookie Jar
 An implementation of `CookieJar` using CouchDB as its database
 
 Exportable classes: `BiscuitTin`, `RateLimitedBiscuitTin`
+Exportable functions: `add_couchdb_logging`
 
 BiscuitTin
 ----------
@@ -20,6 +21,10 @@ queue change to all downstream listeners.
 `RateLimitedBiscuitTin` is a rate-limited version of `BiscuitTin` which
 takes an additional argument, at initial position, in its constructor:
 `max_requests_per_second`.
+
+add_couchdb_logging
+-------------------
+Inject CouchDB response time logging into an instantiated `BiscuitTin`
 
 Bert and Ernie
 --------------
@@ -98,19 +103,21 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import json
+import logging
+from collections import deque
 from datetime import timedelta
-from threading import Lock, Timer
-from time import sleep, time
-from typing import Iterable, Optional, Tuple
+from threading import Timer
+from time import time
+from typing import Iterable, List, Optional, Tuple
 
-from hgicommon.collections import Metadata
-
-from cookiemonster.common.models import Enrichment, Cookie
+from cookiemonster.common.collections import EnrichmentCollection
 from cookiemonster.common.helpers import EnrichmentJSONEncoder, EnrichmentJSONDecoder
-
-from cookiemonster.cookiejar.cookiejar import CookieJar
-from cookiemonster.cookiejar.couchdb import Sofabed
+from cookiemonster.common.models import Enrichment, Cookie
+from cookiemonster.logging.logger import Logger
 from cookiemonster.cookiejar._rate_limiter import rate_limited
+from cookiemonster.cookiejar.cookiejar import CookieJar
+from cookiemonster.cookiejar.couchdb import Actions, Sofabed, inject_logging
+from hgicommon.threading import CountingLock
 
 
 def _now() -> int:
@@ -141,6 +148,7 @@ class _Bert(object):
         @param   sofa  Sofabed object
         """
         self._db = sofa
+        logging.debug('Initialising CouchDB queue management schema')
         self._define_schema()
 
         # Document schema, with defaults
@@ -153,15 +161,15 @@ class _Bert(object):
             'queue_from': None
         }
 
-        self._queue_lock = Lock()
-
         # If there are any files marked as currently processing, this
         # must be due to a previous failure. Reset all of these for
         # immediate reprocessing
         in_progress = self._db.query('queue', 'in_progress', wrapper      = _Bert._reset_processing,
                                                              include_docs = True,
                                                              reduce       = False)
+        unclean_restart = False
         for doc in in_progress:
+            unclean_restart = True
             self._db.upsert(doc)
 
         # If there are any files marked as deleted, they can be cleaned
@@ -169,7 +177,11 @@ class _Bert(object):
         to_delete = self._db.query('queue', 'to_clean', flat='value', reduce=False)
 
         for doc_id in to_delete:
+            unclean_restart = True
             self._db.delete(doc_id)
+
+        if unclean_restart:
+            logging.info('Queue state sanitised after unclean restart')
 
     def get_by_identifier(self, identifier:str) -> Optional[Tuple[str, dict]]:
         """
@@ -245,34 +257,34 @@ class _Bert(object):
 
         self._db.upsert(dirty_doc)
 
-    def dequeue(self) -> Optional[str]:
+    def dequeue(self, count:int) -> List[str]:
         """
-        Get the next document on the queue and mark it as processing
+        Fetch up to count documents (IDs) off the queue and mark them
+        as being processed
 
-        @return File identifier (None, if empty queue)
+        @param   count  The maximum number of documents to dequeue
+        @return  List (potentially empty) of dequeued document IDs
         """
-        with self._queue_lock:
-            results = self._db.query('queue', 'to_process', endkey       = _now(),
-                                                            include_docs = True,
-                                                            reduce       = False,
-                                                            limit        = 1)
-            try:
-                latest = next(results)
-            except StopIteration:
-                return None
+        results = self._db.query('queue', 'to_process', endkey       = _now(),
+                                                        include_docs = True,
+                                                        reduce       = False,
+                                                        limit        = count)
+        output = []
 
-            identifier, current_doc = latest['value'], latest['doc']
+        for found in results:
+            identifier, doc_data = found['value'], found['doc']
 
             processing_doc = {
-                **current_doc,
+                **doc_data,
                 'dirty':      False,
                 'processing': True,
                 'queue_from': None
             }
 
             self._db.upsert(processing_doc)
+            output.append(identifier)
 
-        return identifier
+        return output
 
     def mark_finished(self, identifier:str):
         """
@@ -374,6 +386,7 @@ class _Ernie(object):
         @param   sofa  Sofabed object
         """
         self._db = sofa
+        logging.debug('Initialising CouchDB metadata repository schema')
         self._define_schema()
 
         # Document schema, with defaults
@@ -414,6 +427,7 @@ class _Ernie(object):
                                                         key          = identifier,
                                                         include_docs = True,
                                                         reduce       = False)
+        
         return sorted(results)
 
     def delete_metadata(self, identifier:str):
@@ -425,6 +439,7 @@ class _Ernie(object):
         to_delete = self._db.query('metadata', 'collate', flat   = 'value',
                                                           key    = identifier,
                                                           reduce = False)
+
         for doc_id in to_delete:
             self._db.delete(doc_id)
 
@@ -464,6 +479,9 @@ class BiscuitTin(CookieJar):
         self._queue = _Bert(self._sofa)
         self._metadata = _Ernie(self._sofa)
 
+        self._queue_lock = CountingLock()
+        self._pending_cache = deque()
+
         self._latency = buffer_latency.total_seconds()
 
     def _broadcast(self):
@@ -484,7 +502,7 @@ class BiscuitTin(CookieJar):
             return None
 
         cookie = Cookie(identifier)
-        cookie.enrichments = self._metadata.get_metadata(identifier)
+        cookie.enrichments = EnrichmentCollection(self._metadata.get_metadata(identifier))
 
         return cookie
 
@@ -495,15 +513,16 @@ class BiscuitTin(CookieJar):
         self._metadata.delete_metadata(identifier)
         self._queue.delete(identifier)
 
-    def enrich_cookie(self, identifier: str, enrichment: Enrichment):
+    def enrich_cookie(self, identifier: str, enrichment: Enrichment, mark_for_processing: bool=True):
         self._metadata.enrich(identifier, enrichment)
-        self._queue.mark_dirty(identifier)
-
-        self._broadcast()
+        if mark_for_processing:
+            self._queue.mark_dirty(identifier)
+            self._broadcast()
 
     def mark_as_failed(self, identifier: str, requeue_delay: timedelta=timedelta(0)):
         self._queue.mark_finished(identifier)
         self._queue.mark_dirty(identifier, requeue_delay)
+        logging.debug('%s has been marked as failed', identifier)
 
         # Broadcast the change after the requeue delay
         # FIXME? Timer's interval may not be 100% accurate and may also
@@ -513,6 +532,7 @@ class BiscuitTin(CookieJar):
 
     def mark_as_complete(self, identifier: str):
         self._queue.mark_finished(identifier)
+        logging.debug('%s has been marked as complete', identifier)
 
     def mark_for_processing(self, identifier: str):
         self._queue.mark_dirty(identifier)
@@ -520,12 +540,23 @@ class BiscuitTin(CookieJar):
         self._broadcast()
 
     def get_next_for_processing(self) -> Optional[Cookie]:
-        to_process = self._queue.dequeue()
+        with self._queue_lock:
+            if not self._pending_cache:
+                # Dequeue up to as many Cookies (IDs) as there are
+                # waiting threads, plus one for the current thread
+                waiting = self._queue_lock.waiting_to_acquire()
+                logging.debug('Fetching up to %d cookies for processing...', waiting + 1)
+                to_process = self._queue.dequeue(waiting + 1)
 
-        if to_process is None:
-            return None
+                if not to_process:
+                    return None
 
-        return self._get_cookie(to_process)
+                self._pending_cache.extend([
+                    self._get_cookie(doc_id)
+                    for doc_id in to_process
+                ])
+
+            return self._pending_cache.popleft()
 
     def queue_length(self) -> int:
         return self._queue.queue_length()
@@ -534,3 +565,19 @@ class BiscuitTin(CookieJar):
 @rate_limited
 class RateLimitedBiscuitTin(BiscuitTin):
     pass
+
+
+def add_couchdb_logging(biscuit_tin:BiscuitTin, logger:Logger):
+    """
+    Inject CouchDB response time logging into an instantiated BiscuitTin
+
+    @param   biscuit_tin  Instantiated BiscuitTin to inject into
+    @param   logger       Where to log response times to
+    """
+    inject_logging(biscuit_tin._sofa._db, logger)
+
+    # Patch in updated decorated function references
+    biscuit_tin._sofa._batch_methods = {
+        Actions.Upsert: biscuit_tin._sofa._db.save_bulk,
+        Actions.Delete: biscuit_tin._sofa._db.delete_bulk
+    }

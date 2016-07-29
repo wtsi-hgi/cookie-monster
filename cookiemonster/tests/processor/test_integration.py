@@ -106,6 +106,7 @@ class TestIntegration(unittest.TestCase):
 
         # TODO: Call if no rules match and no further enrichments?
 
+    @unittest.skip("Flaky test")
     def test_with_no_rules_but_enrichments(self):
         add_data_files(self.enrichment_loader_source, _ENRICHMENT_LOADER_LOCATIONS)
 
@@ -128,6 +129,7 @@ class TestIntegration(unittest.TestCase):
 
         # TODO: Call if no rules match and no further enrichments?
 
+    @unittest.skip("Flaky test")
     def test_with_rules_but_no_enrichments(self):
         add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
 
@@ -149,6 +151,7 @@ class TestIntegration(unittest.TestCase):
         rule_checker.assert_call_counts(
             HASH_ENRICHED_MATCH_RULE_ID, expected_number_of_times_processed, 0)
 
+    @unittest.skip("Flaky test")
     def test_with_rules_and_enrichments(self):
         add_data_files(self.rules_source, _RULE_FILE_LOCATIONS)
         assert len(self.rules_source.get_all()) == len(_RULE_FILE_LOCATIONS)

@@ -21,12 +21,16 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import unittest
-from datetime import datetime
+from copy import deepcopy
+from datetime import datetime, timedelta
 
+from cookiemonster.common.collections import UpdateCollection, EnrichmentCollection
+from cookiemonster.common.models import Update, Enrichment
 from hgicommon.collections import Metadata
 
-from cookiemonster.common.models import Update
-from cookiemonster.common.collections import UpdateCollection
+_ENRICHMENT_1 = Enrichment("source", datetime(1, 1, 1), Metadata())
+_ENRICHMENT_2 = Enrichment("source", datetime(2, 2, 2), Metadata())
+_ENRICHMENT_3 = Enrichment("source", datetime(3, 3, 3), Metadata())
 
 
 class TestUpdateCollection(unittest.TestCase):
@@ -82,6 +86,115 @@ class TestUpdateCollection(unittest.TestCase):
             Update(TestUpdateCollection._TARGET, datetime.min, self.metadata)
         ])
         self.assertCountEqual(updates.get_entity_updates(TestUpdateCollection._TARGET), [updates[0], updates[2]])
+
+
+class TestEnrichmentCollection(unittest.TestCase):
+    """
+    Tests for `EnrichmentCollection`.
+    """
+    assert _ENRICHMENT_1.timestamp < _ENRICHMENT_2.timestamp < _ENRICHMENT_3.timestamp
+
+    def setUp(self):
+        self.enrichments = EnrichmentCollection()
+
+    def test_eq_with_none(self):
+        self.assertNotEqual(_ENRICHMENT_1, None)
+
+    def test_eq_with_other_object_type(self):
+        self.assertNotEqual(_ENRICHMENT_1, object())
+
+    def test_eq_with_different_enrichment(self):
+        self.assertNotEqual(_ENRICHMENT_1, _ENRICHMENT_2)
+
+    def test_eq_with_same_enrichment(self):
+        self.assertEqual(_ENRICHMENT_1, deepcopy(_ENRICHMENT_1))
+
+    def test_eq_with_self(self):
+        self.assertEqual(_ENRICHMENT_1, _ENRICHMENT_1)
+
+    def test_init_with_enrichments(self):
+        enrichments = EnrichmentCollection([_ENRICHMENT_2, _ENRICHMENT_3, _ENRICHMENT_1])
+        self.assertSequenceEqual(enrichments, [_ENRICHMENT_1, _ENRICHMENT_2, _ENRICHMENT_3])
+
+    def test_add_with_no_previous(self):
+        self.enrichments.add(_ENRICHMENT_1)
+        self.assertSequenceEqual(self.enrichments, [_ENRICHMENT_1])
+
+    def test_add_with_older_previous(self):
+        self.enrichments.add(_ENRICHMENT_1)
+        self.enrichments.add(_ENRICHMENT_2)
+        self.assertSequenceEqual(self.enrichments, [_ENRICHMENT_1, _ENRICHMENT_2])
+
+    def test_add_with_newer_previous(self):
+        self.enrichments.add(_ENRICHMENT_2)
+        self.enrichments.add(_ENRICHMENT_1)
+        self.assertSequenceEqual(self.enrichments, [_ENRICHMENT_1, _ENRICHMENT_2])
+
+    def test_add_with_older_and_newer_previous(self):
+        self.enrichments.add(_ENRICHMENT_1)
+        self.enrichments.add(_ENRICHMENT_3)
+        self.enrichments.add(_ENRICHMENT_2)
+        self.assertSequenceEqual(self.enrichments, [_ENRICHMENT_1, _ENRICHMENT_2, _ENRICHMENT_3])
+
+    def test_add_multiple(self):
+        self.enrichments.add([_ENRICHMENT_3, _ENRICHMENT_1, _ENRICHMENT_2])
+        self.assertSequenceEqual(self.enrichments, [_ENRICHMENT_1, _ENRICHMENT_2, _ENRICHMENT_3])
+
+    def test_get_most_recent_from_source_when_none_from_source(self):
+        self.assertIsNone(self.enrichments.get_most_recent_from_source("other_source"))
+
+    def test_get_most_recent_from_source_when_multiple_from_source(self):
+        assert _ENRICHMENT_1.source == _ENRICHMENT_2.source == _ENRICHMENT_3.source
+        self.enrichments.add([_ENRICHMENT_1, _ENRICHMENT_2, _ENRICHMENT_3])
+        self.assertEqual(self.enrichments.get_most_recent_from_source(_ENRICHMENT_1.source), _ENRICHMENT_3)
+
+    def test_get_all_since_enrichment_from_source_when_no_enrichments(self):
+        enrichments = self.enrichments.get_all_since_enrichment_from_source(_ENRICHMENT_1.source)
+        self.assertEqual(len(enrichments), 0)
+
+    def test_get_all_since_enrichment_from_source_when_no_enrichments_from_source(self):
+        self.enrichments.add(_ENRICHMENT_1)
+        enrichments = self.enrichments.get_all_since_enrichment_from_source("other_source")
+        self.assertCountEqual(enrichments, [_ENRICHMENT_1])
+
+    def test_get_all_since_enrichment_from_source_when_only_enrichment_from_source(self):
+        assert _ENRICHMENT_1.source == _ENRICHMENT_2.source
+        self.enrichments.add([_ENRICHMENT_1, _ENRICHMENT_2])
+        enrichments = self.enrichments.get_all_since_enrichment_from_source(_ENRICHMENT_1.source)
+        self.assertEqual(len(enrichments), 0)
+
+    def test_get_all_since_enrichment_from_source_when_no_after_enrichment_from_source(self):
+        assert _ENRICHMENT_1.source == _ENRICHMENT_2.source
+        self.enrichments.add([_ENRICHMENT_1, Enrichment("other_source", _ENRICHMENT_2.timestamp, Metadata())])
+        enrichments = self.enrichments.get_all_since_enrichment_from_source("other_source")
+        self.assertEqual(len(enrichments), 0)
+
+    def test_get_all_since_enrichment_from_source_when_one_enrichment_from_source_and_enrichments_afterwards(self):
+        delta = timedelta(seconds=1)
+        assert _ENRICHMENT_2.timestamp - _ENRICHMENT_1.timestamp > delta
+        self.enrichments.add([
+            _ENRICHMENT_1,
+            Enrichment("other_source", _ENRICHMENT_1.timestamp + delta, Metadata()),
+            _ENRICHMENT_2,
+            _ENRICHMENT_3
+        ])
+        enrichments = self.enrichments.get_all_since_enrichment_from_source("other_source")
+        self.assertCountEqual(enrichments, [_ENRICHMENT_2, _ENRICHMENT_3])
+
+    def test_get_all_since_enrichment_from_source_when_multiple_enrichment_from_source_and_enrichments_afterwards(self):
+        delta = timedelta(seconds=1)
+        assert _ENRICHMENT_2.timestamp - _ENRICHMENT_1.timestamp > delta
+        assert _ENRICHMENT_3.timestamp - _ENRICHMENT_2.timestamp > delta
+        source = "other_source"
+        self.enrichments.add([
+            _ENRICHMENT_1,
+            Enrichment(source, _ENRICHMENT_1.timestamp + delta, Metadata()),
+            _ENRICHMENT_2,
+            Enrichment(source, _ENRICHMENT_2.timestamp + delta, Metadata()),
+            _ENRICHMENT_3
+        ])
+        enrichments = self.enrichments.get_all_since_enrichment_from_source(source)
+        self.assertCountEqual(enrichments, [_ENRICHMENT_3])
 
 
 if __name__ == "__main__":

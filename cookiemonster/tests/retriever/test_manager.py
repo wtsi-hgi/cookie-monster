@@ -147,6 +147,7 @@ class TestPeriodicRetrievalManager(_BaseRetrievalManagerTest):
         # Create retrieval manager
         self.retrieval_manager = PeriodicRetrievalManager(RETRIEVAL_PERIOD, self.update_mapper, self.logger)
 
+    @unittest.skip("Flaky test")
     def test_run(self):
         cycles = 10
         listener = MagicMock()

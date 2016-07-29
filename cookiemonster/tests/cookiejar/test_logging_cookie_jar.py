@@ -3,7 +3,9 @@ Legalese
 --------
 Copyright (c) 2016 Genome Research Ltd.
 
-Author: Colin Nolan <cn13@sanger.ac.uk>
+Authors:
+* Colin Nolan <cn13@sanger.ac.uk>
+* Christopher Harrison <ch12@sanger.ac.uk>
 
 This file is part of Cookie Monster.
 
@@ -30,8 +32,7 @@ from hgicommon.collections import Metadata
 from cookiemonster.common.models import Enrichment
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
-from cookiemonster.cookiejar.logging_cookie_jar import add_cookie_jar_logging, MEASUREMENT_QUERY_TIME, \
-    logging_cookie_jar
+from cookiemonster.cookiejar.logging_cookie_jar import add_cookie_jar_logging, logging_cookie_jar, MEASUREMENT_QUERY_TIME
 
 
 class TestAddCookieJarLogging(unittest.TestCase):
@@ -45,6 +46,7 @@ class TestAddCookieJarLogging(unittest.TestCase):
         self._composite_methods = dict()    # type: Dict[str, MagicMock]
         for method_name in CookieJar.__abstractmethods__:
             method = getattr(self._cookie_jar, method_name)
+            method.__name__ = method_name
             self._composite_methods[method_name] = method
 
         add_cookie_jar_logging(self._cookie_jar, self._logger)
@@ -119,18 +121,18 @@ class TestLoggingCookieJar(unittest.TestCase):
         self._logger = MagicMock()
 
     def test_create_logging_cookie_jar(self):
-        InMemoryLoggingCookieJar = logging_cookie_jar(InMemoryCookieJar)
-        cookie_jar = InMemoryLoggingCookieJar(self._logger)
+        InMemoryLoggingCookieJar = logging_cookie_jar(self._logger)(InMemoryCookieJar)
+        cookie_jar = InMemoryLoggingCookieJar()
         queue_length = cookie_jar.queue_length()
         self.assertEqual(queue_length, 0)
         self.assertEqual(self._logger.record.call_count, 1)
 
     def test_use_as_decorator(self):
-        @logging_cookie_jar
+        @logging_cookie_jar(self._logger)
         class InMemoryLoggingCookieJar(InMemoryCookieJar):
             pass
 
-        cookie_jar = InMemoryLoggingCookieJar(self._logger)
+        cookie_jar = InMemoryLoggingCookieJar()
         queue_length = cookie_jar.queue_length()
         self.assertEqual(queue_length, 0)
         self.assertEqual(self._logger.record.call_count, 1)

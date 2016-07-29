@@ -1,8 +1,9 @@
 """
 Low-Level CouchDB Interface
 ===========================
-This module provides a wrapper to pycouchdb such that its methods always
-perform a preflight check to test for a responsive CouchDB server
+This module provides a wrapper to pycouchdb such that every request made
+to the CouchDB server is repeated a set amount of times, after a grace
+timeout, before giving up.
 
 Exportable classes: `SofterCouchDB`
 Exportable exceptions: `UnresponsiveCouchDB`, `InvalidCouchDBKey`
@@ -10,32 +11,29 @@ Exportable exceptions: `UnresponsiveCouchDB`, `InvalidCouchDBKey`
 SofterCouchDB
 -------------
 `SofterCouchDB` is instantiated with the CouchDB URL and database name,
-as well as any additional arguments that you'd want to pass through to
-the pycouchdb.Server constructor. If the named database is not found on
-the CouchDB server, it will be created.
+as well as any additional arguments that you'd normally pass through to
+the pycouchdb.client.Server constructor. If the named database is not
+found on the CouchDB server, it will be created.
 
-The available methods are the same as those of pycouchdb.Database, where
-each method will be prefixed with a finite number of requests to the
-database URL to check for responsiveness. The extent to which it hammers
-the database server is configured via environment variables.
+The available methods are a subset of those provided by
+pycouchdb.client.Database, using the same calling conventions.
 
 Environmental Factors
 ---------------------
-The CouchDB interface is designed to "test the water" before making any
-request. If it's too cold (i.e., a timeout is reached), then the client
-will fallback, to avoid hammering the CouchDB server when it is busy,
-and retry a given number of times before failing completely. This is
+This CouchDB interface is designed to be more resilient to server
+problems, when used in anger, such that data doesn't get lost. This is
 parametrised through the following environment variables:
 
 Environment Variable          | Description                    | Default
 ------------------------------+--------------------------------+--------
-COOKIEMONSTER_COUCHDB_TIMEOUT | Initial request timeout (ms)   |    1500
-COOKIEMONSTER_COUCHDB_GRACE   | Grace time before retry (ms)   |    3000
-COOKIEMONSTER_COUCHDB_RETRIES | Maximum retries before failure |      10
+COOKIEMONSTER_COUCHDB_GRACE   | Grace time before retry (ms)   |    1000
+COOKIEMONSTER_COUCHDB_RETRIES | Maximum retries before failure |       0
+
+n.b., Zero retries means never give up.
 
 Dependencies
 ------------
-* pycouchdb
+* py-couchdb 1.14
 * CouchDB 0.10, or later
 
 Legalese
@@ -58,23 +56,53 @@ Public License for more details.
 
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
+
+Reimplemented CouchDB client code is based on py-couchdb
+
+Copyright (c) 2016 Andrey Antukh <niwi@niwi.be>
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+3. The name of the author may not be used to endorse or promote products
+   derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 """
+import logging
 from datetime import timedelta
 from os import environ
 from time import sleep
-from typing import Any, Callable
+from typing import Optional
 
-from requests import head
-
-from pycouchdb.client import Server, Database
-from pycouchdb.exceptions import NotFound
-
+# NOTE We rely on undocumented APIs within the base library, hence this
+# is fragile wrt version changes...
+import pycouchdb
 
 # We get the CouchDB hammering configuration from the environment, as we
 # don't want to have to explicitly set every last little thing.
-_COUCHDB_TIMEOUT = timedelta(milliseconds=int(environ.get('COOKIEMONSTER_COUCHDB_TIMEOUT', 1500))).total_seconds()
-_COUCHDB_GRACE   = timedelta(milliseconds=int(environ.get('COOKIEMONSTER_COUCHDB_GRACE', 3000))).total_seconds()
-_COUCHDB_RETRIES = int(environ.get('COOKIEMONSTER_COUCHDB_RETRIES', 10))
+_COUCHDB_GRACE   = timedelta(milliseconds=int(environ.get('COOKIEMONSTER_COUCHDB_GRACE', 1000))).total_seconds()
+_COUCHDB_RETRIES = int(environ.get('COOKIEMONSTER_COUCHDB_RETRIES', 0))
 
 
 class UnresponsiveCouchDB(Exception):
@@ -87,8 +115,100 @@ class InvalidCouchDBKey(Exception):
     pass
 
 
+class _SofterResource(pycouchdb.resource.Resource):
+    """
+    Reimplementation of pycouchdb.resource.Resource such that requests
+    are gracefully retried up until some limit
+    """
+    def _keep_trying(self, method:str, path:Optional[str]=None, **kwargs):
+        """ Keep requesting in the event of an unknown failure """
+        good_response = False
+        attempts = 0
+
+        while not good_response and (_COUCHDB_RETRIES == 0 or attempts < _COUCHDB_RETRIES):
+            try:
+                response = self.request(method, path, **kwargs)
+                good_response = True
+
+            except (pycouchdb.exceptions.NotFound, pycouchdb.exceptions.BadRequest):
+                # This is a genuine problem, so just reraise
+                raise
+
+            except pycouchdb.exceptions.GenericError:
+                # This could be due to some kind of transient
+                # server/network failure, so retry
+                logging.exception('%s request to %s failed!! Retrying...', method, path)
+
+                attempts += 1
+                sleep(_COUCHDB_GRACE)
+
+        if not good_response:
+            logging.error('Could not make %s request to %s!!', method, path)
+            raise UnresponsiveCouchDB
+
+        return response
+
+    def get(self, path:Optional[str] = None, **kwargs):
+        """
+        Override GET function to keep trying the request
+        Modified from pycouchdb.resource.Resource.get
+        """
+        return self._keep_trying('GET', path, **kwargs)
+
+    def put(self, path:Optional[str] = None, **kwargs):
+        """
+        Override PUT function to keep trying the request
+        Modified from pycouchdb.resource.Resource.put
+        """
+        return self._keep_trying('PUT', path, **kwargs)
+
+    def post(self, path:Optional[str] = None, **kwargs):
+        """
+        Override POST function to keep trying the request
+        Modified from pycouchdb.resource.Resource.post
+        """
+        return self._keep_trying('POST', path, **kwargs)
+
+    def delete(self, path:Optional[str] = None, **kwargs):
+        """
+        Override DELETE function to keep trying the request
+        Modified from pycouchdb.resource.Resource.delete
+        """
+        return self._keep_trying('DELETE', path, **kwargs)
+
+    def head(self, path:Optional[str] = None, **kwargs):
+        """
+        Override HEAD function to keep trying the request
+        Modified from pycouchdb.resource.Resource.head
+        """
+        return self._keep_trying('HEAD', path, **kwargs)
+
+
+class _SofterServer(pycouchdb.client.Server):
+    """
+    Reimplementation of pycouchdb.client.Server using _SofterResource
+    """
+    def __init__(self, base_url, full_commit=True, authmethod='basic', verify=False):
+        """
+        Override constructor to use _SofterResource
+        Modified from pycouchdb.client.Server.__init__
+        """
+        self.base_url, credentials = pycouchdb.utils.extract_credentials(base_url)
+        self.resource = _SofterResource(self.base_url,
+                                        full_commit,
+                                        credentials=credentials,
+                                        authmethod=authmethod,
+                                        verify=verify)
+
+
 class SofterCouchDB(object):
-    """ A CouchDB client interface with a gentle touch """
+    """
+    A CouchDB client interface with a gentle touch
+    
+    We specify the exposed database methods, rather than generating them
+    at runtime, to avoid too many layers of metaprogramming! For
+    convenience sake, only the methods that we use have been specified.
+    """
     def __init__(self, url:str, database:str, **kwargs):
         """
         Acquire a connection with the CouchDB database
@@ -98,10 +218,8 @@ class SofterCouchDB(object):
         @kwargs  Additional constructor parameters to
                  pycouchdb.client.Server should be passed through here
         """
-        self._url = url
-
-        # Set up pycouchdb constructor arguments and instantiate
-        self._server = Server(**{
+        # Instantiate pycouchdb Server with our changes
+        self._server = _SofterServer(**{
             'base_url':    url,
             'verify':      False,
             'full_commit': True,
@@ -109,67 +227,35 @@ class SofterCouchDB(object):
             **kwargs
         })
 
-        # Connect
-        self._db = self._lightly_hammer(self._connect)(self, database)
-
-        # Monkey-patch the available database methods, decorated with
-        # initial connection checking and graceful retrying
-        db_methods = [
-            method
-            for method in dir(self._db)
-            if  callable(getattr(self._db, method))
-            and not method.startswith('_')
-        ]
-
-        for method in db_methods:
-            setattr(self.__class__, method, self._lightly_hammer(getattr(self._db, method)))
-
-    def _connect(self, database:str) -> Database:
-        """
-        Connect to (or create, if it doesn't exist) a database
-
-        @param   database  Database name
-        @return  Database object
-        """
+        # Connect to the database
         try:
-            db = self._server.database(database)
-        except NotFound:
-            db = self._server.create(database)
+            self._db = self._server.database(database)
+        except pycouchdb.exceptions.NotFound:
+            self._db = self._server.create(database)
 
-        return db
+    # Exposed pycouchdb.client.Database methods
+    # all delete delete_bulk get query revisions save save_bulk
 
-    def _lightly_hammer(self, fn:Callable[..., Any]) -> Callable[..., Any]:
-        """
-        Decorator that first checks the responsiveness of the database
-        connection before executing the function; if the database is
-        unresponsive, then we wait a bit and try again until such time
-        as it responds or the failure conditions are met (configured
-        using environment variables). If it ultimately fails, then an
-        unresponsive CouchDB exception will be raised.
+    def all(self, *args, **kwargs):
+        return self._db.all(*args, **kwargs)
 
-        @param   fn  Function to decorate
-        @return  Decorated function
-        """
-        def wrapper(obj, *args, **kwargs):
-            good_connection = False
-            attempts = 0
-
-            while not good_connection and attempts < _COUCHDB_RETRIES:
-                try:
-                    # FIXME? What about authenticated services?
-                    response = head(self._url, timeout=_COUCHDB_TIMEOUT)
-                    if response.status_code != 200:
-                        raise Exception
-
-                    good_connection = True
-
-                except:
-                    attempts += 1
-                    sleep(_COUCHDB_GRACE)
-
-            if not good_connection:
-                raise UnresponsiveCouchDB
-
-            return fn(*args, **kwargs)
-
-        return wrapper
+    def delete(self, *args, **kwargs):
+        return self._db.delete(*args, **kwargs)
+    
+    def delete_bulk(self, *args, **kwargs):
+        return self._db.delete_bulk(*args, **kwargs)
+    
+    def get(self, *args, **kwargs):
+        return self._db.get(*args, **kwargs)
+    
+    def query(self, *args, **kwargs):
+        return self._db.query(*args, **kwargs)
+    
+    def revisions(self, *args, **kwargs):
+        return self._db.revisions(*args, **kwargs)
+    
+    def save(self, *args, **kwargs):
+        return self._db.save(*args, **kwargs)
+    
+    def save_bulk(self, *args, **kwargs):
+        return self._db.save_bulk(*args, **kwargs)

@@ -21,12 +21,11 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from datetime import datetime
-from typing import List
-
-from hgicommon.collections import Metadata
+from typing import List, Sequence, Optional, Iterable, Any, Union
 
 from cookiemonster.common.helpers import localise_to_utc
-from cookiemonster.common.models import Update
+from cookiemonster.common.models import Update, Enrichment
+from hgicommon.collections import Metadata
 
 
 class UpdateCollection(list):
@@ -66,3 +65,81 @@ class UpdateCollection(list):
         :return: any updates relating to the entity
         """
         return [update for update in self if update.target == entity_location]
+
+
+class EnrichmentCollection(Sequence):
+    """
+    Collection of `Enrichment` instances.
+    """
+    def __init__(self, seq: Iterable[Enrichment]=None):
+        if seq is None:
+            seq = {}
+        self._data = []     # type: List[Enrichment]
+        self.add(seq)
+
+    def __iter__(self) -> Iterable:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __contains__(self, item: Any) -> bool:
+        return item in self._data
+
+    def __getitem__(self, index: int) -> Enrichment:
+        return self._data[index]
+
+    def __eq__(self, other: Any) -> bool:
+        if type(self) != type(other):
+            return False
+        return list(self) == list(other)
+
+    def add(self, enrichment: Union[Enrichment, Iterable[Enrichment]]):
+        """
+        Adds an enrichment to this collection.
+        :param enrichment: the enrichment to add
+        """
+        if not isinstance(enrichment, Enrichment):
+            for x in enrichment:
+                self.add(x)
+        else:
+            if len(self._data) == 0:
+                self._data.append(enrichment)
+            else:
+                number_of_pre_existing_enrichments = len(self._data)
+                i = 0
+                while i < number_of_pre_existing_enrichments:
+                    prexisting_enrichment = self._data[i]
+                    if prexisting_enrichment.timestamp > enrichment.timestamp:
+                        self._data.insert(i, enrichment)
+                        i = number_of_pre_existing_enrichments
+                    elif i == number_of_pre_existing_enrichments - 1:
+                        self._data.append(enrichment)
+                    i += 1
+                assert len(self._data) == number_of_pre_existing_enrichments + 1
+
+    def get_most_recent_from_source(self, source: str) -> Optional[Enrichment]:
+        """
+        Gets the most recent enrichment from the given source.
+        :param source: the source of the enrichment
+        :return: the most recent enrichment from the given source, `None` if no enrichments from source
+        """
+        for enrichment in reversed(self._data):
+            if enrichment.source == source:
+                return enrichment
+        return None
+
+    def get_all_since_enrichment_from_source(self, source: str) -> "EnrichmentCollection":
+        """
+        Gets all of the enrichments that were added after the most recent enrichment from the given source.
+        :param source: the source o
+        :return:
+        """
+        enrichments = EnrichmentCollection()
+        for enrichment in reversed(self._data):
+            if enrichment.source == source:
+                break
+            else:
+                enrichments.add(enrichment)
+        return enrichments
+

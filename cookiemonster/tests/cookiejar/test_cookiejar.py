@@ -74,6 +74,7 @@ from threading import Timer
 from typing import Any, Callable
 from numbers import Real
 
+from cookiemonster.common.collections import EnrichmentCollection
 from cookiemonster.cookiejar import CookieJar, BiscuitTin, RateLimitedBiscuitTin
 from cookiemonster.cookiejar.in_memory_cookiejar import InMemoryCookieJar
 from cookiemonster.common.models import Enrichment, Cookie
@@ -101,10 +102,10 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
             Metadata({'xyzzy': 123}),
             Metadata({'quux': 'snuffleupagus'})
         ]
-        self.eg_enrichments = [
+        self.eg_enrichments = EnrichmentCollection([
             Enrichment('random', datetime(1981, 9, 25, 5, 55, tzinfo=timezone.utc), self.eg_metadata[0]),
             Enrichment('irods', datetime.now(tz=timezone.utc).replace(microsecond=0), self.eg_metadata[1])
-        ]
+        ])
         self.eg_listener = MagicMock()
 
         self.jar = self._create_cookie_jar()
@@ -165,6 +166,13 @@ class TestCookieJar(unittest.TestCase, metaclass=ABCMeta):
         self.assertEqual(len(to_process.enrichments), 1)
         self.assertEqual(to_process.enrichments[0], self.eg_enrichments[0])
         self.assertEqual(self.eg_listener.call_count, 1)
+
+    def test_single_enrichment_with_no_processing(self):
+        """
+        CookieJar Sequence: Enrich -> Get Next
+        """
+        self.jar.enrich_cookie(self.eg_identifiers[0], self.eg_enrichments[0], False)
+        self.assertEqual(self.jar.queue_length(), 0)
 
     def test03_multiple_enrichment(self):
         """

@@ -82,26 +82,44 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from collections import defaultdict
+import logging
 from copy import deepcopy
 from datetime import timedelta
-from threading import Lock
-from typing import Any, Callable, Generator, List, Optional
+from threading import Event
+from typing import Any, Callable, Generator, Optional
 from uuid import uuid4
 
 from pycouchdb.exceptions import Conflict, NotFound
+
+from hgicommon.collections import ThreadSafeDefaultdict
+from hgicommon.threading import CountingLock
 
 from cookiemonster.cookiejar.couchdb.softer import SofterCouchDB, UnresponsiveCouchDB, InvalidCouchDBKey
 from cookiemonster.cookiejar.couchdb.dream_catcher import Buffer, Actions, BatchListenerT
 
 
-_global_lock = Lock()
+class _LockPool(object):
+    """ Managed pool of named locks """
+    def __init__(self):
+        self._locks = ThreadSafeDefaultdict(CountingLock)
 
-def _safe_lock_factory() -> Lock:
-    """ Create a lock thread-safely """
-    global _global_lock
-    with _global_lock:
-        return Lock()
+        self._purge = Event()
+        self._purge.set()
+
+    def acquire(self, name:str):
+        self._purge.wait()
+        self._locks[name].acquire()
+
+    def release(self, name:str):
+        self._purge.wait()
+        self._locks[name].release()
+
+    def cleanup(self, name:str):
+        self._purge.clear()
+        lock = self._locks[name]
+        if not lock.is_locked() and not lock.waiting_to_acquire():
+            del self._locks[name]
+        self._purge.set()
 
 
 class _DesignDocument(object):
@@ -142,6 +160,7 @@ class _DesignDocument(object):
                     del self._design['_rev']
 
             if do_update:
+                logging.debug('Updating design document: %s', self.design_id)
                 self._db.save(self._design)
 
             self._design_dirty = False
@@ -198,7 +217,7 @@ class Sofabed(object):
         self._buffer.add_listener(self._batch)
 
         # Setup document locks
-        self._doc_locks = defaultdict(_safe_lock_factory)
+        self._doc_locks = _LockPool()
 
     def _batch(self, broadcast:BatchListenerT):
         """
@@ -208,6 +227,7 @@ class Sofabed(object):
         """
         action, docs = broadcast
         to_batch = deepcopy(docs)
+        to_log = {}
 
         # To avoid conflicts, we must merge in the revision IDs of
         # existing documents
@@ -223,14 +243,26 @@ class Sofabed(object):
             if doc_id in revision_ids:
                 doc['_rev'] = revision_ids[doc_id]
 
+            to_log[doc_id] = doc['identifier']
+
         try:
+            logging.debug('Performing batch update: %s %s', action.name, to_log)
             _ = self._batch_methods[action](to_batch, transaction=True)
 
             # Release locks on batched documents
             for doc in to_batch:
-                self._doc_locks[doc['_id']].release()
+                try:
+                    self._doc_locks.release(doc['_id'])
+                except:
+                    # This should never fail, but it did in the past
+                    # (before we, presumably/hopefully, fixed it), so
+                    # let's just hedge our bets!...
+                    logging.warning('Lock for %s ("%s") already released!!', doc['_id'], doc['identifier'])
+
+            logging.debug('Batch update completed')
 
         except (UnresponsiveCouchDB, Conflict):
+            logging.info('Couldn\'t perform batch update; requeueing')
             self._buffer.requeue(action, docs)
 
     def fetch(self, key:str, revision:Optional[str] = None) -> Optional[dict]:
@@ -279,14 +311,13 @@ class Sofabed(object):
         # Document ID to upsert and lock
         doc_id = data.get('_id', key or uuid4().hex)
 
-        lock = self._doc_locks[doc_id]
-        lock.acquire()
+        self._doc_locks.acquire(doc_id)
         self._buffer.append({'_id': doc_id, **data})
 
-        # Block until upsertion, then clean up
-        lock.acquire()
-        lock.release()
-        del self._doc_locks[doc_id]
+        # Block until upsertion, then cleanup (if possible)
+        self._doc_locks.acquire(doc_id)
+        self._doc_locks.release(doc_id)
+        self._doc_locks.cleanup(doc_id)
 
     def delete(self, key:str):
         """
@@ -307,14 +338,13 @@ class Sofabed(object):
 
             doc_id = to_delete['_id']
 
-            lock = self._doc_locks[doc_id]
-            lock.acquire()
+            self._doc_locks.acquire(doc_id)
             self._buffer.remove(to_delete)
 
-            # Block until deletion, then clean up
-            lock.acquire()
-            lock.release()
-            del self._doc_locks[doc_id]
+            # Block until deletion, then cleanup (if possible)
+            self._doc_locks.acquire(doc_id)
+            self._doc_locks.release(doc_id)
+            self._doc_locks.cleanup(doc_id)
 
     def query(self, design:str, view:str, wrapper:Optional[Callable[[dict], Any]] = None, **kwargs) -> Generator:
         """

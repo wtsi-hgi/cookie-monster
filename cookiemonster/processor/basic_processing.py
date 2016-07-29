@@ -25,19 +25,22 @@ import logging
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from typing import Sequence
 
-from hgicommon.data_source import DataSource
-
-from cookiemonster.common.models import Cookie
+from cookiemonster.common.models import Cookie, Enrichment
 from cookiemonster.cookiejar import CookieJar
 from cookiemonster.logging.logger import PythonLoggingLogger, Logger
 from cookiemonster.processor._enrichment import EnrichmentManager
 from cookiemonster.processor._rules import RuleQueue
-from cookiemonster.processor.models import Rule, EnrichmentLoader
-from cookiemonster.processor.processing import ProcessorManager, Processor
+from cookiemonster.processor.json_convert import RuleApplicationLogJSONEncoder
+from cookiemonster.processor.models import Rule, EnrichmentLoader, RuleApplicationLog
+from cookiemonster.processor.processing import ProcessorManager, Processor, RULE_APPLICATION
+from hgicommon.collections import Metadata
+from hgicommon.data_source import DataSource
 
-_MEASUREMENT_CURRENTLY_PROCESSING = "processing"
+_MEASUREMENT_PROCESSING_COUNT = "processing"
+_MEASUREMENT_GET_NEXT_COUNT = "get_next_for_processing"
 _MEASUREMENT_TIME_TO_PROCESS = "time_to_process"
 
 
@@ -45,6 +48,8 @@ class BasicProcessor(Processor):
     """
     Simple processor for a single Cookie.
     """
+    _RULE_APPLICATION_LOG_JSON_ENCODER = RuleApplicationLogJSONEncoder()
+
     def __init__(self, cookie_jar: CookieJar, rules: Sequence[Rule], enrichment_loaders: Sequence[EnrichmentLoader]):
         """
         Constructor.
@@ -64,10 +69,20 @@ class BasicProcessor(Processor):
             rule = rule_queue.get_next()
             isolated_cookie = copy.deepcopy(cookie)
             try:
-                if rule.matches(isolated_cookie):
+                matches = rule.matches(isolated_cookie)
+                if matches:
                     terminate = rule.execute_action(isolated_cookie)
-            except Exception:
+            except:
+                matches = False
                 logging.error("Error applying rule; Rule: %s; Error: %s" % (rule, traceback.format_exc()))
+
+            if matches:
+                log = RuleApplicationLog(rule.id, terminate)
+                log_as_dict = BasicProcessor._RULE_APPLICATION_LOG_JSON_ENCODER.default(log)
+                enrichment = Enrichment(RULE_APPLICATION, datetime.now(tz=timezone.utc), Metadata(log_as_dict))
+                self.cookie_jar.enrich_cookie(cookie.identifier, enrichment, mark_for_processing=False)
+                # Update in-memory copy of cookie
+                cookie.enrichments.add(enrichment)
             rule_queue.mark_as_applied(rule)
 
         return terminate
@@ -79,9 +94,7 @@ class BasicProcessor(Processor):
         enrichment = enrichment_manager.next_enrichment(cookie)
 
         if enrichment is None:
-            logging.info("Cannot enrich cookie with identifier \"%s\" any further - notifying listeners"
-                         % cookie.identifier)
-            # TODO: Should anything else be done here?
+            logging.info("Cannot enrich cookie with identifier \"%s\" any further" % cookie.identifier)
         else:
             logging.info("Applying enrichment from source \"%s\" to cookie with identifier \"%s\""
                          % (enrichment.source, cookie.identifier))
@@ -111,7 +124,8 @@ class BasicProcessorManager(ProcessorManager):
         self._rules_source = rules_source
         self._enrichment_loaders_source = enrichment_loaders_source
         self._cookie_processing_thread_pool = ThreadPoolExecutor(max_workers=number_of_threads)
-        self._currently_processing_count = 0
+        self._processing_count = 0
+        self._get_next_count = 0
         self._logger = logger
 
     def process_any_cookies(self):
@@ -123,7 +137,11 @@ class BasicProcessorManager(ProcessorManager):
         Processes any cookies, blocking whilst the Cookie is processed.
         """
         # Claim cookie
+        self._get_next_count += 1
+        self._logger.record(_MEASUREMENT_GET_NEXT_COUNT, self._get_next_count)
         cookie = self._cookie_jar.get_next_for_processing()
+        self._get_next_count -= 1
+        self._logger.record(_MEASUREMENT_GET_NEXT_COUNT, self._get_next_count)
 
         if cookie is None:
             logging.info("Triggered to process cookies but none need processing.")
@@ -138,8 +156,8 @@ class BasicProcessorManager(ProcessorManager):
                                        self._enrichment_loaders_source.get_all())
             try:
                 # Process Cookie
-                self._currently_processing_count += 1
-                self._logger.record(_MEASUREMENT_CURRENTLY_PROCESSING, self._currently_processing_count)
+                self._processing_count += 1
+                self._logger.record(_MEASUREMENT_PROCESSING_COUNT, self._processing_count)
                 processor.process_cookie(cookie)
 
                 # Relinquish claim on Cookie
@@ -156,5 +174,5 @@ class BasicProcessorManager(ProcessorManager):
                 # Relinquish claim on Cookie but state processing as failed
                 self._cookie_jar.mark_as_failed(cookie.identifier)
             finally:
-                self._currently_processing_count -= 1
-                self._logger.record(_MEASUREMENT_CURRENTLY_PROCESSING, self._currently_processing_count)
+                self._processing_count -= 1
+                self._logger.record(_MEASUREMENT_PROCESSING_COUNT, self._processing_count)

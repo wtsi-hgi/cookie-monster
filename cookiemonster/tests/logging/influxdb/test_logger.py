@@ -97,6 +97,7 @@ class TestInfluxDBLoggger(unittest.TestCase):
         self.assertEqual(points[0]["a"], log.values["a"])
         self.assertEqual(points[0]["b"], log.values["b"])
 
+    @unittest.skip("Flaky test")
     def test_record_when_static_tags(self):
         self._logger.static_tags = {"host": "1"}
 
