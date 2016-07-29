@@ -237,33 +237,25 @@ class SofterCouchDB(object):
     # all delete delete_bulk get query revisions save save_bulk
 
     def all(self, *args, **kwargs):
-        logging.debug('pycouchdb.all')
         return self._db.all(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        logging.debug('pycouchdb.delete')
         return self._db.delete(*args, **kwargs)
     
     def delete_bulk(self, *args, **kwargs):
-        logging.debug('pycouchdb.delete_bulk')
         return self._db.delete_bulk(*args, **kwargs)
     
     def get(self, *args, **kwargs):
-        logging.debug('pycouchdb.get')
         return self._db.get(*args, **kwargs)
     
     def query(self, *args, **kwargs):
-        logging.debug('pycouchdb.query')
         return self._db.query(*args, **kwargs)
     
     def revisions(self, *args, **kwargs):
-        logging.debug('pycouchdb.revisions')
         return self._db.revisions(*args, **kwargs)
     
     def save(self, *args, **kwargs):
-        logging.debug('pycouchdb.save')
         return self._db.save(*args, **kwargs)
     
     def save_bulk(self, *args, **kwargs):
-        logging.debug('pycouchdb.save_bulk')
         return self._db.save_bulk(*args, **kwargs)

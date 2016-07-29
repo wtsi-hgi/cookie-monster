@@ -211,11 +211,9 @@ class LoggingFunction(metaclass=ABCMeta):
 class RuntimeLogging(LoggingFunction, metaclass=ABCMeta):
     """ Log the time taken for function execution """
     def preexec(self, context:LoggingContext) -> Any:
-        logging.debug('Log preexecution for %s', context.name)
         return time.monotonic()
 
     def postexec(self, context:LoggingContext):
-        logging.debug('Log postexecution for %s', context.name)
         duration = time.monotonic() - context.preexec
         self.log(context, duration)
 
