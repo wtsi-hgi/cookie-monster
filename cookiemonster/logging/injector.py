@@ -17,7 +17,7 @@ following members that *must* not be mutated:
 * `args` The positional arguments passed to the logged function
 * `kwargs` The keyword arguments passed to the logged function
 * `preexec` The logging functions preexecution return value
-* `output` The output of the logged function
+* `output` The output of the logged function, set by calling `exec`
 
 The purpose of these values is to provide context to the logging,
 specifically for determining the logging measure, value and any
@@ -132,10 +132,10 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import time
 import inspect
+import logging
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from functools import wraps
-from types import MappingProxyType
 from typing import Any, Callable, Dict, Optional, Sequence, Union
 
 from hgicommon.models import Model
@@ -148,13 +148,19 @@ class LoggingContext(Model):
     """ Encapsulate the logging wrapper context """
     def __init__(self, fn:Callable[..., Any], args:Optional[Sequence], kwargs:Optional[Dict[str, Any]]) -> None:
         # Function context
+        # FIXME? Do bound methods need some reference to their instance?
         self.fn = fn
-        self.args = args
-        self.kwargs = MappingProxyType(kwargs) if kwargs else None
+        self.name = fn.__name__
+        self.args = args or []
+        self.kwargs = kwargs or {}
 
         # Runtime context (set later)
         self.preexec = None  # type: Any
         self.output = None   # type: Any
+
+    def exec(self):
+        """ Execute function in context """
+        self.output = self.fn(*self.args, **self.kwargs)
 
 
 class LoggingFunction(metaclass=ABCMeta):
@@ -173,7 +179,7 @@ class LoggingFunction(metaclass=ABCMeta):
         def wrapper(*args, **kwargs):
             context = LoggingContext(fn, args, kwargs)
             context.preexec = self.preexec(context)
-            context.output = fn(*args, **kwargs)
+            context.exec()
             self.postexec(context)
             return context.output
 
@@ -284,12 +290,17 @@ class LoggingMapper(object):
                 raise TypeError('Cannot decorate uncallable attribute "{}"'.format(method))
 
             for logging_fn in loggings:
+                logging.debug('Decorating %s with %s', method, logging_fn.__name__)
                 logging_wrapper = logging_fn(self.logger)
                 logged_fn = logging_wrapper(logged_fn)
 
             if decorating:
                 decorated_methods[method] = logged_fn
             else:
+                # FIXME? Does it matter that this is not a bound method?
+                # It seems to work fine, but it feels wrong. Commit
+                # a457ba3 correctly bound the methods, but then the
+                # logging context function was incorrectly bound...
                 setattr(target, method, logged_fn)
 
         if decorating:

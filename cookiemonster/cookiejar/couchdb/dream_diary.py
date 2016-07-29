@@ -49,7 +49,7 @@ class _CouchDBResponseTimeLogging(RuntimeLogging):
         return 'couchdb'
 
     def get_metadata(self, context:LoggingContext) -> Optional[Dict]:
-        return {'function': context.fn.__name__}
+        return {'function': context.name}
 
 
 def inject_logging(db:SofterCouchDB, logger:Logger):
