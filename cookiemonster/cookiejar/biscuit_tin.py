@@ -129,10 +129,19 @@ def _now() -> int:
 
 # Use the same CouchDB hammering configuration from the environment as
 # used by the softer client...with the difference that we don't give up
-_COUCHDB_GRACE   = timedelta(milliseconds=int(environ.get('COOKIEMONSTER_COUCHDB_GRACE', 1000))).total_seconds()
+_COUCHDB_GRACE = timedelta(milliseconds=int(environ.get('COOKIEMONSTER_COUCHDB_GRACE', 1000))).total_seconds()
 
 def _just_keep_swimming(fn:Callable[..., Any]) -> Callable[..., Any]:
-    """ Decorator that keeps retrying the method until it passes """
+    """
+    Decorator that keeps retrying the method until it executes without
+    exception. This is obviously a bit of a hack and should be disabled
+    when debugging. However, in practice, CouchDB can be flaky and fail
+    for reasons we can't control; but it recovers and so this decorator
+    allows us to recover in kind.
+
+    It's similar to hgicommon.decorators.too_big_to_fail, but is per
+    function and doesn't involve any shoddy metaprogramming black magic!
+    """
     @wraps(fn)
     def wrapper(*args, **kwargs):
         it_worked = False
@@ -461,7 +470,6 @@ class _Ernie(object):
                                                         key          = identifier,
                                                         include_docs = True,
                                                         reduce       = False)
-        
         return sorted(results)
 
     @_just_keep_swimming
