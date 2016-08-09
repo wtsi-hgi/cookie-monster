@@ -106,9 +106,11 @@ import json
 import logging
 from collections import deque
 from datetime import timedelta
+from functools import wraps
+from os import environ
 from threading import Timer
-from time import time
-from typing import Iterable, List, Optional, Tuple
+from time import sleep, time
+from typing import Any, Callable, Iterable, List, Optional, Tuple
 
 from cookiemonster.common.collections import EnrichmentCollection
 from cookiemonster.common.helpers import EnrichmentJSONEncoder, EnrichmentJSONDecoder
@@ -123,6 +125,39 @@ from hgicommon.threading import CountingLock
 def _now() -> int:
     """ @return The current Unix time """
     return int(time())
+
+
+# Use the same CouchDB hammering configuration from the environment as
+# used by the softer client...with the difference that we don't give up
+_COUCHDB_GRACE = timedelta(milliseconds=int(environ.get('COOKIEMONSTER_COUCHDB_GRACE', 1000))).total_seconds()
+
+def _just_keep_swimming(fn:Callable[..., Any]) -> Callable[..., Any]:
+    """
+    Decorator that keeps retrying the method until it executes without
+    exception. This is obviously a bit of a hack and should be disabled
+    when debugging. However, in practice, CouchDB can be flaky and fail
+    for reasons we can't control; but it recovers and so this decorator
+    allows us to recover in kind.
+
+    It's similar to hgicommon.decorators.too_big_to_fail, but is per
+    function and doesn't involve any shoddy metaprogramming black magic!
+    """
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        it_worked = False
+
+        while not it_worked:
+            try:
+                output = fn(*args, **kwargs)
+                it_worked = True
+
+            except:
+                logging.exception('%s failed!! Retrying...', fn.__name__)
+                sleep(_COUCHDB_GRACE)
+
+        return output
+
+    return wrapper
 
 
 class _Bert(object):
@@ -183,6 +218,7 @@ class _Bert(object):
         if unclean_restart:
             logging.info('Queue state sanitised after unclean restart')
 
+    @_just_keep_swimming
     def get_by_identifier(self, identifier:str) -> Optional[Tuple[str, dict]]:
         """
         Get queue document by its file identifier
@@ -200,6 +236,7 @@ class _Bert(object):
         except StopIteration:
             return None
 
+    @_just_keep_swimming
     def delete(self, identifier:str):
         """
         Delete a queue document, or mark it for deletion if it is
@@ -219,6 +256,7 @@ class _Bert(object):
             else:
                 self._db.delete(doc_id)
 
+    @_just_keep_swimming
     def queue_length(self) -> int:
         """
         @return The current (for-processing) queue length
@@ -232,6 +270,7 @@ class _Bert(object):
         except StopIteration:
             return 0
 
+    @_just_keep_swimming
     def mark_dirty(self, identifier:str, latency:Optional[timedelta] = None):
         """
         Mark a file as requiring, potentially delayed, (re)processing,
@@ -257,6 +296,7 @@ class _Bert(object):
 
         self._db.upsert(dirty_doc)
 
+    @_just_keep_swimming
     def dequeue(self, count:int) -> List[str]:
         """
         Fetch up to count documents (IDs) off the queue and mark them
@@ -286,6 +326,7 @@ class _Bert(object):
 
         return output
 
+    @_just_keep_swimming
     def mark_finished(self, identifier:str):
         """
         Mark a file as finished processing, or delete it if it is marked
@@ -398,6 +439,7 @@ class _Ernie(object):
             'metadata':   {}
         }
 
+    @_just_keep_swimming
     def enrich(self, identifier:str, enrichment:Enrichment):
         """
         Add a metadata enrichment document to the repository for a file
@@ -416,6 +458,7 @@ class _Ernie(object):
 
         self._db.upsert(enrichment_doc)
 
+    @_just_keep_swimming
     def get_metadata(self, identifier:str) -> Iterable:
         """
         Get all the collected enrichments for a file
@@ -427,9 +470,9 @@ class _Ernie(object):
                                                         key          = identifier,
                                                         include_docs = True,
                                                         reduce       = False)
-        
         return sorted(results)
 
+    @_just_keep_swimming
     def delete_metadata(self, identifier:str):
         """
         Delete all the enrichments for a file
