@@ -20,11 +20,9 @@ Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from os.path import dirname, join, normpath
-from os.path import realpath
+from os.path import dirname, join, normpath, realpath
 from typing import Dict
-
-from testwithbaton.helpers import SetupHelper
+from testwithirods.helpers import SetupHelper
 
 
 def install_queries(required_specific_queries: Dict[str, str], setup_helper: SetupHelper):

@@ -21,17 +21,9 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import socket
-from typing import Tuple
-from urllib.parse import urlparse
-
-from docker.utils import kwargs_from_env
-
-from docker import Client
 
 
-_docker_client = None
-
-
+# FIXME: Move to common
 def get_open_port() -> int:
     """
     Gets a PORT that will (probably) be available on the machine.
@@ -45,22 +37,3 @@ def get_open_port() -> int:
     port = free_socket.getsockname()[1]
     free_socket.close()
     return port
-
-
-def get_docker_client() -> Client:
-    """
-    Gets a Python client for interacting with docker. Uses the `DOCKER_HOST` environment variable to get the location of
-    the daemon.
-    :return: the Docker client
-    """
-    global _docker_client
-    if _docker_client is None:
-        docker_environment = kwargs_from_env(assert_hostname=False)
-
-        if "base_url" not in docker_environment:
-            raise ConnectionError("Cannot connect to Docker - is the Docker daemon running? The `DOCKER_HOST` "
-                                  "environment variable should be set.")
-
-        _docker_client = Client(**docker_environment)
-
-    return _docker_client

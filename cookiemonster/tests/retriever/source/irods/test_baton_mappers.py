@@ -26,6 +26,8 @@ import unittest
 from datetime import datetime
 from os.path import join
 
+from testwithirods.helpers import SetupHelper
+
 from baton.collections import DataObjectReplicaCollection, IrodsMetadata
 from baton.models import DataObjectReplica
 from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_QUERY_ALIAS
@@ -36,7 +38,6 @@ from cookiemonster.tests.retriever.source.irods._helpers import install_queries
 from cookiemonster.tests.retriever.source.irods._settings import BATON_SETUP
 from hgicommon.collections import Metadata
 from testwithbaton.api import TestWithBaton
-from testwithbaton.helpers import SetupHelper
 
 REQUIRED_SPECIFIC_QUERIES = {
     MODIFIED_DATA_QUERY_ALIAS: join("resources", "specific-queries", "data-modified-partial.sql"),
