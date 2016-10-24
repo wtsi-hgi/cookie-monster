@@ -1,2 +1,3 @@
 nose==1.3.7
-git+https://github.com/wtsi-hgi/test-with-baton.git@80e110c70706d2f05fbc6e5d15fac8169be1f0ef#egg=testwithbaton
+git+https://github.com/wtsi-hgi/test-with-baton.git@6d283c77161fa6319487f40592b39faee286005e#egg=testwithbaton
+git+https://github.com/wtsi-hgi/test-with-irods.git@91bc2ff6c8497dba6d9a91c3af8a881a5a0418b0#egg=testwithirods

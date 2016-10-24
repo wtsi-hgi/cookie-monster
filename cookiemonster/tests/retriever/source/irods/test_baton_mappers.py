@@ -26,6 +26,8 @@ import unittest
 from datetime import datetime
 from os.path import join
 
+from testwithirods.helpers import SetupHelper
+
 from baton.collections import DataObjectReplicaCollection, IrodsMetadata
 from baton.models import DataObjectReplica
 from cookiemonster.retriever.source.irods._constants import MODIFIED_METADATA_QUERY_ALIAS
@@ -36,7 +38,6 @@ from cookiemonster.tests.retriever.source.irods._helpers import install_queries
 from cookiemonster.tests.retriever.source.irods._settings import BATON_SETUP
 from hgicommon.collections import Metadata
 from testwithbaton.api import TestWithBaton
-from testwithbaton.helpers import SetupHelper
 
 REQUIRED_SPECIFIC_QUERIES = {
     MODIFIED_DATA_QUERY_ALIAS: join("resources", "specific-queries", "data-modified-partial.sql"),
@@ -68,24 +69,24 @@ class TestBatonUpdateMapper(unittest.TestCase):
         self.assertEqual(len(updates), 0)
 
     def test_get_all_since_with_date_in_past(self):
-        inital_updates = self.mapper.get_all_since(datetime.min)
+        start_timestamp = self._get_latest_update_timestamp()
 
-        updates = self.mapper.get_all_since(inital_updates.get_most_recent()[0].timestamp)
+        updates = self.mapper.get_all_since(start_timestamp)
         self.assertEqual(len(updates), 0)
 
     def test_get_all_since_with_data_object_updates(self):
-        inital_updates = self.mapper.get_all_since(datetime.min)
+        start_timestamp = self._get_latest_update_timestamp()
         location_1 = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[0])
         location_2 = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[1])
 
-        updates = self.mapper.get_all_since(inital_updates.get_most_recent()[0].timestamp)
+        updates = self.mapper.get_all_since(start_timestamp)
         self.assertEqual(len(updates), 2)
         self.assertEqual(len(updates.get_entity_updates(location_1)), 1)
         self.assertEqual(len(updates.get_entity_updates(location_2)), 1)
         # TODO: More detailed check on updates
 
     def test_get_all_since_with_updates_to_data_object_replica(self):
-        inital_updates = self.mapper.get_all_since(datetime.min)
+        start_timestamp = self._get_latest_update_timestamp()
         location = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[0])
         resource = self.setup_helper.create_replica_storage()
         self.setup_helper.replicate_data_object(location, resource)
@@ -96,14 +97,14 @@ class TestBatonUpdateMapper(unittest.TestCase):
         expected_modification = DataObjectModification(modified_replicas=replicas)
         expected_metadata = Metadata(DataObjectModificationJSONEncoder().default(expected_modification))
 
-        updates = self.mapper.get_all_since(inital_updates.get_most_recent()[0].timestamp)
+        updates = self.mapper.get_all_since(start_timestamp)
         self.assertEquals(len(updates), 1)
         self.assertIn(updates[0].target, location)
         self.assertCountEqual(updates[0].metadata, expected_metadata)
 
     def test_get_all_since_with_metadata_update(self):
         path = self.setup_helper.create_data_object(_DATA_OBJECT_NAMES[0])
-        updates_before_metadata_added = self.mapper.get_all_since(datetime.min)
+        start_timestamp = self._get_latest_update_timestamp()
 
         metadata_1 = Metadata({
             _METADATA_KEYS[0]: _METADATA_VALUES[0],
@@ -121,7 +122,7 @@ class TestBatonUpdateMapper(unittest.TestCase):
         modification = DataObjectModification(modified_metadata=expected_irods_metadata)
         expected_update_metadata = Metadata(DataObjectModificationJSONEncoder().default(modification))
 
-        updates = self.mapper.get_all_since(updates_before_metadata_added.get_most_recent()[0].timestamp)
+        updates = self.mapper.get_all_since(start_timestamp)
         self.assertEqual(len(updates), 1)
         relevant_updates = updates.get_entity_updates(path)
         # Expect the mapper to have combined all updates into one (https://github.com/wtsi-hgi/cookie-monster/issues/3)
@@ -130,6 +131,19 @@ class TestBatonUpdateMapper(unittest.TestCase):
         logging.debug(relevant_updates[0].metadata)
         logging.debug(expected_update_metadata)
         self.assertCountEqual(relevant_updates[0].metadata, expected_update_metadata)
+
+    def _get_latest_update_timestamp(self) -> datetime:
+        """
+        Gets the timestamp of the latest update. If there has been no updates, returns minimum timestamp.
+
+        This timestamp is useful to get before running a test for use in filtering out any updates that iRODS
+        already has. The Dockerized iRODS 3.3.1, for example, will have updates on start.
+        :return: timestamp of latest update
+        """
+        inital_updates = self.mapper.get_all_since(datetime.min)
+        if len(inital_updates) == 0:
+            return datetime.min
+        return inital_updates.get_most_recent()[0].timestamp
 
     def tearDown(self):
         self.test_with_baton.tear_down()

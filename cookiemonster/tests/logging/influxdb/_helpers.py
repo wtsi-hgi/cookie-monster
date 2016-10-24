@@ -26,7 +26,8 @@ from typing import Tuple, Callable
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from cookiemonster.tests._utils.docker_helpers import get_open_port, get_docker_client
+from cookiemonster.tests._utils.docker_helpers import get_open_port
+from hgicommon.docker.client import create_client
 
 
 def setup_influxdb_in_docker(repository: str, tag: str) -> Tuple[str, int, Callable]:
@@ -37,7 +38,7 @@ def setup_influxdb_in_docker(repository: str, tag: str) -> Tuple[str, int, Calla
     :return: tuple where the first element is the location of the database, the second is the port the HTTP API runs on
     and the third is a method to tear down the database
     """
-    docker_client = get_docker_client()
+    docker_client = create_client()
 
     response = docker_client.pull(repository, tag)
     logging.debug(response)

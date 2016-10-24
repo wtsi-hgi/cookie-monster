@@ -41,6 +41,7 @@ from docker.client import Client
 from docker.utils import kwargs_from_env
 
 from cookiemonster.tests._utils.docker_helpers import get_open_port
+from hgicommon.docker.client import create_client
 
 _DOCKERFILE_PATH = normpath(join(dirname(realpath(__file__)),
                                  '../../../docker/couchdb'))
@@ -50,12 +51,7 @@ _COUCHDB_IMAGE   = 'hgi/couchdb'
 class CouchDBContainer(object):
     def __init__(self):
         """ Build and start the containerised instance """
-        docker_environment = kwargs_from_env(assert_hostname=False)
-
-        if 'base_url' not in docker_environment:
-            raise ConnectionError('Cannot connect to Docker')
-
-        self._client = client = Client(**docker_environment)
+        self._client = client = create_client()
         self._url = url = urlparse(self._client.base_url)
 
         self._host = url.hostname if url.scheme in ['http', 'https'] else 'localhost'
