@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="cookiemonster",
 
-    version="0.5.0",
+    version="1.1.2",
 
     author="HGI",
     author_email="hgi@sanger.ac.uk",
@@ -12,9 +12,9 @@ setup(
 
     url="https://github.com/wtsi-hgi/cookie-monster",
 
-    license="LICENSE",
+    license="GPLv3",
 
-    description="Cookie Monster.",
+    description="Cookie Monster",
     long_description=open("README.md").read(),
 
     install_requires=[x for x in open("requirements.txt").read().splitlines() if "://" not in x],
