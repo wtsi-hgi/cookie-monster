@@ -508,7 +508,8 @@ class _Ernie(object):
 class BiscuitTin(CookieJar):
     """ Persistent implementation of `CookieJar` """
     def __init__(self, couchdb_url:str, couchdb_name:str, buffer_capacity:int = 1000,
-                                                          buffer_latency:timedelta = timedelta(milliseconds=50)):
+                                                          buffer_latency:timedelta = timedelta(milliseconds=50),
+                                                          **kwargs):
         """
         Constructor: Initialise the database interfaces
 
@@ -518,7 +519,7 @@ class BiscuitTin(CookieJar):
         @param  buffer_latency   Buffer latency
         """
         super().__init__()
-        self._sofa = Sofabed(couchdb_url, couchdb_name, buffer_capacity, buffer_latency)
+        self._sofa = Sofabed(couchdb_url, couchdb_name, buffer_capacity, buffer_latency, **kwargs)
         self._queue = _Bert(self._sofa)
         self._metadata = _Ernie(self._sofa)
 
