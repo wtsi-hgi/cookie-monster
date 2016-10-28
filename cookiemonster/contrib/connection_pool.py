@@ -16,16 +16,20 @@ Authors:
 This file is part of Cookie Monster.
 """
 
-def patch_http_connection_pool(**constructor_kwargs):
+def patch_connection_pools(**constructor_kwargs):
     """
-    Override the default parameters of the HTTPConnectionPool
-    constructor
+    Override the default parameters of the HTTPConnectionPool and
+    HTTPSConnectionPool constructors
     """
     from requests.packages.urllib3 import connectionpool, poolmanager
 
-    class MyHTTPConnectionPool(connectionpool.HTTPConnectionPool):
-        def __init__(self, *args, **kwargs):
-            kwargs.update(constructor_kwargs)
-            super().__init__(*args, **kwargs)
+    def subtype_connection_pool(base):
+        class _ConnectionPool(base):
+            def __init__(self, *args, **kwargs):
+                kwargs.update(constructor_kwargs)
+                super().__init__(*args, **kwargs)
 
-    poolmanager.pool_classes_by_scheme['http'] = MyHTTPConnectionPool
+        return _ConnectionPool
+
+    poolmanager.pool_classes_by_scheme['http'] = subtype_connection_pool(connectionpool.HTTPConnectionPool)
+    poolmanager.pool_classes_by_scheme['https'] = subtype_connection_pool(connectionpool.HTTPSConnectionPool)
