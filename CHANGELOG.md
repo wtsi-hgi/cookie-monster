@@ -1,10 +1,4 @@
 # Change Log
-## 1.1.1 - 2016-08-09
-### Added
-- Wrapped all high-level CouchDB calls in a persistent-retry decorator
-  to deal with the occasional DB instability that we can't otherwise
-  cater for. This should be disabled while debugging.
-
 ## 1.1.0 (Cognizant Custard Cream) - 2016-07-29
 ### Added
 - Logging of number of threads waiting to a get a Cookie to process.
@@ -29,6 +23,26 @@
 ### Fixed
 - Document locks in CouchDB batching interface was not thread-safe
   ([45](https://github.com/wtsi-hgi/cookie-monster/issues/45)).
+
+### Patch Releases
+#### 1.1.3 - 2016-10-28
+##### Added
+- Patched HTTPS connection pool class to allow overriding defaults
+- Exposed kwargs of CouchDB client to BiscuitTin to allow certificate
+  verification for HTTPS connections
+
+#### 1.1.2 - 2016-10-26
+##### Added
+- Updated HGI package dependencies to be sourced from PyPI
+
+##### Fixed
+- iRODS 4 testing
+
+#### 1.1.1 - 2016-08-09
+##### Added
+- Wrapped all high-level CouchDB calls in a persistent-retry decorator
+  to deal with the occasional DB instability that we can't otherwise
+  cater for. This should be disabled while debugging.
 
 ## 1.0.0 (Benevolent Bourbon) - 2016-05-16
 ### Added

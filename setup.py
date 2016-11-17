@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="cookiemonster",
 
-    version="1.1.2",
+    version="1.1.3",
 
     author="HGI",
     author_email="hgi@sanger.ac.uk",
