@@ -184,6 +184,17 @@ class _DesignDocument(object):
         # This is probably true
         self._design_dirty = True
 
+    def define_validation(self, validation_fn:str):
+        """
+        Define a validation function
+
+        @param   validation_fn  Validation function
+        """
+        self._design['validate_doc_update'] = validation_fn
+
+        # This is probably true
+        self._design_dirty = True
+
 
 class Sofabed(object):
     """ Buffered, append-optimised CouchDB interface """

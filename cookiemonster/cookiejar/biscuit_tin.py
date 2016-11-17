@@ -523,6 +523,9 @@ class BiscuitTin(CookieJar):
         self._queue = _Bert(self._sofa)
         self._metadata = _Ernie(self._sofa)
 
+        logging.debug('Initialising CouchDB access control')
+        self._define_schema()
+
         self._queue_lock = CountingLock()
         self._pending_cache = deque()
 
@@ -604,6 +607,43 @@ class BiscuitTin(CookieJar):
 
     def queue_length(self) -> int:
         return self._queue.queue_length()
+
+    def _define_schema(self):
+        """ Define validation function """
+        security = self._sofa.create_design('security')
+
+        # Validation function only allows admin users to write to DB
+        security.define_validation("""
+            function(newDoc, oldDoc, userCtx, secObj) {
+              // Is the user a server administrator?
+              if (userCtx.roles.indexOf('_admin') != -1) {
+                return true;
+              }
+
+              // Is the user a database administrator by name?
+              if (secObj && secObj.admins && secObj.admins.names) {
+                if(secObj.admins.names.indexOf(userCtx.name) != -1) {
+                  return true;
+                }
+              }
+
+              // Is the user a database administrator by role?
+              if (secObj && secObj.admins && secObj.admins.roles) {
+                var db_roles = secObj.admins.roles;
+                for (var idx = 0; idx < userCtx.roles.length; idx++) {
+                  var user_role = userCtx.roles[idx];
+                  if (db_roles.indexOf(user_role) != -1) {
+                    return true;
+                  }
+                }
+              }
+
+              // Not an administrator
+              throw({forbidden: 'Only administrators can write changes'});
+            }
+        """)
+
+        self._sofa.commit_designs()
 
 
 @rate_limited
